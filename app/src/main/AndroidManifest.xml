@@ -11,7 +11,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <queries><package android:name="com.instructure.candroid" /></queries>
     <application
-        android:label="Executive Function"
+        android:label="Spark"
         android:allowBackup="false"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <!-- Home app (U3, LA3): selectable as the default home. launchMode keeps one instance. -->

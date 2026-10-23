@@ -1,6 +1,6 @@
-# Executive Function
+# Spark
 
-An executive-function app for one user, built from `DECISIONS_LEDGER.md`: the Buffer (hours available before a deadline minus work still to do), work blocks that end with proof, and blocking of chosen apps. Android first, then web and a Windows component.
+Spark is an executive-function app for one user, built from `DECISIONS_LEDGER.md`: the Buffer (hours available before a deadline minus work still to do), work blocks that end with proof, and blocking of chosen apps. Android first, then web and a Windows component.
 
 Status: Layer 1 in progress. See `docs/LAYER_1_REPORT.md` for what is built, tested and not yet proven on a real device.
 

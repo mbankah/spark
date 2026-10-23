@@ -110,6 +110,16 @@ w("app/src/main/res/drawable/ic_launcher_foreground.xml", vector(THEMES["light"]
 w("app/src/main/res/drawable-night/ic_launcher_foreground.xml", vector(THEMES["dark"]["top"], THEMES["dark"]["bottom"], comment="Spark flame with a tip-to-base gradient, Cold dark palette, used when the phone is in dark mode."))
 w("app/src/main/res/drawable/ic_launcher_monochrome.xml", vector("#000000", None, comment="Themed-icon layer: one colour, the flame with its inner flame cut out."))
 
+# Notification small icon (alpha only): the flame filling a 24 dp square, inner flame cut out.
+w("app/src/main/res/drawable/ic_stat_flame.xml", f"""<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar and notification icon: the Spark flame. Only its shape is used; the system tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="{to_adaptive(OUTER, scale=0.0508, cx=12.0, cy=12.0)} {to_adaptive(INNER, scale=0.0508, cx=12.0, cy=12.0)}"
+        android:fillType="evenOdd" android:fillColor="#FFFFFFFF"/>
+</vector>
+""")
+
 # In-app mark and installer use the same path.
 print("outer for Kotlin:", OUTER)
 print("inner for Kotlin:", INNER)

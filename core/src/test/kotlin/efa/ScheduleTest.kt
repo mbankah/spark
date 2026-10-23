@@ -110,3 +110,29 @@ class ScheduleTest {
         }
     }
 }
+
+class UpcomingTest {
+    private val p = WeekB.slots
+    private fun t(d: Int, h: Int, m: Int = 0) = at(LocalDate.of(2026, 10, d), LocalTime.of(h, m))
+
+    @Test fun `home Next lists the next blocks in order and not the current one`() {
+        val nx = upcoming(p, t(19, 9, 30), 2)
+        assertEquals(listOf("Walk", "Notes and problems: Randomness"), nx.map { it.slot.title })
+        assertTrue(nx.zipWithNext().all { (a, b) -> a.start.isBefore(b.start) })
+    }
+
+    @Test fun `home Next reaches across midnight to the next day`() {
+        val nx = upcoming(p, t(19, 23, 40), 1)
+        assertEquals("Wake, shower", nx.single().slot.title)
+    }
+
+    @Test fun `home Next shows the place of a lecture`() {
+        val lecture = upcoming(p, t(19, 8, 40), 1).single()
+        assertEquals("Murray Learning Centre LC-UG05", lecture.detail())
+    }
+
+    @Test fun `Y1 G1 each proof kind has a plain hint and a block with no proof has none`() {
+        assertEquals("", proofHint(Proof.NONE))
+        for (k in Proof.entries.filter { it != Proof.NONE }) assertTrue(proofHint(k).isNotBlank(), k.name)
+    }
+}

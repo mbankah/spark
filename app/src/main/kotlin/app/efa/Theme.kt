@@ -15,7 +15,11 @@ private fun hex(s: String) = Color(s.removePrefix("#").toLong(16) or 0xFF000000)
 
 class Colors(t: Tokens) {
     val bg = hex(t.bg); val card = hex(t.card); val text = hex(t.text); val muted = hex(t.muted)
-    val accent = hex(t.accent); val track = hex(t.track); val onAccent = hex(t.onAccent)
+    val accent = hex(t.accent); val accentText = hex(t.accentText); val track = hex(t.track); val onAccent = hex(t.onAccent)
+    private val dark = efa.luminance(t.bg) < 0.2
+    /** The solid edge under a card, and the light line along its top (the drawings' inset highlight). Both are flat. */
+    val edge = if (dark) Color.Black else track
+    val hi = if (dark) Color(0x0FFFFFFF) else Color(0xB3FFFFFF)
 }
 
 val LocalColors = staticCompositionLocalOf { Colors(Palettes.coldLight) }

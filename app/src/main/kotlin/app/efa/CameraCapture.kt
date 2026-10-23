@@ -40,10 +40,10 @@ fun CameraCapture(onJpeg: (ByteArray) -> Unit, onCancel: () -> Unit) {
 
     if (!granted) {
         Column(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            BasicText("Camera", style = TextStyle(c.text, 28.sp, FontWeight.SemiBold))
+            BasicText("Camera", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
             // A9: every permission is asked in the app with a plain reason.
-            BasicText("The camera is used only to take proof photos inside this app. Photos are processed on this phone. Only a small thumbnail is kept, for 14 days, and nothing is sent anywhere.", style = TextStyle(c.text, 16.sp))
-            if (denied) BasicText("Camera permission is off. Allow it in Android settings, then try again.", style = TextStyle(c.text, 16.sp, FontWeight.SemiBold))
+            BasicText("The camera is used only to take proof photos inside this app. Photos are processed on this phone. Only a small thumbnail is kept, for 14 days, and nothing is sent anywhere.", style = Ts(c.text, 16.sp))
+            if (denied) BasicText("Camera permission is off. Allow it in Android settings, then try again.", style = Ts(c.text, 16.sp, FontWeight.SemiBold))
             Btn("Allow camera", { ask.launch(Manifest.permission.CAMERA) }, primary = true, modifier = Modifier.fillMaxWidth())
             Btn("Back", onCancel, modifier = Modifier.fillMaxWidth())
         }
@@ -79,7 +79,7 @@ fun CameraCapture(onJpeg: (ByteArray) -> Unit, onCancel: () -> Unit) {
             },
             modifier = Modifier.fillMaxWidth().weight(1f),
         )
-        error?.let { BasicText(it, style = TextStyle(c.text, 16.sp, FontWeight.SemiBold)) }
+        error?.let { BasicText(it, style = Ts(c.text, 16.sp, FontWeight.SemiBold)) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Btn(if (!ready) "Starting camera" else if (busy) "Saving" else "Take photo", {
                 if (ready && !busy) {

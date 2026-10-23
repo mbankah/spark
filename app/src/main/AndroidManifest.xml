@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- K2: the block list is chosen from the apps installed on this phone. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- LA11: the persistent Buffer notification. Asked in the app with its reason. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <queries><package android:name="com.instructure.candroid" /></queries>
     <application
         android:label="@string/app_name"
@@ -47,6 +49,14 @@
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/blocker_service" />
+        </service>
+        <!-- U8: holds notifications from blocked apps. Only the person can switch notification access on, in system settings. -->
+        <service
+            android:name=".NotifHolder"
+            android:exported="true"
+            android:label="Spark notifications"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
         </service>
     </application>
 </manifest>

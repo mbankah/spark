@@ -93,6 +93,26 @@ interface AllowanceDao {
     @Query("SELECT COUNT(*) FROM allowance WHERE kind = 'night' AND atMs >= :sinceMs") suspend fun nightUsesSince(sinceMs: Long): Int
 }
 
+/**
+ * A notification held while its app was blocked (U8, LA2). The text is kept on this phone only, never sent anywhere. An unseen row is
+ * never deleted; a seen one is removed after 30 days.
+ */
+@Entity(tableName = "held_notification")
+data class HeldRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val pkg: String, val label: String, val title: String, val text: String, val atMs: Long,
+    val reviewedAtMs: Long? = null,
+)
+
+@Dao
+interface HeldDao {
+    @Insert suspend fun insert(row: HeldRow): Long
+    @Query("SELECT * FROM held_notification WHERE reviewedAtMs IS NULL ORDER BY atMs, id") suspend fun unreviewed(): List<HeldRow>
+    @Query("SELECT EXISTS(SELECT 1 FROM held_notification WHERE reviewedAtMs IS NULL)") suspend fun anyUnreviewed(): Boolean
+    @Query("UPDATE held_notification SET reviewedAtMs = :nowMs WHERE id IN (:ids)") suspend fun markReviewed(ids: List<Long>, nowMs: Long)
+    @Query("DELETE FROM held_notification WHERE reviewedAtMs IS NOT NULL AND reviewedAtMs < :beforeMs") suspend fun deleteReviewedBefore(beforeMs: Long): Int
+}
+
 /** U4, X5: a loosening nobody asked for, such as the blocking service being switched off. Kept 1 year (ST4). */
 @Entity(tableName = "tamper")
 data class TamperRow(@PrimaryKey(autoGenerate = true) val id: Long = 0, val atMs: Long, val kind: String, val detail: String)
@@ -156,7 +176,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class], version = 6, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class], version = 6, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -167,6 +187,7 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun commits(): CommitDao
     abstract fun allowances(): AllowanceDao
     abstract fun tamper(): TamperDao
+    abstract fun held(): HeldDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
@@ -205,6 +226,7 @@ val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
 val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
     override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
         connection.execSQL("ALTER TABLE `block` ADD COLUMN `brokenAtMs` INTEGER")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `held_notification` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `pkg` TEXT NOT NULL, `label` TEXT NOT NULL, `title` TEXT NOT NULL, `text` TEXT NOT NULL, `atMs` INTEGER NOT NULL, `reviewedAtMs` INTEGER)")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `tamper` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `atMs` INTEGER NOT NULL, `kind` TEXT NOT NULL, `detail` TEXT NOT NULL)")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `allowance` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `pkg` TEXT, `untilMs` INTEGER NOT NULL, `atMs` INTEGER NOT NULL, `wallLength` INTEGER NOT NULL)")
     }

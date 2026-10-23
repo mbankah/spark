@@ -128,7 +128,7 @@ class SetupScreenTest {
         var tapped: VenueStatus? = null
         rule.setContent { EfaTheme { SetupScreen(PlacesState(null, venues), {}, { tapped = it }, {}) } }
         rule.onNodeWithText("Not found. Place it on the map.").assertExists()
-        rule.onNodeWithText("Mystery Hall 1").performClick()
+        rule.onNodeWithText("Mystery Hall 1").performScrollTo().performClick()
         assertEquals("Mystery Hall 1", tapped?.venueText)
     }
 

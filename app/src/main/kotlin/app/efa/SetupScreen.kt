@@ -38,37 +38,39 @@ data class PlacesState(val home: Pair<Double, Double>?, val venues: List<VenueSt
 fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
+    notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        BasicText("Setup", style = TextStyle(c.text, 28.sp, FontWeight.SemiBold))
+        BasicText("Setup", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
         BlockingCard(blocking, onOpenAccessibility, onChooseList)
+        NotificationsCard(notifications, onOpenNotificationAccess, onAllowBufferNotice)
 
-        Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("HOME")
             val h = p.home
-            BasicText(if (h == null) "Not set. Lecture attendance outside the building check needs it." else "Set, to about 100 m. No street or house is stored.", style = TextStyle(c.text, 16.sp))
+            BasicText(if (h == null) "Not set. Lecture attendance outside the building check needs it." else "Set, to about 100 m. No street or house is stored.", style = Ts(c.text, 16.sp))
             if (h != null) {
                 val near = venuesNearHome(h, Venues.buildings)
-                if (near.isNotEmpty()) BasicText("Within 250 m of home, so these use the building check only: " + near.joinToString { it.alias } + ".", style = TextStyle(c.muted, 14.sp))
+                if (near.isNotEmpty()) BasicText("Within 250 m of home, so these use the building check only: " + near.joinToString { it.alias } + ".", style = Ts(c.muted, 14.sp))
             }
             Btn(if (h == null) "Set home on the map" else "Move home on the map", onHome, primary = h == null, modifier = Modifier.fillMaxWidth())
         }
 
-        Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("LECTURE VENUES")
-            BasicText("Points come from OpenStreetMap. Tap a venue to place it on the map yourself. Each placement is logged.", style = TextStyle(c.muted, 14.sp))
+            BasicText("Points come from OpenStreetMap. Tap a venue to place it on the map yourself. Each placement is logged.", style = Ts(c.muted, 14.sp))
             p.venues.sortedByDescending { it.point == null }.forEach { v ->
                 val text = "${v.venueText}: ${if (v.point == null) "NOT FOUND, place it on the map" else v.source}"
                 Column(
                     Modifier.fillMaxWidth().clickable(role = Role.Button) { onVenue(v) }.padding(vertical = 8.dp)
                         .semantics { contentDescription = "$text. Tap to place on the map." },
                 ) {
-                    BasicText(v.venueText, style = TextStyle(c.text, 16.sp, FontWeight.Medium))
-                    BasicText(if (v.point == null) "Not found. Place it on the map." else v.source, style = TextStyle(c.muted, 14.sp))
+                    BasicText(v.venueText, style = Ts(c.text, 16.sp, FontWeight.Medium))
+                    BasicText(if (v.point == null) "Not found. Place it on the map." else v.source, style = Ts(c.muted, 14.sp))
                 }
             }
         }
@@ -88,23 +90,23 @@ private fun GitCard(git: GitConfig.Ok?, onGit: (GitConfig.Ok) -> Unit) {
     var repos by remember(git) { mutableStateOf(git?.repos?.joinToString("\n") ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
     var saved by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Label("GITHUB FOR CODE BLOCKS")
         BasicText(
             if (git == null) "Not set. Code blocks cannot be verified until it is." else "Set for ${git.user}, ${git.repos.size} repo${if (git.repos.size == 1) "" else "s"}.",
-            style = TextStyle(c.text, 16.sp),
+            style = Ts(c.text, 16.sp),
         )
-        BasicText("A code block is proved by one of your commits made during the block, pushed to a public repo listed here. No token or password is stored, so private repos cannot be checked.", style = TextStyle(c.muted, 14.sp))
+        BasicText("A code block is proved by one of your commits made during the block, pushed to a public repo listed here. No token or password is stored, so private repos cannot be checked.", style = Ts(c.muted, 14.sp))
         Label("USERNAME")
-        BasicTextField(user, { user = it; error = null; saved = false }, singleLine = true, textStyle = TextStyle(c.text, 18.sp), cursorBrush = SolidColor(c.text),
+        BasicTextField(user, { user = it; error = null; saved = false }, singleLine = true, textStyle = Ts(c.text, 18.sp), cursorBrush = SolidColor(c.text),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, keyboardType = KeyboardType.Uri),
             modifier = Modifier.fillMaxWidth().background(c.bg, CardShape).padding(14.dp).semantics { contentDescription = "GitHub username" })
         Label("REPOS, ONE PER LINE AS OWNER/NAME (UP TO $MAX_GIT_REPOS)")
-        BasicTextField(repos, { repos = it; error = null; saved = false }, textStyle = TextStyle(c.text, 18.sp), cursorBrush = SolidColor(c.text),
+        BasicTextField(repos, { repos = it; error = null; saved = false }, textStyle = Ts(c.text, 18.sp), cursorBrush = SolidColor(c.text),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, keyboardType = KeyboardType.Uri),
             modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp).background(c.bg, CardShape).padding(14.dp).semantics { contentDescription = "GitHub repos" })
-        error?.let { BasicText(it, style = TextStyle(c.text, 16.sp, FontWeight.SemiBold)) }
-        if (saved) BasicText("Saved.", style = TextStyle(c.text, 16.sp, FontWeight.SemiBold))
+        error?.let { BasicText(it, style = Ts(c.text, 16.sp, FontWeight.SemiBold)) }
+        if (saved) BasicText("Saved.", style = Ts(c.text, 16.sp, FontWeight.SemiBold))
         Btn("Save GitHub", {
             when (val r = parseGitConfig(user, repos)) {
                 is GitConfig.Invalid -> { error = r.message; saved = false }

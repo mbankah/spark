@@ -22,15 +22,15 @@ fun WorkingScreen(r: BufferResult, onBack: () -> Unit) {
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        BasicText("Buffer working", style = TextStyle(c.text, 28.sp, FontWeight.SemiBold))
-        Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        BasicText("Buffer working", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label("THE TIGHTEST DEADLINE SETS THE NUMBER")
-            BasicText(r.working(), style = TextStyle(c.text, 15.sp, fontFamily = FontFamily.Monospace))
+            BasicText(r.working(), style = Ts(c.text, 15.sp, fontFamily = Mono))
         }
         BasicText(
             "Available time is study and project blocks before the deadline. Breaks, meals and travel are not counted. " +
                 (if (r.shortSleep) "Short night: hard work x1.5, easy work x1.15." else "A short night would make remaining work heavier."),
-            style = TextStyle(c.muted, 14.sp),
+            style = Ts(c.muted, 14.sp),
         )
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
     }

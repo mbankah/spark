@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 6,
-    "identityHash": "347ddb6d2a95214724b65d2c9d063068",
+    "identityHash": "3ef8a9177dbe1a172ca8ba046df21453",
     "entities": [
       {
         "tableName": "pattern_slot",
@@ -494,11 +494,64 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "held_notification",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `pkg` TEXT NOT NULL, `label` TEXT NOT NULL, `title` TEXT NOT NULL, `text` TEXT NOT NULL, `atMs` INTEGER NOT NULL, `reviewedAtMs` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pkg",
+            "columnName": "pkg",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "atMs",
+            "columnName": "atMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reviewedAtMs",
+            "columnName": "reviewedAtMs",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '347ddb6d2a95214724b65d2c9d063068')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3ef8a9177dbe1a172ca8ba046df21453')"
     ]
   }
 }

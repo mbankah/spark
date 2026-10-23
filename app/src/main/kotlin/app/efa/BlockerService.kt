@@ -23,7 +23,7 @@ class BlockerService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); delay(60_000) } }
+        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); delay(60_000) } }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {

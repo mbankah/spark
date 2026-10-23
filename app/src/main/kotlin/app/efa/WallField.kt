@@ -64,7 +64,7 @@ fun WallField(target: String, onDone: () -> Unit) {
                         pushStyle(androidx.compose.ui.text.SpanStyle(color = c.text, fontWeight = FontWeight.Bold)); append(line.take(ok)); pop()
                         pushStyle(androidx.compose.ui.text.SpanStyle(color = c.muted)); append(line.drop(ok)); pop()
                     },
-                    style = TextStyle(c.text, 20.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp),
+                    style = Ts(c.text, 20.sp, fontFamily = Mono, letterSpacing = 1.sp),
                 )
             }
         }
@@ -87,12 +87,12 @@ fun WallField(target: String, onDone: () -> Unit) {
                     if (entry.done) { done = true; onDone() }
                 },
                 singleLine = true,
-                textStyle = TextStyle(c.text, 18.sp, fontFamily = FontFamily.Monospace),
+                textStyle = Ts(c.text, 18.sp, fontFamily = Mono),
                 cursorBrush = SolidColor(c.text),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, keyboardType = KeyboardType.Password, imeAction = ImeAction.None),
-                modifier = Modifier.fillMaxWidth().focusRequester(focus).background(c.card, CardShape).padding(14.dp).semantics { contentDescription = "Type the characters here" },
+                modifier = Modifier.fillMaxWidth().focusRequester(focus).card().padding(14.dp).semantics { contentDescription = "Type the characters here" },
             )
         }
-        if (restarts > 0) BasicText("Mistake. Start again from the first character.", style = TextStyle(c.text, 14.sp, FontWeight.SemiBold))
+        if (restarts > 0) BasicText("Mistake. Start again from the first character.", style = Ts(c.text, 14.sp, FontWeight.SemiBold))
     }
 }

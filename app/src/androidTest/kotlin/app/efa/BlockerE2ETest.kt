@@ -33,7 +33,7 @@ private const val SETTINGS = "com.android.settings"
  * would switch the blocker off too, so this connects one with FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES and reads the screen
  * through it.
  */
-private class TestScreen(inst: Instrumentation) {
+internal class TestScreen(inst: Instrumentation) {
     val ua: UiAutomation = inst.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).also {
         it.serviceInfo = it.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS }
     }
@@ -195,7 +195,7 @@ class BlockerE2ETest {
     @Test fun N3_N4_a_night_override_opens_the_list_and_the_next_one_is_longer() {
         clockAt(t(24, 0, 30))                           // Saturday 00:30, past Friday night's cutoff (00:10) and before the 02:30 hard stop
         openChrome(); assertTrue(waitCard())
-        assertTrue(screen.has("Past the night cutoff"))
+        assertTrue(screen.has("Past the night cutoff"), "night card text missing. Screen: " + screen.dump())
         assertTrue(screen.has("Wake 08:30, so sleeping after 00:30 means under 8h"))
         screen.click("Open anyway: type 75")
         assertTrue(screen.waitFor(5_000) { screen.has("Characters to type: ") })
@@ -205,8 +205,8 @@ class BlockerE2ETest {
         assertEquals("night", n.kind); assertEquals(75, n.wallLength)
         screen.shell("am force-stop $CHROME"); screen.home()
         clockAt(t(24, 1, 5))
-        openChrome(); assertTrue(waitCard())
-        assertTrue(screen.has("Open anyway: type 100"), "the second override should be 100 characters")
+        openChrome(); assertTrue(waitCard(), "the card did not return. Screen: " + screen.dump())
+        assertTrue(screen.has("Open anyway: type 100"), "the second override should be 100 characters. Screen: " + screen.dump())
     }
 
     @Test fun N7_no_override_is_offered_within_six_hours_of_the_wake() {

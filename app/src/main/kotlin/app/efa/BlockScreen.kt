@@ -87,30 +87,30 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Label(ds.slot.type.uppercase())
-        BasicText(ds.slot.title, style = TextStyle(c.text, 26.sp, FontWeight.SemiBold))
-        BasicText(ds.window(), style = TextStyle(c.muted, 16.sp, fontFamily = FontFamily.Monospace))
+        BasicText(ds.slot.title, style = Ts(c.text, 26.sp, FontWeight.SemiBold))
+        BasicText(ds.window(), style = Ts(c.muted, 16.sp, fontFamily = Mono))
 
-        Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("PROOF")
-            BasicText(proofText(proof), style = TextStyle(c.text, 16.sp))
+            BasicText(proofText(proof), style = Ts(c.text, 16.sp))
             when {
                 verified -> {
                     val r = row!!
                     BasicText("Verified. ${r.creditedMin} min confirmed." + (if (r.recovered) " Recovered time." else "") + (if (r.weaker) " Weaker proof." else ""),
-                        style = TextStyle(c.text, 20.sp, FontWeight.SemiBold))
+                        style = Ts(c.text, 20.sp, FontWeight.SemiBold))
                 }
                 proof == Proof.NONE -> {}
                 proof == Proof.GIT_COMMIT -> when {
                     now.isBefore(ds.end) -> {
                         val left = Duration.between(now, ds.end)
-                        BasicText("Timer %d:%02d:%02d left".format(left.toHours(), left.toMinutesPart(), left.toSecondsPart()), style = TextStyle(c.text, 28.sp, FontWeight.SemiBold, fontFamily = FontFamily.Monospace))
+                        BasicText("Timer %d:%02d:%02d left".format(left.toHours(), left.toMinutesPart(), left.toSecondsPart()), style = Ts(c.text, 28.sp, FontWeight.SemiBold, fontFamily = Mono))
                     }
                     row?.holdAtMs == null -> {
-                        BasicText("Timer finished.", style = TextStyle(c.text, 20.sp, FontWeight.SemiBold))
+                        BasicText("Timer finished.", style = Ts(c.text, 20.sp, FontWeight.SemiBold))
                         HoldButton("Hold to finish") { scope.launch { actions.recordHold(ds, System.currentTimeMillis()); row = actions.load(ds) } }
                     }
                     else -> {
-                        BasicText("Done is held. Push your commit, then check.", style = TextStyle(c.text, 20.sp, FontWeight.SemiBold))
+                        BasicText("Done is held. Push your commit, then check.", style = Ts(c.text, 20.sp, FontWeight.SemiBold))
                         Btn(if (checking) "Checking GitHub" else "Check commit", {
                             if (!checking) {
                                 checking = true
@@ -125,32 +125,32 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onBack: () -> Unit) {
                     }
                 }
                 proof == Proof.ATTENDANCE -> when {
-                    now.isBefore(ds.start) -> BasicText("Starts at ${HM.format(ds.start)}.", style = TextStyle(c.text, 18.sp))
-                    now.isAfter(ds.end) -> BasicText(Reason.OUTSIDE_WINDOW.text(), style = TextStyle(c.text, 16.sp, FontWeight.SemiBold))
+                    now.isBefore(ds.start) -> BasicText("Starts at ${HM.format(ds.start)}.", style = Ts(c.text, 18.sp))
+                    now.isAfter(ds.end) -> BasicText(Reason.OUTSIDE_WINDOW.text(), style = Ts(c.text, 16.sp, FontWeight.SemiBold))
                     else -> Btn("Take proof photo", { if (actions.hasLocationPermission()) camera = true else askLocation = true }, primary = true, modifier = Modifier.fillMaxWidth())
                 }
                 proof == Proof.WORK_PHOTO -> when {
                     now.isBefore(ds.end) -> {
                         val left = Duration.between(now, ds.end)
-                        BasicText("Timer %d:%02d:%02d left".format(left.toHours(), left.toMinutesPart(), left.toSecondsPart()), style = TextStyle(c.text, 28.sp, FontWeight.SemiBold, fontFamily = FontFamily.Monospace))
+                        BasicText("Timer %d:%02d:%02d left".format(left.toHours(), left.toMinutesPart(), left.toSecondsPart()), style = Ts(c.text, 28.sp, FontWeight.SemiBold, fontFamily = Mono))
                     }
                     row?.holdAtMs == null -> {
-                        BasicText("Timer finished.", style = TextStyle(c.text, 20.sp, FontWeight.SemiBold))
+                        BasicText("Timer finished.", style = Ts(c.text, 20.sp, FontWeight.SemiBold))
                         HoldButton("Hold to finish") { scope.launch { actions.recordHold(ds, System.currentTimeMillis()); row = actions.load(ds) } }
                     }
                     else -> {
-                        BasicText("Done is held.", style = TextStyle(c.text, 20.sp, FontWeight.SemiBold))
+                        BasicText("Done is held.", style = Ts(c.text, 20.sp, FontWeight.SemiBold))
                         Btn("Take proof photo", { camera = true }, primary = true, modifier = Modifier.fillMaxWidth())
                     }
                 }
                 proof == Proof.WINDOW_PHOTO -> when {
-                    now.isBefore(ds.start) -> BasicText("Starts at ${HM.format(ds.start)}.", style = TextStyle(c.text, 18.sp))
-                    now.isAfter(ds.end) -> BasicText(Reason.OUTSIDE_WINDOW.text(), style = TextStyle(c.text, 16.sp, FontWeight.SemiBold))
+                    now.isBefore(ds.start) -> BasicText("Starts at ${HM.format(ds.start)}.", style = Ts(c.text, 18.sp))
+                    now.isAfter(ds.end) -> BasicText(Reason.OUTSIDE_WINDOW.text(), style = Ts(c.text, 16.sp, FontWeight.SemiBold))
                     else -> Btn("Take proof photo", { camera = true }, primary = true, modifier = Modifier.fillMaxWidth())
                 }
             }
-            if (reading) BasicText("Reading location.", style = TextStyle(c.text, 16.sp))
-            message?.let { BasicText(it, style = TextStyle(c.text, 16.sp, FontWeight.SemiBold), modifier = Modifier.semantics { contentDescription = "Result. $it" }) }
+            if (reading) BasicText("Reading location.", style = Ts(c.text, 16.sp))
+            message?.let { BasicText(it, style = Ts(c.text, 16.sp, FontWeight.SemiBold), modifier = Modifier.semantics { contentDescription = "Result. $it" }) }
         }
         Spacer(Modifier.weight(1f))
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
@@ -195,7 +195,7 @@ private fun HoldButton(text: String, onDone: () -> Unit) {
         contentAlignment = Alignment.CenterStart,
     ) {
         Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).heightIn(min = 64.dp).background(c.accent, CardShape))
-        BasicText(text, style = TextStyle(c.text, 18.sp, FontWeight.SemiBold), modifier = Modifier.padding(horizontal = 18.dp))
+        BasicText(text, style = Ts(c.text, 18.sp, FontWeight.SemiBold), modifier = Modifier.padding(horizontal = 18.dp))
     }
 }
 
@@ -207,9 +207,9 @@ private fun LocationAsk(denied: Boolean, onGranted: () -> Unit, onDenied: () -> 
         if (r[android.Manifest.permission.ACCESS_FINE_LOCATION] == true) onGranted() else onDenied()
     }
     Column(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        BasicText("Location", style = TextStyle(c.text, 28.sp, FontWeight.SemiBold))
-        BasicText("Location is read once, when you take an attendance photo, to check you are at the lecture. It is not tracked, not stored and not sent anywhere. Only a distance band such as under 150 m is kept.", style = TextStyle(c.text, 16.sp))
-        if (denied) BasicText("Location permission is off, so attendance cannot be verified. Allow precise location in Android settings, then try again.", style = TextStyle(c.text, 16.sp, FontWeight.SemiBold))
+        BasicText("Location", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
+        BasicText("Location is read once, when you take an attendance photo, to check you are at the lecture. It is not tracked, not stored and not sent anywhere. Only a distance band such as under 150 m is kept.", style = Ts(c.text, 16.sp))
+        if (denied) BasicText("Location permission is off, so attendance cannot be verified. Allow precise location in Android settings, then try again.", style = Ts(c.text, 16.sp, FontWeight.SemiBold))
         Btn("Allow location", { ask.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) }, primary = true, modifier = Modifier.fillMaxWidth())
         Btn("Back", onCancel, modifier = Modifier.fillMaxWidth())
     }

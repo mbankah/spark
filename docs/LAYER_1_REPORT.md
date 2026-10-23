@@ -175,3 +175,28 @@ Everything above is a JVM unit test. Nothing has run on a phone. This machine ha
 - Held notifications and the digest (U8, LA2), the persistent notification, widgets, the launcher as the default home with the permission sequence at boot (U1 to U3, LA3, LA14), and the morning block until the ready photo (M6, M8) are not built.
 - Earned phone access (R2) and the night override's 45-minute variant on a fully verified day are not wired: the card always offers 30 minutes.
 - Boot behaviour, battery and Android 15 restrictions are untested (checklist B15).
+
+## Update: held notifications, the digest, the Buffer notification, fonts and the app look
+
+**Built:**
+- `core/.../Notifications.kt`: which notifications are held (only from an app that is blocked right now; never calls, missed calls, alarms, ongoing or group summaries, authenticator, banking or MyUoB packages), the digest (time order, app name, "still blocked until" with no count), and the notification text.
+- A notification listener that stores each held notification on the phone first and only then removes it from the shade, so a failed store leaves it where it was. Own notifications are ignored.
+- The digest screen and a home card "Held notifications. Waiting for you." with no count (WG7). Seen items are kept 30 days; unseen items are never deleted.
+- A persistent, silent Buffer notification on the lock screen with the flame icon, "Updated HH:mm", and a Quick add action that opens Quick add. Refreshed every minute by the blocking service and when Spark opens. No badge, no held count, no motivational words.
+- Setup: a Notifications card for the two switches (notification access, the Buffer notification) with a plain reason for each.
+- DM Sans and DM Mono bundled in the app (SIL Open Font Licence, files and licences in `app/src/main/res/font/` and `LICENSES/`), used for every piece of text.
+- The home screen rebuilt from the drawing: date and "Phone open/closed", a big clock, the Buffer dial with Available, Work and the deadline, a Now card with its place and what it will ask for, a Next card, free to spend, and Phone, Msgs and Maps one tap away. Tactile cards (a light top edge and a solid edge below), tap highlights clipped to the card, and one type scale on every screen.
+- `accentText` colour token so the accent used as text passes 4.5:1 in every palette.
+
+**Tested:**
+- `.\gradlew.bat :core:test`: 176 tests, 0 failed.
+- `.\gradlew.bat :app:connectedDebugAndroidTest`: 120 tests, 0 failed on the `efa_test` emulator. They include a real notification listener with real notifications posted into the shade (held in a work block, not held in free time or for an app not on the list, 15 at once all kept, digest in order, waiting until 12:15, seen items kept 30 days then removed, unseen never deleted), the real Buffer notification (ongoing, silent, no badge, public on the lock screen, replaced not stacked, NEGATIVE shown, Quick add action opens Quick add), and the new home screen and digest.
+- Screenshots on the emulator (Cold Light): the new home screen and the Buffer notification in the shade.
+
+**Found by testing:** the DM Sans variable font crashed on start (a duplicate weight setting), which only the UI tests caught. Revoking the notification permission kills the test process, so the "no permission" case is tested through a test switch in `BufferNotifier`.
+
+**Not built or not proven:**
+- The quick-settings tile for Quick add (LA11) is not built; the notification action is.
+- Restore screen does not yet list notification access being switched off; Setup shows it.
+- The 45-minute night override on a fully verified day, earned phone access, and the launcher as default home with boot start are still to do.
+- Everything above is emulator-only. See `docs/DEVICE_TESTS.md` N1 to N15 and L1 to L4.

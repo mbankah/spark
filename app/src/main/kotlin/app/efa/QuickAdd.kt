@@ -57,13 +57,13 @@ fun QuickAddScreen(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        BasicText("Quick add", style = TextStyle(c.text, 28.sp, FontWeight.SemiBold))
+        BasicText("Quick add", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
         Label("TITLE")
         BasicTextField(
             value = title, onValueChange = { title = it; message = null }, singleLine = true,
-            textStyle = TextStyle(c.text, 20.sp), cursorBrush = SolidColor(c.text),
+            textStyle = Ts(c.text, 20.sp), cursorBrush = SolidColor(c.text),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            modifier = Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp).semantics { contentDescription = "Title" },
+            modifier = Modifier.fillMaxWidth().card().padding(16.dp).semantics { contentDescription = "Title" },
         )
         Label("DEADLINE DAY")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -79,13 +79,13 @@ fun QuickAddScreen(
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             (1..10).forEach { h -> Chip("$h", h == heaviness, { heaviness = h }, "Heaviness $h of 10") }
         }
-        BasicText("Heaviness $heaviness is about ${fmt1(quickAddHours(heaviness))}h of work.", style = TextStyle(c.muted, 14.sp))
-        Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp)) {
+        BasicText("Heaviness $heaviness is about ${fmt1(quickAddHours(heaviness))}h of work.", style = Ts(c.muted, 14.sp))
+        Column(Modifier.fillMaxWidth().card().padding(16.dp)) {
             Label("IF YOU SAVE")
-            BasicText(if (title.isBlank()) "Add a title to see the Buffer." else bufferIfAdded(draft), style = TextStyle(c.text, 20.sp, FontWeight.SemiBold))
-            BasicText("Due ${DateTimeFormatter.ofPattern("EEE d MMM HH:mm").format(due)}", style = TextStyle(c.muted, 14.sp))
+            BasicText(if (title.isBlank()) "Add a title to see the Buffer." else bufferIfAdded(draft), style = Ts(c.text, 20.sp, FontWeight.SemiBold))
+            BasicText("Due ${DateTimeFormatter.ofPattern("EEE d MMM HH:mm").format(due)}", style = Ts(c.muted, 14.sp))
         }
-        message?.let { BasicText(it, style = TextStyle(c.text, 16.sp)) }
+        message?.let { BasicText(it, style = Ts(c.text, 16.sp)) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Btn("Save", { if (title.isBlank()) message = "Add a title first." else onSave(draft) }, primary = true, modifier = Modifier.weight(1f))
             Btn("Cancel", onCancel, modifier = Modifier.weight(1f))

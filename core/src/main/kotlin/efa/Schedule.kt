@@ -31,3 +31,19 @@ fun nowAndNext(pattern: List<PatternSlot>, at: ZonedDateTime): NowNext {
 private val HM = DateTimeFormatter.ofPattern("HH:mm")
 fun DatedSlot.label(): String = "${HM.format(start)} ${slot.title}"
 fun DatedSlot.window(): String = "${HM.format(start)} to ${HM.format(end)}"
+
+/** The next [n] blocks that start after [at], in order. The block running now is not among them. */
+fun upcoming(pattern: List<PatternSlot>, at: ZonedDateTime, n: Int): List<DatedSlot> =
+    (0L..2L).flatMap { slotsFor(pattern, at.toLocalDate().plusDays(it - 1), at.zone) }.filter { it.start.isAfter(at) }.sortedBy { it.start }.take(n)
+
+/** The place a block happens, for the second line of a card. */
+fun DatedSlot.detail(): String = slot.venue
+
+/** What the block will ask for at its end, in plain words (G1, Y1), for the Now card. */
+fun proofHint(p: Proof): String = when (p) {
+    Proof.NONE -> ""
+    Proof.WORK_PHOTO -> "Photo of your notes when the timer ends."
+    Proof.WINDOW_PHOTO -> "One photo inside the time window."
+    Proof.ATTENDANCE -> "Attendance photo due."
+    Proof.GIT_COMMIT -> "A commit proves it when the timer ends."
+}

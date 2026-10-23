@@ -293,6 +293,13 @@ class DesignTest {
         for ((name, t) in Palettes.all) if (name != "night") assertTrue(contrast(t.onAccent, t.accent) >= 4.5, "$name onAccent on accent = ${contrast(t.onAccent, t.accent)}")
     }
 
+    @Test fun `AP8 the accent used as text is 4_5 to 1 or better on the card and the background in every palette`() {
+        for ((name, t) in Palettes.all) {
+            assertTrue(contrast(t.accentText, t.card) >= 4.5, "$name accentText on card = ${contrast(t.accentText, t.card)}")
+            assertTrue(contrast(t.accentText, t.bg) >= 4.5, "$name accentText on bg = ${contrast(t.accentText, t.bg)}")
+        }
+    }
+
     @Test fun `AP3 night mode has no white and no blue`() {
         val t = Palettes.night
         for (hex in listOf(t.bg, t.card, t.text, t.muted, t.accent, t.track)) {

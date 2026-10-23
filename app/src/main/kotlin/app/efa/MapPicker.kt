@@ -59,9 +59,9 @@ fun MapPicker(title: String, hint: String, start: Pair<Double, Double>, maxZoom:
     }
 
     Column(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        BasicText(title, style = TextStyle(c.text, 24.sp, FontWeight.SemiBold))
-        BasicText(hint, style = TextStyle(c.muted, 14.sp))
-        Box(Modifier.fillMaxWidth().weight(1f).background(c.card, CardShape)) {
+        BasicText(title, style = Ts(c.text, 24.sp, FontWeight.SemiBold))
+        BasicText(hint, style = Ts(c.muted, 14.sp))
+        Box(Modifier.fillMaxWidth().weight(1f).card()) {
             AndroidView({ map }, Modifier.fillMaxSize())
             Canvas(Modifier.size(40.dp).align(Alignment.Center)) {
                 val w = 3.dp.toPx(); val m = size.width / 2

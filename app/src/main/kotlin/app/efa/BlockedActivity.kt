@@ -107,8 +107,8 @@ fun BlockedCard(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Label("BLOCKED")
-        BasicText("$appLabel is blocked", style = TextStyle(c.text, 28.sp, FontWeight.SemiBold))
-        Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        BasicText("$appLabel is blocked", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label("WHY")
             BasicText(
                 when (d.reason) {
@@ -118,29 +118,29 @@ fun BlockedCard(
                     BlockReason.PLANNING -> "Planning block: ${d.label}, until ${HM.format(d.until)}."
                     BlockReason.NIGHT -> "Past the night cutoff. It lifts at your wake time, ${HM.format(d.until)}."
                 },
-                style = TextStyle(c.text, 18.sp),
+                style = Ts(c.text, 18.sp),
             )
-            if (d.night && wake != null) BasicText(eightHourSum(wake), style = TextStyle(c.muted, 14.sp))     // N6
+            if (d.night && wake != null) BasicText(eightHourSum(wake), style = Ts(c.muted, 14.sp))     // N6
         }
-        Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label("WHAT OPENING IT COSTS")
             if (d.unprovenMinutes > 0) {
-                BasicText("Opening it ends this block as broken. Its ${d.unprovenMinutes} unproven minutes are lost.", style = TextStyle(c.text, 16.sp))
+                BasicText("Opening it ends this block as broken. Its ${d.unprovenMinutes} unproven minutes are lost.", style = Ts(c.text, 16.sp))
                 val (before, after) = bufferCost ?: (null to null)
                 if (before is BufferState.Value && after is BufferState.Value)
-                    BasicText("Buffer now ${before.result.label().removePrefix("Buffer ")}. With this block lost: ${after.result.label().removePrefix("Buffer ")}.", style = TextStyle(c.text, 16.sp, FontWeight.SemiBold))
+                    BasicText("Buffer now ${before.result.label().removePrefix("Buffer ")}. With this block lost: ${after.result.label().removePrefix("Buffer ")}.", style = Ts(c.text, 16.sp, FontWeight.SemiBold))
             } else if (d.night) {
                 BasicText(
                     if (canOpen) "An override opens all your blocked apps for ${offer?.minutes ?: 30} minutes. It uses the hard-to-type string below, and the next one tonight is longer."
                     else "No override is possible now: it is within 6 hours of your wake time.",
-                    style = TextStyle(c.text, 16.sp),
+                    style = Ts(c.text, 16.sp),
                 )
-            } else BasicText("Opening it costs no block. It opens for 30 minutes, then blocks again.", style = TextStyle(c.text, 16.sp))
+            } else BasicText("Opening it costs no block. It opens for 30 minutes, then blocks again.", style = Ts(c.text, 16.sp))
         }
         Btn("Go home", onHome, primary = true, modifier = Modifier.fillMaxWidth())
         if (canOpen) {
             if (!wallOpen) Btn("Open anyway: type $len characters", { wallOpen = true }, modifier = Modifier.fillMaxWidth())
-            else Column(Modifier.fillMaxWidth().bringIntoViewRequester(wallRequester).background(c.card, CardShape).padding(16.dp)) { WallField(target) { onWallPassed(len) } }
+            else Column(Modifier.fillMaxWidth().bringIntoViewRequester(wallRequester).card().padding(16.dp)) { WallField(target) { onWallPassed(len) } }
         }
     }
 }

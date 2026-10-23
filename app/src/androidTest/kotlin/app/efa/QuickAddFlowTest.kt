@@ -26,25 +26,25 @@ class QuickAddFlowTest {
     }
 
     @Test fun D2_B3_quick_add_title_then_save_gives_a_real_Buffer_with_working() {
-        rule.onNodeWithText("Quick add").performClick()
+        rule.onNodeWithContentDescription("Quick add").performClick()
         rule.onNodeWithContentDescription("Title").performTextInput("Neural Computation coursework")
         rule.onNodeWithContentDescription("Heaviness 8 of 10").performClick()
         rule.onNodeWithText("Save").performClick()
         // Back home, the Buffer card is a real number and opens its working.
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("Tap for working", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Tap dial for the sum").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Buffer", substring = true).performClick()
         rule.onNodeWithText("Buffer working").assertExists()
         rule.onNodeWithText("Neural Computation coursework (heaviness 8): 10.0h x 1.0 = 10.0h", substring = true).assertExists()
     }
 
     @Test fun D2_saving_needs_a_title() {
-        rule.onNodeWithText("Quick add").performClick()
+        rule.onNodeWithContentDescription("Quick add").performClick()
         rule.onNodeWithText("Save").performClick()
         rule.onNodeWithText("Add a title first.").assertExists()
     }
 
     @Test fun D3_check_canvas_says_so_when_the_app_is_missing() {
-        rule.onNodeWithText("Quick add").performClick()
+        rule.onNodeWithContentDescription("Quick add").performClick()
         rule.onNodeWithText("Check Canvas").performClick()
         val installed = rule.activity.packageManager.getLaunchIntentForPackage("com.instructure.candroid") != null
         if (!installed) rule.onNodeWithText("The Canvas app is not installed on this phone.").assertExists()
@@ -52,7 +52,7 @@ class QuickAddFlowTest {
 
     @Test fun G7_typed_quick_add_needs_no_microphone_permission() {
         val granted = rule.activity.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
-        rule.onNodeWithText("Quick add").performClick()
+        rule.onNodeWithContentDescription("Quick add").performClick()
         rule.onNodeWithContentDescription("Title").assertExists()
         assertEquals(granted, rule.activity.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO))
     }

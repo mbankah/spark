@@ -86,3 +86,32 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | B14 | Open banking, the dialler, maps and your authenticator during a work block. | They always open. |
 | B15 | Restart the phone. | Blocking works again after boot without opening Spark (U3). Tell me if not. |
 | B16 | Chrome and other browsers: open a blocked site in a normal and a private tab. | Not covered yet (K10 is built separately). Tell me what you see. |
+
+## Held notifications, the digest and the Buffer notification (slice 8)
+
+| # | Do this | Expected |
+|---|---|---|
+| N1 | Setup, Notifications card, "Open notification access", switch Spark on. Android may grey it out: open Settings, Apps, Spark, the three dots, "Allow restricted settings", then try again. | The card says "Holding is on." |
+| N2 | During a study block, get a message in a blocked app (for example Instagram). | The notification does not stay in the shade. It is gone within about a second. |
+| N3 | Home shows a card "Held notifications. Waiting for you." | No number anywhere. |
+| N4 | Tap it while the block is still on. | "Still blocked until HH:mm." and nothing is listed yet. |
+| N5 | After the block ends (or in free time), open the digest. | Every held notification, oldest first, with the app name and time. Count them yourself against what you sent: none may be missing. |
+| N6 | Tap one item. | The app opens (it is no longer blocked). |
+| N7 | Tap Seen. | They leave the digest. |
+| N8 | Receive a phone call, an alarm, an authenticator code and a banking alert during a block. | All arrive normally and none is ever held (LA1). |
+| N9 | Receive a message in an app that is not on your block list during a block. | It comes through normally. |
+| N10 | Setup, "Allow the Buffer notification", allow it. | A silent notification "Buffer +x.xh" with the flame icon and a Quick add button appears, also on the lock screen. |
+| N11 | Wait two minutes. | "Updated HH:mm" in the expanded notification moves on. |
+| N12 | Tap Quick add on the notification. | Spark opens at Quick add. |
+| N13 | Switch the blocking service off in Android settings and wait 5 minutes. | The notification stops updating. Its "Updated" time shows how old it is. |
+| N14 | Swipe the notification away. | It cannot be dismissed (ongoing). Tell me if your phone lets you. |
+| N15 | Deny the notification permission. | No Buffer notification, no error, and the rest of the app works. |
+
+## The new look (slice 8)
+
+| # | Do this | Expected |
+|---|---|---|
+| L1 | Open Spark in Light, then Dark system mode. | DM Sans for titles and numbers, DM Mono for labels, tactile cards, a big clock and the Buffer dial, following the drawing. |
+| L2 | Set the phone font size to the largest. | Text scales and nothing is cut off or overlaps. |
+| L3 | Turn on TalkBack and swipe through home. | Each card is read as one item with its meaning ("Buffer. +4.5h. Available 17.5h. Work 13.0h. Tap for the working."). |
+| L4 | Tap Phone, Msgs and Maps on home. | Your phone, messaging and maps apps open. Tell me if one does nothing. |

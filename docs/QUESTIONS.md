@@ -56,6 +56,13 @@ Written 23 Oct 2026 after reading the whole ledger and seed. Each item says what
 | Q-G27 | Opening an app through the wall during a work block (LA9). | The block is marked broken, its unproven time is lost, and it can no longer be proved. It stays broken after the 30 minutes end. | LA9 says it ends the block as broken. |
 | Q-G28 | Android's restricted-settings gate. | On Android 13 and later, a sideloaded app's accessibility service may be greyed out until you open Settings, Apps, Spark, the three dots, "Allow restricted settings". The steps are in DEVICE_TESTS (B1). | This is Android's own protection and cannot be skipped by the app. |
 
+| Q-G29 | How long a seen held notification is kept (LA2 says nothing is deleted). | Unseen: forever. Seen: 30 days, then removed. | Keeps the phone from growing without limit (ST4) while never losing an unseen one. |
+| Q-G30 | A held notification cannot be put back in the shade with its original action. | The digest shows its app, time, title and text, and tapping it opens the app. | Android does not let another app restore someone else's notification. |
+| Q-G31 | Home must not show a count of held notifications (WG7). | The home card says "Waiting for you" with no number, and the digest has no count. | AP and WG7 forbid counts and badges. |
+| Q-G32 | The drawing has a Bank button next to Phone, Msgs and Maps (U6). | Home has Phone, Msgs and Maps. Bank and the authenticator need you to choose the app first, which is not built. | No stubs: a button that opens nothing is not shown. |
+| Q-G33 | "Type to open" search on the drawing (U6, LA5). | Not built, so not shown. | No stubs. |
+| Q-G34 | Fonts. | DM Sans (variable) and DM Mono (regular, medium) were downloaded from the Google Fonts repository (SIL Open Font Licence) and bundled, about 340 KB. | D-10 and the drawings call for them. |
+
 ## Things I cannot do and will say so
 
 - Android Studio SDK is not installed here (no `adb`, Gradle or Android SDK). Pure logic runs on JDK 17 and Node 24. Everything touching Android needs the SDK and a phone.

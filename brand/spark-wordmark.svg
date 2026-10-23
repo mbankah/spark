@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 256" role="img" aria-label="Spark">
+  <title>Spark</title>
+  <defs>
+    <linearGradient id="flame" gradientUnits="userSpaceOnUse" x1="0" y1="52" x2="0" y2="462">
+      <stop offset="0" stop-color="#9cf3ff"/>
+      <stop offset="1" stop-color="#1f8fd0"/>
+    </linearGradient>
+  </defs>
+  <g transform="scale(0.5)">
+    <rect width="512" height="512" rx="112" fill="#0c1218"/>
+    <path fill-rule="evenodd" fill="url(#flame)" d="M256 52 C268 140 388 186 388 322 C388 404 330 462 256 462 C182 462 124 404 124 322 C124 262 152 222 186 186 C190 224 206 244 228 250 C214 176 232 108 256 52 Z M256 262 C262 312 320 332 320 388 C320 426 292 450 256 450 C220 450 192 426 192 388 C192 346 230 330 256 262 Z"/>
+  </g>
+  <text x="300" y="168" font-family="DM Sans, Roboto, Arial, sans-serif" font-size="150" font-weight="600" fill="#14202b" letter-spacing="-3">Spark</text>
+</svg>

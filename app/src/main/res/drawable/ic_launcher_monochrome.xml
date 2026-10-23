@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer: one colour, the flame with its inner flame cut out. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M54.00,31.04 C55.34,40.90 68.78,46.05 68.78,61.28 C68.78,70.46 62.29,76.96 54.00,76.96 C45.71,76.96 39.22,70.46 39.22,61.28 C39.22,54.56 42.35,50.08 46.16,46.05 C46.61,50.30 48.40,52.54 50.86,53.22 C49.30,44.93 51.31,37.31 54.00,31.04Z M54.00,54.56 C54.67,60.16 61.17,62.40 61.17,68.67 C61.17,72.93 58.03,75.62 54.00,75.62 C49.97,75.62 46.83,72.93 46.83,68.67 C46.83,63.97 51.09,62.18 54.00,54.56Z"
+        android:fillType="evenOdd" android:fillColor="#000000"/>
+</vector>

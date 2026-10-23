@@ -40,7 +40,10 @@ fun HomeScreen(s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit, onNow
         Modifier.fillMaxSize().background(c.bg).padding(16.dp).windowInsetsPadding(WindowInsets.systemBars),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        BasicText(s.time, style = TextStyle(c.text, 40.sp, FontWeight.SemiBold))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            BasicText(s.time, style = TextStyle(c.text, 40.sp, FontWeight.SemiBold))
+            SparkLogo(40.dp)
+        }
         BufferCard(s.buffer, onBuffer)
         InfoCard("NOW", s.now ?: "Nothing scheduled", if (s.nowOpensBlock) onNow else null)
         s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue) }

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Spark">
+  <title>Spark</title>
+  <!-- Cold night palette from the app. The inner flame is cut out, so the tile shows through. -->
+  <defs>
+    <linearGradient id="flame" gradientUnits="userSpaceOnUse" x1="0" y1="52" x2="0" y2="462">
+      <stop offset="0" stop-color="#e8863a"/>
+      <stop offset="1" stop-color="#8f3412"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#0a0604"/>
+  <path fill-rule="evenodd" fill="url(#flame)" d="M256 52 C268 140 388 186 388 322 C388 404 330 462 256 462 C182 462 124 404 124 322 C124 262 152 222 186 186 C190 224 206 244 228 250 C214 176 232 108 256 52 Z M256 262 C262 312 320 332 320 388 C320 426 292 450 256 450 C220 450 192 426 192 388 C192 346 230 330 256 262 Z"/>
+</svg>

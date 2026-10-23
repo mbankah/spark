@@ -12,6 +12,8 @@
     <queries><package android:name="com.instructure.candroid" /></queries>
     <application
         android:label="Spark"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <!-- Home app (U3, LA3): selectable as the default home. launchMode keeps one instance. -->

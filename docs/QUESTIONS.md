@@ -16,6 +16,8 @@ Written 23 Oct 2026 after reading the whole ledger and seed. Each item says what
 | Q-C8 | Seed B8 vs ledger M6 / K1 | Seed tiers include games, shopping and always-blocked apps. Ledger blocks only the social list chosen at setup, plus YouTube. | Only the ledger list. The picker pre-selects the seed "Social and video" tier. Games and shopping are not pre-selected. |
 | Q-C9 | Seed Mon/Sat vs section 3 | Removing Monday 20:00-22:00 and Saturday 16:45-18:45 football leaves dependent blocks (pre-football meal, Aldi run, travel, buffers). Ledger does not say what happens to them. | Dependent travel and buffer blocks are removed with the football. Meals and the Aldi run stay. Freed time becomes free slots so personal football (3 h) can be placed. Editable in app. |
 
+| Q-C10 | Logo gradient vs the no-gradient rule (AP-rules in the build prompt: no gradients except the dial ring). | The gradient flame is used only in the Android app icon and the brand files, which are not the app's interface. The in-app mark and the Windows installer use the flat accent. | You asked for a gradient and a flame; this keeps the interface rule intact. Say if you want the gradient inside the app too. |
+
 ## Gaps (values the ledger does not give)
 
 | # | Gap | Value I will use | Why |

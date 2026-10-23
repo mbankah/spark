@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Synthwave home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800&amp;family=Rajdhani:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1a0933}
+*{box-sizing:border-box}
+.p{border:1.5px solid #3ef2ff;background:rgba(26,9,51,.72);padding:10px 14px;box-shadow:0 0 14px rgba(62,242,255,.35)}
+.l{font-size:11px;font-weight:700;letter-spacing:.2em;color:#3ef2ff;text-transform:uppercase}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:linear-gradient(180deg,#1a0933 0%,#3b0a5c 55%,#6b0f6e 100%);color:#fff;font-family:'Rajdhani',sans-serif;padding:28px 22px;display:flex;flex-direction:column;gap:16px;position:relative;overflow:hidden">
+  <div style="position:absolute;right:-50px;top:70px;width:230px;height:230px;border-radius:50%;background:linear-gradient(180deg,#ffd166 0%,#ff4fd8 100%);opacity:.9" aria-hidden="true"></div>
+  <div style="position:absolute;right:-50px;top:70px;width:230px;height:230px;border-radius:50%;background:repeating-linear-gradient(180deg,transparent 0 24px,#3b0a5c 24px 28px);" aria-hidden="true"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;height:240px;background-image:linear-gradient(rgba(255,79,216,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,79,216,.6) 1px,transparent 1px);background-size:30px 30px;opacity:.5" aria-hidden="true"></div>
+  <div style="position:relative;display:flex;justify-content:space-between" class="l"><span>FRI 23 OCT</span><span style="color:#ff4fd8">PHONE OPEN</span></div>
+  <div style="position:relative;font-family:'Orbitron',sans-serif;font-weight:800;font-size:76px;line-height:1;letter-spacing:.01em;text-shadow:0 0 18px #ff4fd8,0 0 4px #fff">11:20</div>
+  <div class="p" style="position:relative;margin-top:60px;display:flex;justify-content:space-between;align-items:flex-end;border-color:#ff4fd8;box-shadow:0 0 14px rgba(255,79,216,.45)">
+    <div><div class="l" style="color:#ff4fd8">Buffer</div><div style="font-family:'Orbitron',sans-serif;font-weight:800;font-size:44px;line-height:1.1;text-shadow:0 0 12px #3ef2ff">+4.5h</div></div>
+    <div style="font-size:13px;text-align:right;font-weight:500">17.5 &#8722; 13.0<br>tap for sum</div>
+  </div>
+  <div class="p" style="position:relative">
+    <div class="l">Now until 12:00</div>
+    <div style="font-weight:700;font-size:23px;line-height:1.1;margin-top:2px">Neural Computation lecture</div>
+    <div style="font-size:14px;font-weight:500">Haworth HWTH-101. Photo due.</div>
+  </div>
+  <div style="position:relative;display:flex;gap:14px">
+    <div class="p" style="flex:1"><div class="l">Next</div><div style="font-size:15px;line-height:1.4;font-weight:500">12:00 Lunch<br>13:00 Randomness</div></div>
+    <div class="p" style="flex:1"><div class="l">Spend</div><div style="font-family:'Orbitron',sans-serif;font-weight:500;font-size:24px">&#163;17.50</div></div>
+  </div>
+  <div style="position:relative;margin-top:auto;display:flex;gap:10px">
+    <div class="p" style="flex:1;font-size:17px;font-weight:500;padding:13px 14px">&gt; type to open</div>
+    <a href="#" style="width:54px;background:#ff4fd8;color:#1a0933;font-family:'Orbitron',sans-serif;font-weight:800;font-size:28px;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 0 16px #ff4fd8" aria-label="Quick add">+</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

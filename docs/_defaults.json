@@ -1,0 +1,202 @@
+[
+ {
+  "id": "ST1",
+  "status": "Locked",
+  "text": "A proof photo is processed on the phone (match, location, duplicate check), then the full photo is discarded. Only a thumbnail of about 30 KB is kept, and it is deleted after 14 days."
+ },
+ {
+  "id": "ST2",
+  "status": "Default",
+  "text": "Forever, per photo, only a small record is kept: time, block, type, location result (pass or fail with a distance band, no coordinates), match score and a fingerprint used to reject reused photos. A few hundred bytes each."
+ },
+ {
+  "id": "ST3",
+  "status": "Default",
+  "text": "Reference photos (the night setup, the ready spot, the optional standing reference) are kept at working size, about 300 KB each. A new one replaces the old one."
+ },
+ {
+  "id": "ST4",
+  "status": "Default",
+  "text": "Ceilings: thumbnails at most 25 MB in total, with the oldest deleted first. Raw sleep sensor events are kept 30 days, then reduced to nightly summaries. The tamper log is kept 1 year and the hosts-file log 90 days. All app data stays under 150 MB after 90 days of use, and this is a test."
+ },
+ {
+  "id": "ST5",
+  "status": "Default",
+  "text": "Settings shows a storage meter and a clear-thumbnails button. Clearing thumbnails never changes whether a block was verified."
+ },
+ {
+  "id": "ST6",
+  "status": "Locked",
+  "text": "Cloud sync carries numbers only. Photos and thumbnails never leave the phone."
+ },
+ {
+  "id": "ST7",
+  "status": "Default",
+  "text": "Photos are compressed at capture. Location data is stripped from the image file, and coordinates are never stored apart from your home point and the venue directory (A8)."
+ },
+ {
+  "id": "K10",
+  "status": "Locked",
+  "text": "Work blocks block the same domains inside phone browsers, including private tabs, by reading the address bar through the accessibility service. Limits, stated plainly: an unusual browser, an in-app web view or a mirror site can slip through, and the build must test the browsers you actually use."
+ },
+ {
+  "id": "LA1",
+  "status": "Default",
+  "text": "The launcher never traps you. Calls, emergency calls, alarms, authenticator codes, banking alerts and MyUoB notices are never held (extends X1 and U8)."
+ },
+ {
+  "id": "LA2",
+  "status": "Default",
+  "text": "Held notifications from blocked apps go into one digest, shown after the block, in time order with the app name. Nothing is deleted, and a test checks that none is lost."
+ },
+ {
+  "id": "LA3",
+  "status": "Default",
+  "text": "If the launcher crashes it restarts within 2 seconds. After 3 crashes in 10 minutes it hands over to Android's default home, shows a notice and logs it. Blocking keeps running, since the accessibility service is separate."
+ },
+ {
+  "id": "LA4",
+  "status": "Locked",
+  "text": "Speed is a test: the home screen draws within 1 second of unlocking, search results update within 100 ms of each keystroke, and the launcher works offline and with sync down."
+ },
+ {
+  "id": "LA5",
+  "status": "Default",
+  "text": "Search opens the keyboard by itself and finds apps from a few letters. There is no recent-apps list, because a recent list is a grid by another name."
+ },
+ {
+  "id": "LA6",
+  "status": "Default",
+  "text": "Android Settings stays openable. This app's own accessibility, app-info, uninstall and default-home pages go through the wall, detected by the accessibility service. This is best effort: it cannot be prevented, and a bypass is logged as tampering."
+ },
+ {
+  "id": "LA7",
+  "status": "Default",
+  "text": "Blocked apps are also blocked in split screen, floating windows and picture-in-picture, because blocking reads whatever app is in front. A test covers each."
+ },
+ {
+  "id": "LA8",
+  "status": "Locked",
+  "text": "The ways to open a blocked app are all tested: search, a notification, recents, a link from another app, the share sheet, a widget and split screen. All of them end at the same plain card."
+ },
+ {
+  "id": "LA9",
+  "status": "Default",
+  "text": "On the blocked card, passing the wall during a work block ends that block as broken (its unproven time is lost, W2), opens that app for 30 minutes, then blocks it again. Outside a block, passing the wall opens it for 30 minutes."
+ },
+ {
+  "id": "LA10",
+  "status": "Default",
+  "text": "Back, home and recents from the card return to the launcher with no loop."
+ },
+ {
+  "id": "LA11",
+  "status": "Default",
+  "text": "Lock screen: a persistent notification shows the Buffer and the now and next block. Quick-add works from a notification action and a quick-settings tile. The build must verify this on your phone (F2)."
+ },
+ {
+  "id": "LA12",
+  "status": "Default",
+  "text": "The launcher is black with white text for OLED, follows the system text size, labels everything for TalkBack, and keeps strong contrast. A light theme is optional in settings."
+ },
+ {
+  "id": "LA13",
+  "status": "Default",
+  "text": "Whole-app battery use stays at or under about 5% of the battery per day, measured on your phone. The overnight sleep service is included."
+ },
+ {
+  "id": "LA14",
+  "status": "Locked",
+  "text": "Launcher acceptance tests: 100 reboots with the launcher and blocking starting each time, every route in LA8, essentials one tap away, the digest complete, and the launcher usable with no network."
+ },
+ {
+  "id": "WG1",
+  "status": "Locked",
+  "text": "The launcher home accepts widgets. The default home still shows the text-only layout of U5, built from the first four widgets below."
+ },
+ {
+  "id": "WG2",
+  "status": "Locked",
+  "text": "Built-in widgets, all in the same text-only style: Buffer, Now and next, Free to spend, Day plan (next 4 blocks), Shopping list, Quick-add, Week glance. The same built-ins can also be placed as Android widgets on a stock launcher (B2)."
+ },
+ {
+  "id": "WG3",
+  "status": "Locked",
+  "text": "Editing is in-app, in an Edit widgets screen opened from settings or by typing \"widgets\": add, remove, reorder, resize (1x1, 2x1, 2x2) and choose which data a widget shows."
+ },
+ {
+  "id": "WG4",
+  "status": "Locked",
+  "text": "Adding or enlarging a widget takes effect at the next 00:00, like icons and grid (U9). Removing or shrinking one takes effect at once. Pending changes are marked with their start date."
+ },
+ {
+  "id": "WG5",
+  "status": "Default",
+  "text": "Third-party Android widgets are off by default. Turning them on in settings takes effect the next day. A widget from an app on your block list can never be added."
+ },
+ {
+  "id": "WG6",
+  "status": "Default",
+  "text": "Third-party widgets are hidden during work blocks, the getting-ready window, transitions and after the night cutoff, and shown again when the block ends."
+ },
+ {
+  "id": "WG7",
+  "status": "Locked",
+  "text": "No widget shows a badge, an unread count, a held-notification count or any animation."
+ },
+ {
+  "id": "WG8",
+  "status": "Default",
+  "text": "Tapping a built-in widget opens its full screen: Buffer opens the working (B3), Day plan opens the day, Shopping opens the list."
+ },
+ {
+  "id": "WG9",
+  "status": "Default",
+  "text": "If data is stale (sync down, phone just booted), the widget shows \"stale since HH:MM\" in muted text and never a wrong number."
+ },
+ {
+  "id": "WG10",
+  "status": "Locked",
+  "text": "Tests: add, remove, reorder and resize each widget; the next-day delay on adding; immediate removal; third-party widgets hidden in each blocked state; stale data; and survival of a reboot."
+ },
+ {
+  "id": "AP1",
+  "status": "Locked",
+  "text": "Visual style: industrial. A warm-grey, device-like face with rounded cards, one dial for the Buffer, a monospaced label face and a sans-serif face for numbers and titles, and a single orange accent. The web app uses the same style."
+ },
+ {
+  "id": "AP2",
+  "status": "Locked",
+  "text": "Four modes: Light, Dark, Night and Colourful, plus Auto. All four share the same layout, so changing mode never moves anything."
+ },
+ {
+  "id": "AP3",
+  "status": "Locked",
+  "text": "Night mode is warm amber on near-black. It has no white and no blue light, and its brightness is capped at about 20%."
+ },
+ {
+  "id": "AP4",
+  "status": "Default",
+  "text": "Auto uses Light or Dark by daylight. Night starts from the shutdown photo or the night cutoff, whichever comes first, and ends when the morning alarm stops."
+ },
+ {
+  "id": "AP5",
+  "status": "Default",
+  "text": "Colourful uses colour-coded cards (Buffer yellow, now pink, next green, spend blue) with black outlines. It adds no motion and no badges."
+ },
+ {
+  "id": "AP6",
+  "status": "Locked",
+  "text": "A negative Buffer is the only red in every mode, and it always shows the word NEGATIVE, so it never depends on colour alone."
+ },
+ {
+  "id": "AP7",
+  "status": "Default",
+  "text": "Mode changes apply at once. A mode cannot hide a block or lower any rule."
+ },
+ {
+  "id": "AP8",
+  "status": "Locked",
+  "text": "Tests: text contrast of 4.5:1 or better in all four modes, readability in Night mode at its dim level, the Auto switch around the cutoff, the clock change on 25 October 2026, and the same dial value shown in every mode."
+ }
+]

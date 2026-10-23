@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Edit widgets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000}
+*{box-sizing:border-box}
+.m{color:#a8a8a8}
+.l{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+.row{border-bottom:3px solid #fff;padding:10px 12px}
+.sz{display:inline-block;border:2px solid #fff;padding:3px 8px;font-size:12px;font-weight:700;margin-right:6px;color:#fff;text-decoration:none}
+.on{background:#fff;color:#000}
+.ic{display:inline-block;border:2px solid #fff;width:30px;height:30px;text-align:center;line-height:26px;font-weight:800;color:#fff;text-decoration:none;margin-left:6px}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:#000;color:#fff;font-family:'JetBrains Mono',monospace;padding:28px 22px;display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;justify-content:space-between">
+    <span class="l">&#8592; Home</span>
+    <span class="l m">Edit widgets</span>
+  </div>
+  <div class="m" style="font-size:12px;line-height:1.5">Adding takes effect tomorrow at 00:00. Removing is immediate.</div>
+  <div style="border:3px solid #fff;border-bottom:0">
+    <div class="row">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>Buffer</b><span><a href="#" class="ic" aria-label="Move up">&#8593;</a><a href="#" class="ic" aria-label="Move down">&#8595;</a><a href="#" class="ic" aria-label="Remove">&#215;</a></span></div>
+      <div style="margin-top:8px"><a href="#" class="sz">1x1</a><a href="#" class="sz on">2x1</a><a href="#" class="sz">2x2</a></div>
+    </div>
+    <div class="row">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>Free to spend</b><span><a href="#" class="ic" aria-label="Move up">&#8593;</a><a href="#" class="ic" aria-label="Move down">&#8595;</a><a href="#" class="ic" aria-label="Remove">&#215;</a></span></div>
+      <div style="margin-top:8px"><a href="#" class="sz on">1x1</a><a href="#" class="sz">2x1</a><a href="#" class="sz">2x2</a></div>
+    </div>
+    <div class="row">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>Now and next</b><span><a href="#" class="ic" aria-label="Move up">&#8593;</a><a href="#" class="ic" aria-label="Move down">&#8595;</a><a href="#" class="ic" aria-label="Remove">&#215;</a></span></div>
+      <div style="margin-top:8px"><a href="#" class="sz">1x1</a><a href="#" class="sz on">2x1</a><a href="#" class="sz">2x2</a></div>
+    </div>
+    <div class="row">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>Day plan</b><span><a href="#" class="ic" aria-label="Move up">&#8593;</a><a href="#" class="ic" aria-label="Move down">&#8595;</a><a href="#" class="ic" aria-label="Remove">&#215;</a></span></div>
+      <div style="margin-top:8px"><a href="#" class="sz">1x1</a><a href="#" class="sz">2x1</a><a href="#" class="sz on">2x2</a></div>
+      <div class="m" style="font-size:12px;margin-top:6px">Shows the next 4 blocks.</div>
+    </div>
+    <div class="row" style="background:#1a1a1a">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>Shopping list</b><span><a href="#" class="ic" aria-label="Cancel">&#215;</a></span></div>
+      <div class="m" style="font-size:12px;margin-top:6px">Added. Starts Sat 24 Oct 00:00.</div>
+    </div>
+  </div>
+  <div class="l m" style="margin-top:4px">Add a widget</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <a href="#" class="sz" style="margin:0;padding:8px 12px">+ Quick-add</a>
+    <a href="#" class="sz" style="margin:0;padding:8px 12px">+ Week glance</a>
+  </div>
+  <div style="border:3px solid #fff;padding:12px 14px;margin-top:auto">
+    <div class="l">Other apps' widgets</div>
+    <div style="font-size:13px;margin-top:4px">Off. Turning on takes effect tomorrow. Hidden during work blocks, getting ready, walks and after the night cutoff. Apps on your block list are never allowed.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

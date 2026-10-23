@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Blueprint Buffer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&amp;family=Oswald:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b2a4a}
+*{box-sizing:border-box}
+.d{color:#9db8d8}
+.dim{display:flex;align-items:center;gap:4px;font-size:11px;color:#9db8d8}
+.dim i{flex:1;border-top:1.5px solid #9db8d8}
+.r{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dotted #9db8d8}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background-color:#0b2a4a;background-image:linear-gradient(rgba(232,241,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(232,241,255,.12) 1px,transparent 1px);background-size:20px 20px;color:#e8f1ff;font-family:'Space Mono',monospace;padding:26px 20px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:.14em"><span>&#8249; DWG 02 // BUFFER</span><span class="d">EXAMPLE DATA</span></div>
+  <div class="d" style="font-size:11px;letter-spacing:.14em">TO FRI 30.10 17:00</div>
+  <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:112px;line-height:.85;color:#ffd23f">+4.5h</div>
+  <div>
+    <div class="dim"><span>|</span><i></i><span>AVAILABLE 17.5H</span><i></i><span>|</span></div>
+    <div style="display:flex;margin-top:6px;height:26px">
+      <div style="width:74%;background:#e8f1ff"></div><div style="width:26%;border:1.5px solid #ffd23f;border-left:0"></div>
+    </div>
+    <div class="dim" style="margin-top:6px"><span>|</span><i style="max-width:70%"></i><span>WORK 13.0H</span><i></i><span style="color:#ffd23f">BUFFER 4.5H</span><span>|</span></div>
+  </div>
+  <div style="border:1.5px solid #e8f1ff;padding:6px 12px">
+    <div class="r"><span>Awake hours left</span><span>31.0</span></div>
+    <div class="r"><span>Meals, resets, walks</span><span>&#8722;13.5</span></div>
+    <div class="r"><span>Notes: Neural Computation</span><span>3.0</span></div>
+    <div class="r"><span>Notes: Game Theory</span><span>2.5</span></div>
+    <div class="r"><span>Catch-up: Randomness</span><span>1.0</span></div>
+    <div class="r" style="border-bottom:0"><span>Problem set: Num. Methods</span><span>6.5</span></div>
+  </div>
+  <div class="d" style="font-size:11.5px;line-height:1.6">Estimates corrected from your last 23 tasks. Sleep 7.4h: no short-sleep weighting.</div>
+  <div style="margin-top:auto;display:flex;gap:10px;font-size:14px">
+    <a href="#" style="flex:1;background:#ffd23f;color:#0b2a4a;text-align:center;padding:13px;text-decoration:none;font-weight:700">ADD TASK</a>
+    <a href="#" style="flex:1;border:1.5px solid #e8f1ff;color:#e8f1ff;text-align:center;padding:12px;text-decoration:none">DAY OFF</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

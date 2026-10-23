@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- D3: lets Check Canvas see whether the Canvas app is installed. Nothing is read from it. -->
+    <!-- A9: asked in the app with its reason, only when a proof photo is taken. In-app camera only; there is no gallery picker (A7). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- A8, A9: location is read once, when a proof photo is taken, to check attendance. Never in the background. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- The map for placing home and venues loads OpenStreetMap tiles. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <queries><package android:name="com.instructure.candroid" /></queries>
+    <application
+        android:label="Executive Function"
+        android:allowBackup="false"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <!-- Home app (U3, LA3): selectable as the default home. launchMode keeps one instance. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:excludeFromRecents="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

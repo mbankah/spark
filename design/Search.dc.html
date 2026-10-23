@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search to open</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#000}
+*{box-sizing:border-box}
+.m{color:#a8a8a8}
+.l{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:#000;color:#fff;font-family:'JetBrains Mono',monospace;padding:28px 22px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;justify-content:space-between">
+    <span class="l">14:42</span>
+    <span class="l">Work block until 16:30</span>
+  </div>
+  <div style="border:3px solid #fff;padding:14px 16px;font-size:20px;font-weight:700">s<span style="display:inline-block;width:10px;height:22px;background:#fff;vertical-align:middle;margin-left:4px"></span></div>
+  <div style="border:3px solid #fff">
+    <a href="#" style="display:block;padding:14px 16px;color:#fff;text-decoration:none;font-size:18px;font-weight:700;border-bottom:3px solid #fff">Settings</a>
+    <a href="#" style="display:block;padding:14px 16px;color:#fff;text-decoration:none;font-size:18px;font-weight:700;border-bottom:3px solid #fff">Sermons</a>
+    <a href="#" style="display:block;padding:14px 16px;color:#fff;text-decoration:none;font-size:18px;font-weight:700;border-bottom:3px solid #fff">Spotify</a>
+    <a href="#" style="display:block;padding:14px 16px;color:#a8a8a8;text-decoration:none;font-size:18px;font-weight:400;border-bottom:3px solid #fff">Snapchat<br><span style="font-size:12px">Blocked. Work block ends 16:30.</span></a>
+    <a href="#" style="display:block;padding:14px 16px;color:#a8a8a8;text-decoration:none;font-size:18px;font-weight:400">Strava<br><span style="font-size:12px">Not blocked. Opens normally.</span></a>
+  </div>
+  <div class="m" style="font-size:13px;line-height:1.5">Typing finds apps and commands. Try: buffer, day off, held, add deadline. Blocked apps stay listed, in muted text, with the reason.</div>
+  <div style="margin-top:auto;border-top:3px solid #fff;padding-top:12px;display:flex;justify-content:space-between;font-size:13px">
+    <span class="l m">Held notifications</span>
+    <span class="m">open after the block</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

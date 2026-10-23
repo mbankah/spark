@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Blueprint home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&amp;family=Oswald:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0b2a4a}
+*{box-sizing:border-box}
+.b{border:1.5px solid #e8f1ff;padding:10px 12px;position:relative}
+.d{color:#9db8d8}
+.t{position:absolute;top:-8px;right:10px;background:#0b2a4a;padding:0 6px;font-size:10px;color:#9db8d8;letter-spacing:.14em}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background-color:#0b2a4a;background-image:linear-gradient(rgba(232,241,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(232,241,255,.12) 1px,transparent 1px);background-size:20px 20px;color:#e8f1ff;font-family:'Space Mono',monospace;padding:26px 20px;display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:.14em"><span>DWG 01 // HOME</span><span class="d">FRI 23.10.26</span></div>
+  <div>
+    <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:128px;line-height:.85;letter-spacing:.01em">11:20</div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#9db8d8;margin-top:6px"><span>|</span><span style="flex:1;border-top:1.5px solid #9db8d8"></span><span>NOW</span><span style="flex:1;border-top:1.5px solid #9db8d8"></span><span>|</span></div>
+  </div>
+  <div class="b">
+    <span class="t">BUFFER</span>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <span style="font-family:'Oswald',sans-serif;font-weight:700;font-size:62px;line-height:1;color:#ffd23f">+4.5h</span>
+      <span class="d" style="font-size:11px;text-align:right;line-height:1.5">17.5 &#8722; 13.0<br>TAP FOR SUM</span>
+    </div>
+  </div>
+  <div class="b">
+    <span class="t">NOW 11:00-12:00</span>
+    <div style="font-family:'Oswald',sans-serif;font-weight:500;font-size:24px;letter-spacing:.02em;text-transform:uppercase">Neural Computation lecture</div>
+    <div class="d" style="font-size:12px;margin-top:2px">Haworth HWTH-101. Photo due.</div>
+  </div>
+  <div style="display:flex;gap:16px">
+    <div class="b" style="flex:1"><span class="t">NEXT</span><div style="font-size:12.5px;line-height:1.6">12:00 Lunch<br>13:00 Randomness</div></div>
+    <div class="b" style="flex:1"><span class="t">SPEND</span><div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:32px">&#163;17.50</div></div>
+  </div>
+  <div style="display:flex;gap:8px;font-size:12.5px">
+    <a href="#" style="flex:1;border:1.5px solid #e8f1ff;color:#e8f1ff;text-align:center;padding:10px 0;text-decoration:none">Phone</a>
+    <a href="#" style="flex:1;border:1.5px solid #e8f1ff;color:#e8f1ff;text-align:center;padding:10px 0;text-decoration:none">Msgs</a>
+    <a href="#" style="flex:1;border:1.5px solid #e8f1ff;color:#e8f1ff;text-align:center;padding:10px 0;text-decoration:none">Maps</a>
+    <a href="#" style="flex:1;border:1.5px solid #e8f1ff;color:#e8f1ff;text-align:center;padding:10px 0;text-decoration:none">Bank</a>
+  </div>
+  <div style="margin-top:auto;display:flex;gap:10px">
+    <div style="flex:1;border:1.5px solid #ffd23f;padding:13px 14px;font-size:14px;color:#ffd23f">&gt; <span class="d">type to open</span></div>
+    <a href="#" style="width:52px;background:#ffd23f;color:#0b2a4a;font-family:'Oswald',sans-serif;font-weight:700;font-size:32px;display:flex;align-items:center;justify-content:center;text-decoration:none" aria-label="Quick add">+</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

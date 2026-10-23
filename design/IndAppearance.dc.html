@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appearance settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121211}
+*{box-sizing:border-box}
+.c{background:#1c1c1a;border-radius:14px;padding:12px 14px;box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 2px 0 #000}
+.l{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#a09d95}
+.o{display:flex;align-items:center;gap:12px}
+.sw{display:flex;border-radius:8px;overflow:hidden;width:64px;height:34px;flex:none;border:1px solid #555}
+.sw i{flex:1}
+.rd{width:20px;height:20px;border-radius:50%;border:2px solid #ece9e2;margin-left:auto;flex:none}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:#121211;color:#ece9e2;font-family:'DM Sans',sans-serif;padding:28px 20px;display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;justify-content:space-between"><span class="l">&#8249; Settings</span><span class="l">Appearance</span></div>
+  <div style="font-weight:700;font-size:34px;letter-spacing:-.03em;line-height:1.05">Pick how it looks</div>
+  <div class="c o"><div class="sw"><i style="background:#e9e7e2"></i><i style="background:#f6f5f1"></i><i style="background:#ff5a1f"></i></div><div><b>Light</b><div style="font-size:12px;color:#a09d95">Warm grey, orange accent</div></div><span class="rd"></span></div>
+  <div class="c o" style="outline:2px solid #ff6a33"><div class="sw"><i style="background:#121211"></i><i style="background:#1c1c1a"></i><i style="background:#ff6a33"></i></div><div><b>Dark</b><div style="font-size:12px;color:#a09d95">Charcoal, orange accent</div></div><span class="rd" style="background:#ff6a33;border-color:#ff6a33"></span></div>
+  <div class="c o"><div class="sw"><i style="background:#0a0604"></i><i style="background:#130c08"></i><i style="background:#c4501f"></i></div><div><b>Night</b><div style="font-size:12px;color:#a09d95">Warm amber only, no white, dim</div></div><span class="rd"></span></div>
+  <div class="c o"><div class="sw"><i style="background:#ffd23f"></i><i style="background:#ff9ec7"></i><i style="background:#5b3cff"></i></div><div><b>Colourful</b><div style="font-size:12px;color:#a09d95">Colour-coded cards, black outlines</div></div><span class="rd"></span></div>
+  <div class="c">
+    <div class="o"><b>Auto</b><span class="rd" style="background:transparent"></span></div>
+    <div style="font-size:12.5px;line-height:1.55;color:#a09d95;margin-top:4px">Light or Dark by daylight. Night from the shutdown photo or the night cutoff, whichever is first, until the morning alarm stops.</div>
+  </div>
+  <div class="c">
+    <div class="l">Same in every mode</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:6px;font-size:13px;line-height:1.5"><span style="width:26px;height:26px;border-radius:6px;background:#e5254a;flex:none"></span>A negative Buffer is the only red, and it always carries the word NEGATIVE.</div>
+  </div>
+  <div class="c" style="font-size:12.5px;line-height:1.55;color:#a09d95;margin-top:auto">Changes apply at once. Contrast is tested for every mode, and Night mode keeps text readable at its dim level.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+package app.efa.data
+
+import android.content.Context
+import androidx.room.*
+import androidx.sqlite.execSQL
+import efa.PatternSlot
+import efa.WeekB
+import java.time.DayOfWeek
+
+/** The weekly pattern, stored so it can be edited in the app (O9). `edited` marks rows changed after seeding. */
+@Entity(tableName = "pattern_slot")
+data class PatternSlotRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val day: Int,                // DayOfWeek.value, 1 = Monday
+    val startMin: Int, val endMin: Int,
+    val title: String, val type: String, val venue: String,
+    val hardAlarm: Boolean, val notes: String,
+    val edited: Boolean = false,
+) {
+    fun toSlot() = PatternSlot(DayOfWeek.of(day), startMin, endMin, title, type, venue, hardAlarm, notes)
+}
+
+/** Small key/value store. Times are epoch milliseconds plus the zone id, so nothing depends on the device zone later (X4). */
+@Entity(tableName = "meta")
+data class MetaRow(@PrimaryKey val key: String, val value: String)
+
+/**
+ * A manual deadline from quick-add (D2). The due time is epoch milliseconds plus the zone it was entered in (X4).
+ * hoursEstimate is fixed at entry from the heaviness slider; calibration (layer 7) will correct it.
+ * `doneAtMs` stays null until a proven block completes it, so nothing counts as done without proof (P8).
+ */
+@Entity(tableName = "task")
+data class TaskRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val dueMs: Long, val dueZone: String,
+    val heaviness: Int, val hoursEstimate: Double,
+    val createdMs: Long,
+    val doneAtMs: Long? = null,
+)
+
+/**
+ * One block on one planned day (key from efa.blockKey). `holdAtMs` is when the one-second hold finished (W1).
+ * `verified` is true only after a proof photo passed; `creditedMin` is the confirmed time (W2), `recovered` marks backfill (B7).
+ */
+@Entity(tableName = "block", indices = [Index(value = ["key"], unique = true)])
+data class BlockRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val key: String, val title: String, val type: String,
+    val startMs: Long, val endMs: Long, val zone: String,
+    val holdAtMs: Long? = null,
+    val verified: Boolean = false, val creditedMin: Int = 0, val recovered: Boolean = false, val weaker: Boolean = false,
+    val provenAtMs: Long? = null,
+)
+
+/** ST2: the forever record. No coordinates, no image. `thumbPath` is cleared when the thumbnail expires (ST1). */
+@Entity(tableName = "photo")
+data class PhotoRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val blockKey: String, val atMs: Long, val type: String,
+    val locationResult: String, val distanceBand: String, val matchScore: Int, val fingerprint: Long,
+    val thumbPath: String? = null, val thumbBytes: Int = 0,
+)
+
+/**
+ * A venue point the user placed on the map (L5). Rows are only added, never changed, so the table is the correction log.
+ * The latest row for a key wins. Coordinates here are directory data, not the person's position (ST7).
+ */
+@Entity(tableName = "venue_point")
+data class VenuePointRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val venueKey: String, val lat: Double, val lon: Double, val atMs: Long, val source: String,
+)
+
+/** A commit that has already proved a block, so one commit cannot prove two (G1). The sha is public repo data, not a secret. */
+@Entity(tableName = "commit_use")
+data class CommitUseRow(@PrimaryKey val sha: String, val blockKey: String, val atMs: Long)
+
+@Dao
+interface CommitDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: CommitUseRow)
+    @Query("SELECT sha FROM commit_use") suspend fun usedShas(): List<String>
+}
+
+@Dao
+interface VenueDao {
+    @Insert suspend fun insert(row: VenuePointRow): Long
+    @Query("SELECT * FROM venue_point ORDER BY id") suspend fun all(): List<VenuePointRow>
+}
+
+@Dao
+interface BlockDao {
+    @Query("SELECT * FROM block WHERE `key` = :key") suspend fun get(key: String): BlockRow?
+    @Query("SELECT `key` FROM block WHERE verified = 1") suspend fun verifiedKeys(): List<String>
+    @Query("SELECT COALESCE(SUM(creditedMin), 0) FROM block WHERE recovered = 1 AND provenAtMs >= :sinceMs") suspend fun recoveredMinutesSince(sinceMs: Long): Int
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(row: BlockRow): Long
+}
+
+@Dao
+interface PhotoDao {
+    @Insert suspend fun insert(row: PhotoRow): Long
+    @Query("SELECT fingerprint FROM photo") suspend fun fingerprints(): List<Long>
+    @Query("SELECT * FROM photo WHERE thumbPath IS NOT NULL ORDER BY atMs") suspend fun withThumbs(): List<PhotoRow>
+    @Query("UPDATE photo SET thumbPath = NULL, thumbBytes = 0 WHERE id = :id") suspend fun dropThumb(id: Long)
+}
+
+@Dao
+interface TaskDao {
+    @Insert suspend fun insert(row: TaskRow): Long
+    @Query("SELECT * FROM task WHERE doneAtMs IS NULL ORDER BY dueMs") suspend fun open(): List<TaskRow>
+}
+
+@Dao
+interface PatternDao {
+    @Query("SELECT COUNT(*) FROM pattern_slot") suspend fun count(): Int
+    @Query("SELECT * FROM pattern_slot ORDER BY day, startMin") suspend fun all(): List<PatternSlotRow>
+    @Insert suspend fun insertAll(rows: List<PatternSlotRow>)
+}
+
+@Dao
+interface MetaDao {
+    @Query("SELECT value FROM meta WHERE `key` = :key") suspend fun get(key: String): String?
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun putIfAbsent(row: MetaRow)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
+}
+
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class], version = 5, exportSchema = true)
+abstract class EfaDb : RoomDatabase() {
+    abstract fun pattern(): PatternDao
+    abstract fun meta(): MetaDao
+    abstract fun tasks(): TaskDao
+    abstract fun blocks(): BlockDao
+    abstract fun photos(): PhotoDao
+    abstract fun venues(): VenueDao
+    abstract fun commits(): CommitDao
+
+    companion object {
+        @Volatile private var inst: EfaDb? = null
+        fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { inst = it }
+        }
+    }
+}
+
+val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `task` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `dueMs` INTEGER NOT NULL, `dueZone` TEXT NOT NULL, `heaviness` INTEGER NOT NULL, `hoursEstimate` REAL NOT NULL, `createdMs` INTEGER NOT NULL, `doneAtMs` INTEGER)")
+    }
+}
+
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `block` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `key` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `startMs` INTEGER NOT NULL, `endMs` INTEGER NOT NULL, `zone` TEXT NOT NULL, `holdAtMs` INTEGER, `verified` INTEGER NOT NULL, `creditedMin` INTEGER NOT NULL, `recovered` INTEGER NOT NULL, `weaker` INTEGER NOT NULL, `provenAtMs` INTEGER)")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_block_key` ON `block` (`key`)")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `photo` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `blockKey` TEXT NOT NULL, `atMs` INTEGER NOT NULL, `type` TEXT NOT NULL, `locationResult` TEXT NOT NULL, `distanceBand` TEXT NOT NULL, `matchScore` INTEGER NOT NULL, `fingerprint` INTEGER NOT NULL, `thumbPath` TEXT, `thumbBytes` INTEGER NOT NULL)")
+    }
+}
+
+val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `venue_point` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `venueKey` TEXT NOT NULL, `lat` REAL NOT NULL, `lon` REAL NOT NULL, `atMs` INTEGER NOT NULL, `source` TEXT NOT NULL)")
+    }
+}
+
+val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `commit_use` (`sha` TEXT NOT NULL, `blockKey` TEXT NOT NULL, `atMs` INTEGER NOT NULL, PRIMARY KEY(`sha`))")
+    }
+}
+
+const val META_GITHUB_USER = "github_user"
+const val META_GITHUB_REPOS = "github_repos"
+const val META_HOME_LAT = "home_lat"
+const val META_HOME_LON = "home_lon"
+const val META_FIRST_USE = "first_use_epoch_ms"
+const val META_ZONE = "zone_id"
+
+/**
+ * First run: seed week type B (section 3 changes already applied) and record the first-use time, which starts the
+ * 14-day record-only period (G6). Safe to call every launch: it does nothing once seeded.
+ * Failure behaviour (X7): if the insert throws, nothing is half-written because Room runs it in one transaction,
+ * and the home screen shows "Nothing scheduled" and the error is surfaced by the caller.
+ */
+suspend fun EfaDb.seedIfEmpty(nowEpochMs: Long, zoneId: String) {
+    withTransaction {
+        if (pattern().count() == 0) {
+            pattern().insertAll(WeekB.slots.map {
+                PatternSlotRow(day = it.day.value, startMin = it.startMin, endMin = it.endMin, title = it.title,
+                    type = it.type, venue = it.venue, hardAlarm = it.hardAlarm, notes = it.notes)
+            })
+        }
+        meta().putIfAbsent(MetaRow(META_FIRST_USE, nowEpochMs.toString()))
+        meta().putIfAbsent(MetaRow(META_ZONE, zoneId))
+    }
+}

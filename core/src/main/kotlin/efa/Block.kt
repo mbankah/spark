@@ -92,7 +92,7 @@ fun differenceHash(gray9x8: IntArray): Long {
 
 enum class Reason {
     OK, NOT_REQUIRED, TIMER_RUNNING, NEEDS_HOLD, TOO_EARLY, OUTSIDE_WINDOW, DUPLICATE, REJECTED_NEAR_HOME, NO_LOCATION,
-    COMMIT_CHECK_UNAVAILABLE, BACKFILL_CAP, HOME_NOT_SET, NO_COMMIT, COMMIT_USED, GITHUB_UNREACHABLE, REPO_NOT_FOUND,
+    COMMIT_CHECK_UNAVAILABLE, BACKFILL_CAP, HOME_NOT_SET, NO_COMMIT, COMMIT_USED, GITHUB_UNREACHABLE, REPO_NOT_FOUND, BLOCK_BROKEN,
 }
 
 /** creditedMinutes is how much of the block counts as confirmed (W2). recovered marks backfilled time visibly (B7). */
@@ -174,6 +174,7 @@ fun Reason.text(): String = when (this) {
     Reason.COMMIT_CHECK_UNAVAILABLE -> "GitHub is not set up, so this code block cannot be verified. Add your username and repos in Setup."
     Reason.NO_COMMIT -> "No commit of yours was found in this block's time. Push your commit, then check again."
     Reason.COMMIT_USED -> "Your commits in this block's time already proved an earlier block. Make a new commit and push it."
+    Reason.BLOCK_BROKEN -> "This block ended early when you opened a blocked app, so its unproven time is lost."
     Reason.REPO_NOT_FOUND -> "A repo in Setup was not found or is private. Only public repos can be checked, because no GitHub token is stored."
     Reason.GITHUB_UNREACHABLE -> "GitHub could not be reached, or it is limiting requests. Check again when you are online. You can still prove this block until your next wake."
     Reason.BACKFILL_CAP -> "The 1 hour recovery limit for this night is used."

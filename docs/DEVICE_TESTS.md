@@ -63,3 +63,26 @@ Needs your GitHub username and public repos entered in Setup first.
 | G7 | Turn the internet off and check. | "GitHub could not be reached." The block stays unverified and checkable. |
 | G8 | Put a private repo in Setup and check. | "A repo ... was not found or is private. Only public repos can be checked." |
 | G9 | Check a block many times in an hour (more than 60 checks across all blocks). | After the limit, the unreachable message appears. Tell me if you hit it in normal use. |
+
+## Blocking, the wall and tamper (slice 7)
+
+Android makes you switch the blocking service on yourself. On Android 13 or later, if "Spark blocking" is greyed out in Accessibility, open Settings, Apps, Spark, the three dots at the top right, and tap "Allow restricted settings", then try again (B1).
+
+| # | Do this | Expected |
+|---|---|---|
+| B1 | Spark, Setup. Blocking card says "Off". Tap "Open accessibility settings", find Spark blocking, switch on. | Back in Spark, the card says "On". |
+| B2 | Setup, "Choose the apps to block". | Your installed social and video apps are ticked. Banking, calls, maps, authenticator and WhatsApp are not. Save. |
+| B3 | During a study block, open a blocked app (for example Instagram). | The card appears within about a second: why, what opening costs, the Buffer arithmetic. |
+| B4 | Tap Go home, then open the app again. | Home screen, then the card again. No loop. |
+| B5 | Open the app, press the back button on the card. | You go to the home screen, not into the app. |
+| B6 | Open the app, tap "Open anyway: type 75 characters", type the string by hand. | The app opens for 30 minutes. Your current work block is marked broken. A second try after 31 minutes shows the card again. |
+| B7 | Try to paste, use swipe typing or voice on the wall string. | It restarts. Report which keyboard you use. |
+| B8 | Open a blocked app through each route: search, a notification, recents, a link from another app, the share sheet, a widget, split screen. | Every route ends at the same card. Tell me any that do not (LA8, LA7). |
+| B9 | Put a blocked app in a floating window or picture-in-picture. | The card appears (LA7). Report if it does not. |
+| B10 | After the night cutoff, open a blocked app. | Night card with "Wake HH:MM, so sleeping after HH:MM means under 8h". An override uses 75 characters, the next one tonight 100, then 125. |
+| B11 | Within 6 hours of your wake time, open a blocked app. | "No override is possible now." No wall offered. |
+| B12 | Switch the Spark service off in Android settings. | On opening Spark, home is one screen: "Blocking is off" with a button to settings. Switching it on restores home. |
+| B13 | Open a blocked app inside a lecture, training, a match, gym, church or a meal. | The app opens normally. |
+| B14 | Open banking, the dialler, maps and your authenticator during a work block. | They always open. |
+| B15 | Restart the phone. | Blocking works again after boot without opening Spark (U3). Tell me if not. |
+| B16 | Chrome and other browsers: open a blocked site in a normal and a private tab. | Not covered yet (K10 is built separately). Tell me what you see. |

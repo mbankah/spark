@@ -68,6 +68,7 @@ class BlockRepo(
         val proof = proofFor(ds.slot)
         val row = load(ds)
         if (row?.verified == true) return Verdict(true, Reason.OK, row.creditedMin, row.recovered, row.weaker)
+        if (row?.brokenAtMs != null) return Verdict(false, Reason.BLOCK_BROKEN)      // LA9
         val processed = try { ProofProcessor.process(jpeg) } catch (e: Exception) { throw CaptureFailed() }
         // L1 to L3: attendance is checked against where the phone was when the photo was taken. The fix is used here and dropped (A8, ST7).
         var loc: LocationResult? = null
@@ -103,6 +104,7 @@ class BlockRepo(
         if (proofFor(ds.slot) != Proof.GIT_COMMIT) return Verdict(false, Reason.NOT_REQUIRED)
         val row = load(ds)
         if (row?.verified == true) return Verdict(true, Reason.OK, row.creditedMin, row.recovered, row.weaker)
+        if (row?.brokenAtMs != null) return Verdict(false, Reason.BLOCK_BROKEN)      // LA9
         val deadline = nextWake(pattern, ds.end) ?: ds.end.plusDays(1)
         val since = lastWake(now)?.toInstant()?.toEpochMilli() ?: (now.toInstant().toEpochMilli() - 24 * 3_600_000L)
         val recoveredSoFar = db.blocks().recoveredMinutesSince(since)
@@ -125,6 +127,12 @@ class BlockRepo(
             db.blocks().upsert((row ?: newRow(ds)).copy(verified = true, creditedMin = v.creditedMinutes, recovered = v.recovered, weaker = false, provenAtMs = ms))
         }
         return v
+    }
+
+    /** LA9: ends a block as broken when an app is opened through the wall. Its unproven time is lost (W2) and it can no longer be proved. */
+    suspend fun breakBlock(ds: DatedSlot, nowMs: Long) {
+        val row = load(ds) ?: newRow(ds)
+        if (!row.verified && row.brokenAtMs == null) db.blocks().upsert(row.copy(brokenAtMs = nowMs))
     }
 
     /** ST1, ST4: delete thumbnails older than 14 days, then oldest first above 25 MB. Verification is never touched (ST5). */

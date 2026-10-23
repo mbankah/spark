@@ -51,6 +51,8 @@ data class BlockRow(
     val holdAtMs: Long? = null,
     val verified: Boolean = false, val creditedMin: Int = 0, val recovered: Boolean = false, val weaker: Boolean = false,
     val provenAtMs: Long? = null,
+    /** Set when an app was opened through the wall during this block (LA9): the block ends as broken and its unproven time is lost (W2). */
+    val brokenAtMs: Long? = null,
 )
 
 /** ST2: the forever record. No coordinates, no image. `thumbPath` is cleared when the thumbnail expires (ST1). */
@@ -71,6 +73,36 @@ data class VenuePointRow(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val venueKey: String, val lat: Double, val lon: Double, val atMs: Long, val source: String,
 )
+
+/**
+ * An app opened through the wall (LA9, 30 minutes) or a night override (N3, all listed apps). One row per use, so the table is also
+ * the count of overrides tonight (N4) and the tamper-adjacent record of every loosening.
+ */
+@Entity(tableName = "allowance")
+data class AllowanceRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: String,            // "app" or "night"
+    val pkg: String?,            // the package for "app", null for "night"
+    val untilMs: Long, val atMs: Long, val wallLength: Int,
+)
+
+@Dao
+interface AllowanceDao {
+    @Insert suspend fun insert(row: AllowanceRow): Long
+    @Query("SELECT * FROM allowance WHERE untilMs > :nowMs") suspend fun active(nowMs: Long): List<AllowanceRow>
+    @Query("SELECT COUNT(*) FROM allowance WHERE kind = 'night' AND atMs >= :sinceMs") suspend fun nightUsesSince(sinceMs: Long): Int
+}
+
+/** U4, X5: a loosening nobody asked for, such as the blocking service being switched off. Kept 1 year (ST4). */
+@Entity(tableName = "tamper")
+data class TamperRow(@PrimaryKey(autoGenerate = true) val id: Long = 0, val atMs: Long, val kind: String, val detail: String)
+
+@Dao
+interface TamperDao {
+    @Insert suspend fun insert(row: TamperRow): Long
+    @Query("SELECT * FROM tamper ORDER BY id") suspend fun all(): List<TamperRow>
+    @Query("DELETE FROM tamper WHERE atMs < :beforeMs") suspend fun deleteBefore(beforeMs: Long): Int
+}
 
 /** A commit that has already proved a block, so one commit cannot prove two (G1). The sha is public repo data, not a secret. */
 @Entity(tableName = "commit_use")
@@ -124,7 +156,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class], version = 5, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class], version = 6, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -133,11 +165,13 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun photos(): PhotoDao
     abstract fun venues(): VenueDao
     abstract fun commits(): CommitDao
+    abstract fun allowances(): AllowanceDao
+    abstract fun tamper(): TamperDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { inst = it }
         }
     }
 }
@@ -168,6 +202,15 @@ val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
     }
 }
 
+val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `block` ADD COLUMN `brokenAtMs` INTEGER")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `tamper` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `atMs` INTEGER NOT NULL, `kind` TEXT NOT NULL, `detail` TEXT NOT NULL)")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `allowance` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `pkg` TEXT, `untilMs` INTEGER NOT NULL, `atMs` INTEGER NOT NULL, `wallLength` INTEGER NOT NULL)")
+    }
+}
+
+const val META_BLOCKLIST = "blocklist"
 const val META_GITHUB_USER = "github_user"
 const val META_GITHUB_REPOS = "github_repos"
 const val META_HOME_LAT = "home_lat"

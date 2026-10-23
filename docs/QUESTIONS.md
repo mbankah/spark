@@ -50,6 +50,12 @@ Written 23 Oct 2026 after reading the whole ledger and seed. Each item says what
 | Q-G20 | Indoor GPS (E11). | A fix worse than 250 m is treated as no fix and asks for a retake. The 150 m building test is measured from the building centre. | Needs real-phone tuning (V6, V10). |
 | Q-G21 | The Vaughan Jeffreys room (Education). | Matched to the Education Building as a whole, because the room is not its own OpenStreetMap feature. | Check on the phone (V11). |
 
+| Q-G24 | Which block types close the phone (K3 lists some, not all). | Closed: study, code, study cycles, routine (wake and getting ready, prayer, stretches), travel (transitions), planning. Open: lectures, tutorials, training, matches, church, gym, meals, free time, chores, errands, MyTutor. | K3 names lectures, training, matches, church, gym, meals and free time as open and the rest as blocked. MyTutor, chores, errands and planning are my reading. |
+| Q-G25 | Sleep blocks and the night override (N2, N3). | A shutdown or sleep block falls under the night rule, so a night override opens the list in it. Work blocks, getting-ready and transitions are never lifted by a night override. | N2 and N3 would otherwise make the override useless inside the Shutdown block, which starts at the cutoff. |
+| Q-G26 | The wall and fast typing (M7). | The wall takes one character per keyboard event. A keyboard that sends several at once (swipe typing, voice, paste, autofill) restarts it. Typing normally is fine. | This is how a paste is told from typing. |
+| Q-G27 | Opening an app through the wall during a work block (LA9). | The block is marked broken, its unproven time is lost, and it can no longer be proved. It stays broken after the 30 minutes end. | LA9 says it ends the block as broken. |
+| Q-G28 | Android's restricted-settings gate. | On Android 13 and later, a sideloaded app's accessibility service may be greyed out until you open Settings, Apps, Spark, the three dots, "Allow restricted settings". The steps are in DEVICE_TESTS (B1). | This is Android's own protection and cannot be skipped by the app. |
+
 ## Things I cannot do and will say so
 
 - Android Studio SDK is not installed here (no `adb`, Gradle or Android SDK). Pure logic runs on JDK 17 and Node 24. Everything touching Android needs the SDK and a phone.

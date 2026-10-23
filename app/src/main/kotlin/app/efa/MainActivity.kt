@@ -9,7 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import app.efa.data.BlockRepo
 import app.efa.data.BlockRow
+import app.efa.data.BlockingRepo
 import app.efa.data.EfaDb
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.efa.data.GitConfigRepo
 import app.efa.data.LocationFix
 import app.efa.data.PlaceRepo
@@ -27,7 +29,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -45,6 +47,9 @@ class MainActivity : ComponentActivity() {
                 var reload by remember { mutableIntStateOf(0) }
                 var loaded by remember { mutableStateOf<Loaded?>(null) }
                 var places by remember { mutableStateOf(PlacesState(null, emptyList())) }
+                var blockList by remember { mutableStateOf<Set<String>?>(null) }
+                var serviceOn by remember { mutableStateOf(isBlockerEnabled(applicationContext)) }
+                var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
                 var mapVenue by remember { mutableStateOf<VenueStatus?>(null) }
                 var selected by remember { mutableStateOf<DatedSlot?>(null) }
                 var clock by remember { mutableStateOf(ZonedDateTime.now(LONDON)) }
@@ -59,11 +64,19 @@ class MainActivity : ComponentActivity() {
                             repo.cleanThumbs()                          // ST1, ST4: expired and over-ceiling thumbnails go
                             val pr = PlaceRepo(db)
                             places = PlacesState(pr.home(), pr.statuses(pattern.filter { it.type == "lecture" || it.type == "tutorial" }.map { it.venue }.filter { it.isNotBlank() }), GitConfigRepo(db).get())
+                            blockList = BlockingRepo(db).list()
+                            BlockingState.refresh(applicationContext)       // the blocking service sees the change at once
                             Loaded(pattern, db.tasks().open(), repo.verifiedKeys())
                         } catch (e: Exception) { Loaded(null, emptyList()) }   // never show a wrong schedule or Buffer
                     }
                 }
                 LaunchedEffect(Unit) { while (true) { clock = ZonedDateTime.now(LONDON); delay(30_000) } }
+                // U4, X5: whenever the app comes back to the front, check the blocking service is still on. Switching it off is logged once.
+                LifecycleResumeEffect(Unit) { serviceOn = isBlockerEnabled(applicationContext); reload++; onPauseOrDispose {} }
+                LaunchedEffect(serviceOn, blockList) {
+                    withContext(Dispatchers.IO) { BlockingRepo(db).noteServiceState(!blockList.isNullOrEmpty(), serviceOn, System.currentTimeMillis()) }
+                }
+                val restoreNeeded = !blockList.isNullOrEmpty() && !serviceOn
 
                 val l = loaded
                 val repo = remember(l) { l?.pattern?.let { BlockRepo(applicationContext, db, it) } }
@@ -71,7 +84,7 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = screen != Screen.HOME) { screen = Screen.HOME }
 
                 when (screen) {
-                    Screen.HOME -> {
+                    Screen.HOME -> if (restoreNeeded) RestoreScreen(onOpenSettings = { openAccessibilitySettings(applicationContext) }, onSetup = { screen = Screen.SETUP }) else {
                         val nn = l?.pattern?.let { nowAndNext(it, clock) }
                         val hhmm = DateTimeFormatter.ofPattern("HH:mm")
                         HomeScreen(
@@ -107,7 +120,16 @@ class MainActivity : ComponentActivity() {
                         onHome = { screen = Screen.MAP_HOME },
                         onVenue = { mapVenue = it; screen = Screen.MAP_VENUE },
                         onBack = { screen = Screen.HOME },
-                        onGit = { cfg -> scope.launch(Dispatchers.IO) { GitConfigRepo(db).save(cfg); reload++ } })
+                        onGit = { cfg -> scope.launch(Dispatchers.IO) { GitConfigRepo(db).save(cfg); reload++ } },
+                        blocking = BlockingStatus(serviceOn, blockList?.size),
+                        onOpenAccessibility = { openAccessibilitySettings(applicationContext) },
+                        onChooseList = {
+                            scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = if (blockList == null) Screen.BLOCKLIST else Screen.LIST_GATE } }
+                        })
+                    Screen.LIST_GATE -> ListWallGate(onPassed = { screen = Screen.BLOCKLIST }, onCancel = { screen = Screen.SETUP })
+                    Screen.BLOCKLIST -> BlockListScreen(apps, blockList,
+                        onSave = { chosen -> scope.launch(Dispatchers.IO) { BlockingRepo(db).saveList(chosen); reload++; withContext(Dispatchers.Main) { screen = Screen.SETUP } } },
+                        onCancel = { screen = Screen.SETUP })
                     Screen.MAP_HOME -> MapPicker("Set home", "Move the map until the cross is on your home area. It is saved to about 100 m, never a house.",
                         places.home ?: CAMPUS_CENTRE, maxZoom = 16.0,
                         onPick = { lat, lon -> scope.launch(Dispatchers.IO) { PlaceRepo(db).setHome(lat, lon); reload++; screen = Screen.SETUP } },

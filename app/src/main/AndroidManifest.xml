@@ -9,9 +9,11 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- The map for placing home and venues loads OpenStreetMap tiles. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- K2: the block list is chosen from the apps installed on this phone. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <queries><package android:name="com.instructure.candroid" /></queries>
     <application
-        android:label="Spark"
+        android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
@@ -30,5 +32,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- The card shown instead of a blocked app (U7, LA8, LA10). Not in recents, so back and home cannot loop. -->
+        <activity
+            android:name=".BlockedActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:taskAffinity="app.efa.blocked"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+        <service
+            android:name=".BlockerService"
+            android:exported="true"
+            android:label="Spark blocking"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/blocker_service" />
+        </service>
     </application>
 </manifest>

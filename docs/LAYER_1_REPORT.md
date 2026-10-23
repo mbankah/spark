@@ -148,3 +148,30 @@ Everything above is a JVM unit test. Nothing has run on a phone. This machine ha
 **Limits, stated plainly:** git commit dates are written by your own computer, so a commit can be back-dated. This makes faking a commit take deliberate effort. It cannot make it impossible. Unauthenticated GitHub allows 60 requests an hour. Private repos cannot be checked.
 
 **Not yet proven on a real device:** all of it. Steps G1 to G9 are in `docs/DEVICE_TESTS.md`.
+
+## Update: blocking, the wall, the blocked card and tamper
+
+**Built:**
+- `core/.../Blocking.kt`: the blocking policy as plain arithmetic. Which block types close the phone (K3), the night rule after the cutoff (N2), overrides (N3) and the hard stop (N7), 30-minute app allowances (LA9), the unproven minutes a block would lose (W2), and the default social list (K1).
+- An accessibility service that reads only which app windows are in front, on every window change and across all visible windows, so split screen, floating windows and picture-in-picture are covered by design (LA7).
+- The blocked card (U7, LA8, LA10): why it is blocked, what opening it costs as arithmetic ("Buffer now +0.4h. With this block lost: NEGATIVE -1.3h."), Go home, and the wall to open anyway. Back goes home, never into the app.
+- The wall: a fresh random string, typed by hand, one character per keyboard event; a paste, autofill or a wrong character restarts it; no paste menu, no suggestions.
+- Opening an app through the wall in a work block marks the block broken: its time is lost and it can no longer be proved (LA9, W2).
+- Night overrides, each with a longer string than the last (N4), and no override within 6 hours of the wake (N7).
+- Setup: a Blocking card showing whether the service is on, with a button to Android's accessibility settings; a block list picker (social and video apps pre-ticked), fixed after setup and editable only through the wall (K2, M7).
+- Tamper: if the service is switched off, home becomes one "Blocking is off" restore screen, and the off and restore events are logged once each and kept a year (U4, X5, ST4).
+- Room schema 6: allowances, broken blocks, tamper log; tested migration 5 to 6.
+
+**Tested:**
+- `.\gradlew.bat :core:test`: all pass (policy by block type, night window, overrides, allowances, default list).
+- `.\gradlew.bat :app:connectedDebugAndroidTest`: 92 tests, 0 failed, on the `efa_test` emulator with the real accessibility service switched on and real Chrome opened. They cover: the card appearing for a blocked app in a work block, Go home and Back with no loop, an app not on the list opening normally, typing the 75-character wall one key at a time and Chrome then opening, the block marked broken and un-provable, the 30-minute window opening and closing, a night override then a 100-character second override, no override within 6 hours of wake, and restore and tamper logging.
+- A screenshot of the real blocked card on the emulator (Cold Light only).
+
+**Found by testing:** UiAutomator switches other accessibility services off while it is connected, so the end-to-end tests read the screen through a UiAutomation with the "do not suppress" flag. Typing the whole wall string in one burst through `adb input text` restarts it, which is the intended behaviour, so the test types one character at a time.
+
+**Not built or not proven:**
+- Not tested on a phone. Not tested: the other LA8 routes (a notification, recents, a link, the share sheet, a widget), split screen, floating windows and picture-in-picture, though the service watches every visible window.
+- Browsers (K10: blocking sites inside browsers by reading the address bar, including private tabs) is not built.
+- Held notifications and the digest (U8, LA2), the persistent notification, widgets, the launcher as the default home with the permission sequence at boot (U1 to U3, LA3, LA14), and the morning block until the ready photo (M6, M8) are not built.
+- Earned phone access (R2) and the night override's 45-minute variant on a fully verified day are not wired: the card always offers 30 minutes.
+- Boot behaviour, battery and Android 15 restrictions are untested (checklist B15).

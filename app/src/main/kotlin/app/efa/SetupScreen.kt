@@ -35,13 +35,17 @@ data class PlacesState(val home: Pair<Double, Double>?, val venues: List<VenueSt
  * point came from, and any venue can be placed on the map; a venue OpenStreetMap could not match is flagged first (L5).
  */
 @Composable
-fun SetupScreen(p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {}) {
+fun SetupScreen(
+    p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
+    blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
+) {
     val c = LocalColors.current
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         BasicText("Setup", style = TextStyle(c.text, 28.sp, FontWeight.SemiBold))
+        BlockingCard(blocking, onOpenAccessibility, onChooseList)
 
         Column(Modifier.fillMaxWidth().background(c.card, CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("HOME")

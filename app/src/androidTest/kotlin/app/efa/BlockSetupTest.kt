@@ -67,15 +67,6 @@ class BlockSetupScreenTest {
         rule.waitUntil(5_000) { passed }
     }
 
-    @Test fun U4_the_restore_screen_says_blocking_is_off_and_how_to_fix_it() {
-        var opened = false
-        rule.setContent { EfaTheme { RestoreScreen({ opened = true }, {}) } }
-        rule.onNodeWithText("Blocking is off").assertExists()
-        rule.onNodeWithText("Switch it back on", substring = true).assertExists()
-        rule.onNodeWithText("Open accessibility settings").performClick()
-        assertTrue(opened)
-    }
-
     @Test fun U1_setup_shows_whether_the_service_is_on_and_offers_the_settings_page_when_it_is_off() {
         var settings = false
         rule.setContent { EfaTheme { SetupScreen(PlacesState(null, emptyList()), {}, {}, {}, blocking = BlockingStatus(false, null), onOpenAccessibility = { settings = true }) } }

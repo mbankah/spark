@@ -19,6 +19,12 @@ import app.efa.data.EfaDb
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.efa.data.GitConfigRepo
 import app.efa.data.HeldRepo
+import app.efa.data.MetaRow
+import app.efa.data.TamperRow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import app.efa.data.LocationFix
 import app.efa.data.PlaceRepo
 import app.efa.data.VenueStatus
@@ -35,7 +41,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -84,7 +90,13 @@ class MainActivity : ComponentActivity() {
                 var digestState by remember { mutableStateOf(Digest(emptyList(), null)) }
                 var listenerOn by remember { mutableStateOf(isNotificationAccessOn(applicationContext)) }
                 var noticeOn by remember { mutableStateOf(BufferNotifier.allowed(applicationContext)) }
+                var doneSteps by remember { mutableStateOf(SETUP_ORDER.toSet()) }
+                var setupLoaded by remember { mutableStateOf(false) }
+                var everDone by remember { mutableStateOf(false) }
+                var launcherPaused by remember { mutableStateOf(CrashGuard.handedOverAt(applicationContext) != null) }
                 val scope = rememberCoroutineScope()
+                val askRuntime = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { reload++ }
+                val askRole = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { reload++ }
                 val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
                     noticeOn = BufferNotifier.allowed(applicationContext); BufferNotifier.update(applicationContext)
                 }
@@ -103,6 +115,16 @@ class MainActivity : ComponentActivity() {
                             BlockingState.refresh(applicationContext)       // the blocking service sees the change at once
                             heldWaiting = HeldRepo(db).anyUnreviewed()
                             BufferNotifier.update(applicationContext)
+                            // U1, U4: which setup steps are done right now, and a log entry once when one that was done goes off.
+                            val done = SetupStatus.read(applicationContext, db)
+                            val was = db.meta().get("setup_done") == "1"
+                            val bl = BlockingRepo(db)
+                            SETUP_ORDER.forEach { bl.noteStep(it.name, it in done, was, System.currentTimeMillis()) }
+                            if (setupComplete(done) && !was) db.meta().put(MetaRow("setup_done", "1"))
+                            CrashGuard.takeUnloggedHandOver(applicationContext)?.let { db.tamper().insert(TamperRow(atMs = it, kind = "launcher_crash_handover", detail = "3 crashes in 10 minutes")) }
+                            launcherPaused = CrashGuard.handedOverAt(applicationContext) != null
+                            everDone = was || setupComplete(done)
+                            doneSteps = done; setupLoaded = true
                             Loaded(pattern, db.tasks().open(), repo.verifiedKeys())
                         } catch (e: Exception) { Loaded(null, emptyList()) }   // never show a wrong schedule or Buffer
                     }
@@ -125,15 +147,31 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(serviceOn, blockList) {
                     withContext(Dispatchers.IO) { BlockingRepo(db).noteServiceState(!blockList.isNullOrEmpty(), serviceOn, System.currentTimeMillis()) }
                 }
-                val restoreNeeded = !blockList.isNullOrEmpty() && !serviceOn
+                val setupNeeded = SetupGate.enforced && setupLoaded && !setupComplete(doneSteps)
+                val act: (SetupStep) -> Unit = { step ->
+                    when (step) {
+                        SetupStep.BLOCK_LIST -> scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.BLOCKLIST } }
+                        SetupStep.DEFAULT_HOME -> SetupStatus.settingsIntent(applicationContext, step)?.let { askRole.launch(it) }
+                        else -> {
+                            val perm = SetupStatus.runtimePermission(step)
+                            if (perm != null && !(step == SetupStep.POST_NOTIFICATIONS && Build.VERSION.SDK_INT < 33)) askRuntime.launch(perm)
+                            else SetupStatus.settingsIntent(applicationContext, step)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        }
+                    }
+                }
 
                 val l = loaded
                 val repo = remember(l) { l?.pattern?.let { BlockRepo(applicationContext, db, it) } }
                 val buffer = l?.let { bufferOf(it, clock) } ?: BufferState.NoDeadline
                 BackHandler(enabled = screen != Screen.HOME) { screen = Screen.HOME }
+                BackHandler(enabled = screen == Screen.HOME) { /* a home screen has nowhere to go back to */ }
 
                 when (screen) {
-                    Screen.HOME -> if (restoreNeeded) RestoreScreen(onOpenSettings = { openAccessibilitySettings(applicationContext) }, onSetup = { screen = Screen.SETUP }) else {
+                    Screen.HOME -> if (!setupLoaded && SetupGate.enforced) Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
+                    else if (setupNeeded) SetupFlowScreen(doneSteps, restore = everDone, onAct = act,
+                        onEssential = { launchEssential(it) }, onOpenSetup = { screen = Screen.SETUP },
+                        crashNotice = launcherPaused, onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ })
+                    else {
                         val nn = l?.pattern?.let { nowAndNext(it, clock) }
                         val hhmm = DateTimeFormatter.ofPattern("HH:mm")
                         val phoneDecision = blockList?.takeIf { it.isNotEmpty() }?.let { BlockingState.decide(it.first()) }
@@ -152,8 +190,11 @@ class MainActivity : ComponentActivity() {
                                 proofDue = l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { "${it.slot.title}, ended ${hhmm.format(it.end)}. Take its photo." },
                                 heldWaiting = heldWaiting,
                                 unavailable = l != null && l.pattern == null,
+                                launcherPaused = launcherPaused,
                             ),
                             onEssential = { key -> launchEssential(key) },
+                            onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
+                            onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ },
                             onHeld = { screen = Screen.DIGEST },
                             onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
@@ -188,14 +229,18 @@ class MainActivity : ComponentActivity() {
                         onChooseList = {
                             scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = if (blockList == null) Screen.BLOCKLIST else Screen.LIST_GATE } }
                         })
+                    Screen.SEARCH -> SearchScreen(apps,
+                        blockedReason = { pkg -> (BlockingState.decide(pkg) as? Decision.Block)?.let { "${it.label}, until ${DateTimeFormatter.ofPattern("HH:mm").format(it.until)}" } },
+                        onOpen = { a -> packageManager.getLaunchIntentForPackage(a.pkg)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
+                        onBack = { screen = Screen.HOME })
                     Screen.DIGEST -> DigestScreen(digestState, LONDON,
                         onOpenApp = { pkg -> packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
                         onSeen = { scope.launch(Dispatchers.IO) { HeldRepo(db).markReviewed(digestState.ready.map { it.id }, System.currentTimeMillis()); reload++ } },
                         onBack = { screen = Screen.HOME })
                     Screen.LIST_GATE ->ListWallGate(onPassed = { screen = Screen.BLOCKLIST }, onCancel = { screen = Screen.SETUP })
                     Screen.BLOCKLIST -> BlockListScreen(apps, blockList,
-                        onSave = { chosen -> scope.launch(Dispatchers.IO) { BlockingRepo(db).saveList(chosen); reload++; withContext(Dispatchers.Main) { screen = Screen.SETUP } } },
-                        onCancel = { screen = Screen.SETUP })
+                        onSave = { chosen -> scope.launch(Dispatchers.IO) { BlockingRepo(db).saveList(chosen); reload++; withContext(Dispatchers.Main) { screen = if (setupNeeded) Screen.HOME else Screen.SETUP } } },
+                        onCancel = { screen = if (setupNeeded) Screen.HOME else Screen.SETUP })
                     Screen.MAP_HOME -> MapPicker("Set home", "Move the map until the cross is on your home area. It is saved to about 100 m, never a house.",
                         places.home ?: CAMPUS_CENTRE, maxZoom = 16.0,
                         onPick = { lat, lon -> scope.launch(Dispatchers.IO) { PlaceRepo(db).setHome(lat, lon); reload++; screen = Screen.SETUP } },

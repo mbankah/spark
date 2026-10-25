@@ -45,13 +45,14 @@ data class HomeState(
     val proofDue: String? = null,       // the newest finished work block still waiting for its photo
     val heldWaiting: Boolean = false,   // held notifications exist: shown without a count (WG7)
     val unavailable: Boolean = false,   // the database could not be read (X7)
+    val launcherPaused: Boolean = false, // Spark handed the home screen back after 3 crashes in 10 minutes (LA3)
 )
 
 /** The home screen follows the drawing (design/ColdDark.dc.html): date and phone state, a big clock, the Buffer dial, now, next, money. */
 @Composable
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
-    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {},
+    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -70,6 +71,7 @@ fun HomeScreen(
                 BasicText(s.time, style = Ts(c.text, 88.sp, FontWeight.Bold, letterSpacing = (-3.5).sp, lineHeight = 88.sp))
                 SparkLogo(44.dp)
             }
+            if (s.launcherPaused) InfoCard("LAUNCHER PAUSED", "Put Spark back as a home choice", onRestoreLauncher, "Spark crashed 3 times in 10 minutes, so the phone's own home screen took over. Blocking kept running.")
             BufferCard(s.buffer, onBuffer)
             if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read. Nothing is shown rather than something wrong.")
             else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null)
@@ -89,11 +91,16 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center,
                     ) { BasicText(label, style = Ts(c.text, 14.sp, FontWeight.Medium)) }
                 }
+                Box(
+                    Modifier.weight(1f).heightIn(min = 48.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSetup).semantics { contentDescription = "Setup: home, venues, blocking and GitHub" },
+                    contentAlignment = Alignment.Center,
+                ) { BasicText("Setup", style = Ts(c.muted, 14.sp, FontWeight.Medium)) }
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f).heightIn(min = 54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSetup).padding(horizontal = 16.dp).semantics { contentDescription = "Setup: home, venues, blocking and GitHub" }, contentAlignment = Alignment.CenterStart) {
-                BasicText("Setup", style = Ts(c.muted, 16.sp))
+            // U6, LA5: apps are reached by typing, not by browsing a grid.
+            Box(Modifier.weight(1f).heightIn(min = 54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSearch).padding(horizontal = 16.dp).semantics { contentDescription = "Type to open an app" }, contentAlignment = Alignment.CenterStart) {
+                BasicText("Type to open", style = Ts(c.muted, 16.sp))
             }
             Box(
                 Modifier.size(54.dp).background(c.accent, CardShape).clickable(role = Role.Button, onClick = onQuickAdd).semantics { contentDescription = "Quick add" },

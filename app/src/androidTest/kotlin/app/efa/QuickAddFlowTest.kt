@@ -18,6 +18,11 @@ import kotlin.test.assertTrue
 /** Instrumented UI flow on a device or emulator. Names start with the ledger IDs they prove. */
 @RunWith(AndroidJUnit4::class)
 class QuickAddFlowTest {
+    companion object {
+        @JvmStatic @org.junit.BeforeClass fun gateOff() { SetupGate.enforced = false }
+        @JvmStatic @org.junit.AfterClass fun gateOn() { SetupGate.enforced = true }
+    }
+
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
     @Before fun clean() {

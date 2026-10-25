@@ -32,6 +32,7 @@ object BlockingState {
             val pattern = db.pattern().all().map { it.toSlot() }
             val repo = BlockingRepo(db)
             val now = now()
+            android.util.Log.i("efa-state", "snapshot loaded: ${pattern.size} blocks")
             snapshot = Snapshot(
                 pattern = pattern, list = repo.list().orEmpty(), allow = repo.allowances(now),
                 verified = BlockRepo(ctx, db, pattern).verifiedKeys(),

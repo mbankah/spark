@@ -111,25 +111,6 @@ fun ListWallGate(onPassed: () -> Unit, onCancel: () -> Unit) {
     }
 }
 
-/**
- * U4, X5: when blocking has been switched off, home becomes one screen that says so and how to fix it. Android cannot stop the
- * service being switched off. It can only be noticed, logged, and made the only thing on screen.
- */
-@Composable
-fun RestoreScreen(onOpenSettings: () -> Unit, onSetup: () -> Unit) {
-    val c = LocalColors.current
-    Column(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Label("RESTORE THIS")
-        BasicText("Blocking is off", style = Ts(c.text, 32.sp, FontWeight.SemiBold))
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            BasicText("The Spark accessibility service was switched off in Android settings. Until it is on, none of your blocks work. This was recorded.", style = Ts(c.text, 16.sp))
-            BasicText("Switch it back on: Accessibility, then Spark blocking, then On.", style = Ts(c.muted, 14.sp))
-        }
-        Btn("Open accessibility settings", onOpenSettings, primary = true, modifier = Modifier.fillMaxWidth())
-        Btn("Setup", onSetup, modifier = Modifier.fillMaxWidth())
-    }
-}
-
 /** What the Setup screen shows about notifications. */
 data class NotificationsStatus(val accessOn: Boolean, val bufferNoticeOn: Boolean)
 

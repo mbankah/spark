@@ -139,6 +139,11 @@ class HeldNotificationsE2ETest {
 /** The persistent Buffer notification (B2, LA11). */
 @RunWith(AndroidJUnit4::class)
 class BufferNoticeE2ETest {
+    companion object {
+        @JvmStatic @org.junit.BeforeClass fun gateOff() { SetupGate.enforced = false }
+        @JvmStatic @org.junit.AfterClass fun gateOn() { SetupGate.enforced = true }
+    }
+
     private val inst = InstrumentationRegistry.getInstrumentation()
     private val screen = TestScreen(inst)
     private lateinit var ctx: Context

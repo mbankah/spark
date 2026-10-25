@@ -115,3 +115,20 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | L2 | Set the phone font size to the largest. | Text scales and nothing is cut off or overlaps. |
 | L3 | Turn on TalkBack and swipe through home. | Each card is read as one item with its meaning ("Buffer. +4.5h. Available 17.5h. Work 13.0h. Tap for the working."). |
 | L4 | Tap Phone, Msgs and Maps on home. | Your phone, messaging and maps apps open. Tell me if one does nothing. |
+
+## The launcher as the home app (slice 9)
+
+| # | Do this | Expected |
+|---|---|---|
+| H1 | Install Spark and open it for the first time. | "Set up Spark" with one step at a time, each with its reason in plain words and one button. Phone, Msgs and Maps are one tap away the whole time. |
+| H2 | Follow the steps: accessibility, block list, notification access, notification permission, camera, location, battery. | Each step shows "Done" when finished and the next one appears. The default home app is last. |
+| H3 | Last step: "Make Spark my home app", choose Spark, then Always. | Pressing Home shows Spark. |
+| H4 | Switch the accessibility service off in Android settings, then open Spark. | Home becomes one screen "Something is switched off" with one button to put it back. Phone, Msgs and Maps still work. |
+| H5 | Change the home app back to your old launcher in Android settings. | Spark notices on next open and the restore screen offers "Make Spark my home app". |
+| H6 | Restart the phone. Do not open Spark. | After unlocking: Home shows Spark, the Buffer notification is there, and a blocked app is blocked. |
+| H7 | On home, tap "Type to open" and type "cam". | The keyboard is already open. Camera appears on every key. No recent list is shown when nothing is typed. |
+| H8 | During a work block, type the name of a blocked app. | It is shown as muted text with the reason. Tapping it ends at the blocked card. |
+| H9 | Turn on aeroplane mode and open Spark. | Everything on home still shows. Nothing says "unavailable" because of the network. |
+| H10 | Cold start: swipe Spark away from recents, press Home. | Home is on screen in about a second. Tell me how long it really takes. |
+| H11 | If Spark ever crashes 3 times in 10 minutes. | The phone's own launcher takes over, Spark keeps blocking, and a notice offers to put Spark back. (Hard to cause on purpose: this is covered on the emulator by a test that records three crashes.) |
+| H12 | After 100 restarts (or a week of normal use). | Tell me if the launcher or blocking ever failed to start by itself, and when. |

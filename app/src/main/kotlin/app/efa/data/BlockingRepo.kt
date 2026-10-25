@@ -41,6 +41,17 @@ class BlockingRepo(private val db: EfaDb) {
     /** Overrides already used in the current night window, so the next string is longer (N4). */
     suspend fun nightUsesSince(since: ZonedDateTime): Int = db.allowances().nightUsesSince(since.toInstant().toEpochMilli())
 
+    /**
+     * U4, X5: a setup step that was done and is no longer (a permission switched off, the home app changed) is logged once when it goes
+     * off and once when it is back. [wasEverComplete] is false during first run, when nothing is "lost" yet. Kept 1 year (ST4).
+     */
+    suspend fun noteStep(step: String, ok: Boolean, wasEverComplete: Boolean, nowMs: Long) = db.withTransaction {
+        val key = "tamper_open_$step"
+        val open = db.meta().get(key) == "1"
+        if (wasEverComplete && !ok && !open) { db.tamper().insert(TamperRow(atMs = nowMs, kind = "step_off", detail = step)); db.meta().put(MetaRow(key, "1")) }
+        if (ok && open) { db.tamper().insert(TamperRow(atMs = nowMs, kind = "step_restored", detail = step)); db.meta().put(MetaRow(key, "0")) }
+    }
+
     /** U4, X5: logs a tamper event once when blocking goes off and once when it is restored. Kept 1 year (ST4). */
     suspend fun noteServiceState(listSet: Boolean, serviceOn: Boolean, nowMs: Long) = db.withTransaction {
         val open = db.meta().get("tamper_open") == "1"

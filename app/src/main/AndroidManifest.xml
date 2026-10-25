@@ -13,27 +13,47 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <!-- LA11: the persistent Buffer notification. Asked in the app with its reason. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- U3: fill the Buffer notification at boot. A2: ask Android not to put the blocking service to sleep. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <queries><package android:name="com.instructure.candroid" /></queries>
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
+        android:name=".SparkApp"
         android:theme="@android:style/Theme.Material.NoActionBar">
-        <!-- Home app (U3, LA3): selectable as the default home. launchMode keeps one instance. -->
+        <!-- The app itself, opened from its icon. One instance. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:stateNotNeeded="true"
-            android:excludeFromRecents="false">
+            android:stateNotNeeded="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- Home app (U3, LA3): the same activity as a home-screen candidate. It is a separate alias so it can be switched off alone, which
+             is how Spark hands the home screen back to Android after 3 crashes in 10 minutes while staying openable from its icon. -->
+        <activity-alias
+            android:name=".HomeAlias"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:enabled="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
         <!-- The card shown instead of a blocked app (U7, LA8, LA10). Not in recents, so back and home cannot loop. -->
         <activity
             android:name=".BlockedActivity"

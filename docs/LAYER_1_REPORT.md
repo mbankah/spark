@@ -200,3 +200,27 @@ Everything above is a JVM unit test. Nothing has run on a phone. This machine ha
 - Restore screen does not yet list notification access being switched off; Setup shows it.
 - The 45-minute night override on a fully verified day, earned phone access, and the launcher as default home with boot start are still to do.
 - Everything above is emulator-only. See `docs/DEVICE_TESTS.md` N1 to N15 and L1 to L4.
+
+## Update: the launcher as the default home, the permission sequence and boot start (U1 to U3, LA3, LA14)
+
+**Built:**
+- `core/.../Launcher.kt`: the setup steps and their order (the default home app is last, so an unfinished setup never traps you), which step is next, what is "later", the crash rule (3 crashes in 10 minutes), and app search ranking.
+- A home entry (`HomeAlias`) so Spark can be chosen as the home app, and the home role flow in Setup.
+- First-run setup, one step at a time with its reason and one button; the same screen becomes the restore screen when something is later switched off (U4). Phone, Msgs and Maps stay one tap away throughout.
+- "Type to open" search: the keyboard opens by itself, a few letters find an app, no recent list (LA5). Blocked apps show as muted text with the reason.
+- Boot start: a boot receiver refreshes blocking and the Buffer notification after a restart or an update.
+- Crash hand-over: after 3 crashes in 10 minutes Spark switches its own home entry off so the phone's own launcher takes over, blocking keeps running, it is logged once, and home offers "Put Spark back as a home choice".
+- Tamper log rows when a setup step goes off and when it is back (`step_off`, `step_restored`).
+- Release build with shrinking, for speed testing.
+
+**Tested:**
+- `:core:test`: 192 tests, 0 failed.
+- `:app:connectedDebugAndroidTest`: 140 tests, 0 failed on the `efa_test` emulator. New: setup flow screens, search screens, making Spark the home role and pressing Home, the role changing away, the 3-crash hand-over and restore, use with wifi and data off.
+- LA14 reboots: 100 restarts of the emulator (`tools/launcher-check.py`, results in `docs/launcher-check-1-83.csv`, `docs/launcher-check-84-90.csv` and `docs/launcher-check-91-100.csv`): 83 in the first file, 7 in the second and 10 in the third. After every one Spark was the home app, the accessibility service was bound, the Buffer notification was posted, the schedule snapshot loaded, and there were no crashes.
+
+**Found by testing:** my first reboot runs failed because the script force-stopped Spark, which makes Android switch its accessibility service off. That was the script, not Spark. The emulator also gets slower after about a dozen restarts, so the run was done in three parts.
+
+**Not met or not proven:**
+- LA4 speed is not met: cold start median 1.2 s on the emulator (see Q-G38), and the 100 ms keystroke figure is only proven for the matching, not the screen (Q-G39).
+- Nothing here is proven on a real phone. A real phone may block or reset accessibility and notification access differently (restricted settings), and real battery management is untested. See `docs/DEVICE_TESTS.md` H1 to H12.
+- Every route in LA8 other than opening from the launcher and search is still not tested, and the digest has not been checked for completeness over a real day.

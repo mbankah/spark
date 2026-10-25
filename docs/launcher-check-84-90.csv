@@ -1,0 +1,8 @@
+boot,seconds,home,service,notification,snapshot,start_ms,launch,crashes,enabled,ok
+1,30,True,True,True,True,0,UNKNOWN,0,True,True
+2,30,True,True,True,True,0,UNKNOWN,0,True,True
+3,30,True,True,True,True,0,UNKNOWN,0,True,True
+4,19,True,True,True,True,0,UNKNOWN,0,True,True
+5,32,True,True,True,True,0,UNKNOWN,0,True,True
+6,31,True,True,True,True,0,UNKNOWN,0,True,True
+7,30,True,True,True,True,0,UNKNOWN,0,True,True

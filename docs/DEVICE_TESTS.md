@@ -132,3 +132,23 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | H10 | Cold start: swipe Spark away from recents, press Home. | Home is on screen in about a second. Tell me how long it really takes. |
 | H11 | If Spark ever crashes 3 times in 10 minutes. | The phone's own launcher takes over, Spark keeps blocking, and a notice offers to put Spark back. (Hard to cause on purpose: this is covered on the emulator by a test that records three crashes.) |
 | H12 | After 100 restarts (or a week of normal use). | Tell me if the launcher or blocking ever failed to start by itself, and when. |
+
+## Timetable import and automatic catch-up (slice 10)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| T1 | In Setup, press "Copy the format for an AI". Paste it into an AI app with a screenshot or text of your timetable. | The AI answers with only a CSV whose first line is `kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes`. |
+| T2 | In the AI app, use Share on that CSV, as a file or as text, and choose Spark. | Spark opens at "Import a timetable file" with a preview. Nothing is stored yet. Tell me if Spark is missing from the Share list. |
+| T3 | Do the same from a file manager with Open with. | The same preview. |
+| T4 | Edit one line of the CSV so a time is `25:00`, and share it again. | A list of problems, each saying the line and the column, "Nothing was changed", and no Apply button. |
+| T5 | Share a good file. Read the preview. | What is added, what is cancelled, "Buffer now" and "Buffer with this file", and any warnings. |
+| T6 | Press Apply on a file that only adds. | "Done". The new lectures appear in Now and Next on their days, the deadline appears in the Buffer working. |
+| T7 | Share the same file again. | "Nothing in this file changes anything". No duplicates. |
+| T8 | Share a file that cancels a lecture. | The preview says "This file loosens" and the button says "Apply, with the wall". Typing the 75 characters applies it, and not before. |
+| T9 | Setup, Import a timetable file, press Remove on the import and pass the wall. | Its events and deadlines go. The weekly pattern is as it was. |
+| T10 | Skip a study block or lecture without taking its photo. Next morning, open home. | A card "Moved for you" says what came back, how long, and when it is due. The Buffer working has a "Catch-up: ..." line. It appears once. |
+| T11 | Add a big deadline so the Buffer goes under its margin. Look at tomorrow. | Some free time shows as "Work (was free time)" and the card says why. Your protected free time (Monday evening and Saturday afternoon in Week B) is untouched. Tell me if too much or too little turned into work. |
+| T12 | Plan an assignment week in a file. | Home says "Assignment week, until ...". Equal-deadline work is placed deadline first. |
+| T13 | Do a proven study block with a task open. | The task's remaining time falls by the minutes the block was credited. |
+| T14 | Open a block that has a task placed in it. | Its line says "Includes: ..." with the minutes, and a big task shows split across several blocks. |
+| T15 | Time how long Spark takes from tapping its icon to the home screen after a restart, and again a few hours after installing. | About half a second after the app has had time to compile itself (the baseline profile). Tell me the real numbers. |

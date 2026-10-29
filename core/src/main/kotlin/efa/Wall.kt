@@ -19,6 +19,7 @@ object WallLength {
     const val OPEN_BLOCKED_APP = WALL_BASE // LA9
     const val FREE_SLOT_CHANGE = WALL_BASE // F4
     const val TAMPER = WALL_BASE           // K6, X5
+    const val IMPORT_LOOSEN = WALL_BASE    // IM6, IM12
 }
 
 /** Fresh random string every time. Easily confused characters left out; no spaces. */

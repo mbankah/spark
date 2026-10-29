@@ -633,4 +633,47 @@ Added on 23 October 2026 after you picked the industrial style. The industrial d
 | AP7 | Mode changes apply at once. A mode cannot hide a block or lower any rule. | Default |
 | AP8 | Tests: text contrast of 4.5:1 or better in all four modes, readability in Night mode at its dim level, the Auto switch around the cutoff, the clock change on 25 October 2026, and the same dial value shown in every mode. | Locked |
 
+## 25. Timetable import, assignment and catch-up weeks, and automatic catch-up
+
+Added on 29 October 2026 at your request. The timetable can adapt from a CSV file that an AI or you build, assignment weeks and catch-up weeks can be planned, and missed work comes back by itself and is placed in free time. This section only adds. It reuses D1, D2, D3, D5, Z4, C1, F2, F3, G3, H1, H6, P8, B6, W2 and section 10, and where it seems to differ from them, they win.
+
+**The file**
+
+| # | Decision | Status |
+| --- | --- | --- |
+| IM1 | One CSV format, version 1, with one header and three kinds of row: event (a lecture, tutorial, MyTutor session, training, match, gym, church, errand or walk on a date, or the cancelling of one), deadline (a title, the date and time it is due, and a heaviness) and period (an assignment week or a catch-up week). | Locked |
+| IM2 | The same file is read the same way on every platform, from one written format and one set of shared test files. It works on Android now. The web app and the Windows service read it when they exist, from the same format and the same test files. | Locked; web and Windows not built yet |
+| IM3 | A table an AI can use to build the file is in `docs/TIMETABLE_CSV.md` with a ready prompt, and the app has a button that copies the same table and prompt. | Locked |
+| IM4 | The whole file is checked before anything is applied. Any error rejects the whole file, and each error says the line, the column and what to change. Nothing is guessed or fixed silently. | Locked |
+| IM5 | A preview comes before applying: what is added, what is cancelled, the Buffer before and after, and the warnings. Applying always asks. A file that arrives from another app never applies on its own. | Locked |
+| IM6 | A file can add and tighten freely. Anything that loosens needs the typed wall of 75 characters once for the file: cancelling a fixed commitment, or an event that takes time from a work block. A file can never create, shorten or remove a study block, a day off or a meal. | Locked; length Default |
+| IM7 | A deadline row is the same as quick-add (D2). A lecture or tutorial that a file adds creates its study cycle (D1), standard unless the file says light or none. | Locked |
+| IM8 | Importing the same row or the same file twice changes nothing the second time. | Locked |
+| IM9 | The reader accepts files up to 1 MB and 2000 rows, in UTF-8, with commas, semicolons or tabs, and quoted cells. It never calculates a cell, so a cell that starts with = + - or @ is only text. The file is read on the phone and sent nowhere. | Locked |
+| IM10 | On Android a file reaches Spark by Open with, by Share from any app (a file or plain text), or by the Import button in Setup. | Locked |
+| IM11 | Applying is all or nothing. If it fails part way, everything is as it was before and the screen says so (X7). | Locked |
+| IM12 | An import can be removed from a list of imports. Removing one needs the typed wall, because it can remove a commitment or a deadline. | Default |
+
+**Assignment weeks and catch-up weeks**
+
+| # | Decision | Status |
+| --- | --- | --- |
+| PW1 | An assignment week and a catch-up week are planned periods (C1) of 1 to 14 days, from a file or in the app. A day off and a library period stay planned in the app, where a day off goes through its wall (H1). | Locked |
+| PW2 | A period changes only the order in which work is placed: in an assignment week, deadline work comes before catch-up work when deadlines are equal, and in a catch-up week it is the other way round. It never moves a deadline, never removes work and never lowers a rule. | Default |
+| PW3 | Home says which period is running and when it ends, for example "Assignment week, until Fri 6 Nov". | Default |
+
+**Missed work and free time**
+
+| # | Decision | Status |
+| --- | --- | --- |
+| RS1 | A lecture, tutorial or work block that ended without its proof, once its backfill window has closed (B7, next morning), comes back as work in the Buffer. A lecture comes back at its own length and a study cycle at its cycle size, due by the end of the next day (D5), with the reason shown (Z4). | Default |
+| RS2 | Work is placed earliest deadline first into the work blocks that end before its deadline, and a task too big for one block is split across several. | Locked |
+| RS3 | When the Buffer is under its margin (F3), free time turns into work from tomorrow onward, one whole free slot at a time, earliest first, only if it ends before the deadline that drives the Buffer. The 6 hours a week of protected free time (G3) never turn into work, and sleep, meals, hard commitments, resets and transitions are never touched (section 10). | Locked |
+| RS4 | If everything still does not fit, the Buffer goes negative with the working shown, and nothing is dropped, hidden or forgiven. | Locked |
+| RS5 | A missed block comes back once, however many times the app looks at it. | Locked |
+| RS6 | Work counts only with proof. A proven work block reduces the open tasks, earliest deadline first, by the minutes it credited (P8). | Locked |
+| RS7 | Missed time stays lost (P8, B6, W2). Bringing the work back does not restore the time. Only the claim in H6 can. | Locked |
+| RS8 | Every automatic move is shown with its reason, and the free time that turned into work is shown as work. | Locked |
+| RS9 | Tests: a bad file of every kind is rejected with its line and column, a good file applies, the same file twice changes nothing, a failed apply changes nothing, a loosening file needs the wall, missed work comes back once and is placed and split, protected free time is never converted, and the clock change on 25 October 2026 holds. | Locked |
+
 The ledger has no Open items. Lines marked Default here are still to be confirmed by you.

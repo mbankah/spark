@@ -92,11 +92,6 @@ let kt = `package efa
 
 import java.time.DayOfWeek
 
-data class PatternSlot(
-    val day: DayOfWeek, val startMin: Int, val endMin: Int, val title: String, val type: String,
-    val venue: String, val hardAlarm: Boolean, val notes: String,
-)
-
 object WeekB {
     val slots: List<PatternSlot> = listOf(
 `;

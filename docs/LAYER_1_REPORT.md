@@ -224,3 +224,31 @@ Everything above is a JVM unit test. Nothing has run on a phone. This machine ha
 - LA4 speed is not met: cold start median 1.2 s on the emulator (see Q-G38), and the 100 ms keystroke figure is only proven for the matching, not the screen (Q-G39).
 - Nothing here is proven on a real phone. A real phone may block or reset accessibility and notification access differently (restricted settings), and real battery management is untested. See `docs/DEVICE_TESTS.md` H1 to H12.
 - Every route in LA8 other than opening from the launcher and search is still not tested, and the digest has not been checked for completeness over a real day.
+
+## Update: timetable import, assignment and catch-up weeks, automatic catch-up, and launcher speed (section 25)
+
+Built early at your request. It fits the app (see `docs/IMPORT_COMPLIANCE.md`), with limits the ledger already sets.
+
+**Built:**
+- One CSV format, version 1 (`docs/TIMETABLE_CSV.md`): events (add or cancel), deadlines and periods (assignment week, catch-up week). The reader checks the whole file, names the line and column of every problem, and applies nothing if there is one. It accepts commas, semicolons or tabs, quotes, UK or ISO dates, a byte-order mark, up to 1 MB and 2000 rows, and never calculates a cell.
+- The table and prompt an AI needs, in the document and behind a "Copy the format for an AI" button, tested to be the same text.
+- Import from Share (a file or plain text from an AI app), Open with, or Setup. Always a preview first: what is added or cancelled, the Buffer before and after, and the warnings. A file that cancels a commitment or takes time from a study or code block needs the 75-character wall once. Applying is one transaction. The same file twice changes nothing. An import can be removed (wall).
+- Dated changes to the weekly pattern (imported events, cancels, free time turned into work), kept apart from the pattern, so a pattern with none behaves exactly as before.
+- Missed lectures, tutorials, study blocks and code blocks come back as work in the Buffer once the backfill window has closed, due the end of the next day, with the reason on home ("Moved for you"). The lost time is not forgiven.
+- Free time turns into work under F2 and F3 (from tomorrow, whole slots, under the 17.5% or 2-hour margin, before the driving deadline), never the protected 6 hours a week. Tasks are placed earliest deadline first and split across blocks; a block says what is placed in it. An assignment week or a catch-up week changes only which work goes first and what home says.
+- A proven study or code block now credits the open tasks (earliest deadline first), so work can finally be finished.
+- Launcher speed: a baseline profile for Spark's own code.
+- Database version 7 with its migration. Ledger section 25 (IM1 to IM12, PW1 to PW3, RS1 to RS9), questions Q-G40 to Q-G47.
+
+**Tested:**
+- `:core:test`: 298 tests, 0 failed. They include the reader on every kind of bad file and 4000 random garbage files, the shared example files, the wall rule over 300 random files, idempotence over 100 random files, protected free time over a 9-week term, and placing random tasks without losing a minute.
+- `:app:connectedDebugAndroidTest` on the `efa_test` emulator: 179 tests, 0 failed (was 140). New: storage, atomic apply, migration 6 to 7, credit from a verified block, the import screens, Share and Open with end to end including the wall, and the blocker's refresh doing the automatic work.
+- Cold start, release build with the profile installed (`tools/cold-start.py 10 --compile`): median 0.4 s, all 10 under 1 s. Frame time for each search keystroke is under 100 ms.
+
+**Found by testing:** the Buffer is the smallest slack across deadlines, so adding a later deadline can leave the number unchanged. The preview therefore names the deadline the Buffer is measured to. Real use also showed the automatic step creating catch-up work from earlier test days on the emulator, which is the feature working, and my first tests had assumed an empty list.
+
+**Not built or not proven:**
+- Web and Windows read the same format only once they exist (Q-G47). Sharing a file to the web needs the sync layer.
+- No walks are added for an imported lecture (Q-G45). A day off and a library week are still planned in the app, which is layer 8.
+- What a week does beyond ordering work (Q-G40), how much free time converts (Q-G41, Q-G42) and which missed things return (Q-G43) are defaults for you to confirm.
+- Speed and every share route are emulator results only. See `docs/DEVICE_TESTS.md` T1 to T15.

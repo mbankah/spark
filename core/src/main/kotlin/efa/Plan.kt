@@ -62,13 +62,18 @@ private val DEADLINE_FMT = DateTimeFormatter.ofPattern("EEE d MMM HH:mm")
  * NoDeadline (D6). Q-G4/Q-G11 in docs/QUESTIONS.md.
  */
 fun bufferNow(now: ZonedDateTime, work: List<DueWork>, pattern: List<PatternSlot>, shortSleep: Boolean,
-              weights: ShortSleepWeights = ShortSleepWeights()): BufferState {
-    if (work.isEmpty()) return BufferState.NoDeadline
+              weights: ShortSleepWeights = ShortSleepWeights()): BufferState =
+    bufferDetail(now, work, pattern, shortSleep, weights)?.let { BufferState.Value(it.first) } ?: BufferState.NoDeadline
+
+/** The Buffer result with the deadline that drives it, or null when there is no deadline (D6). The free-slot rule needs the deadline (F3, B9). */
+fun bufferDetail(now: ZonedDateTime, work: List<DueWork>, pattern: List<PatternSlot>, shortSleep: Boolean,
+                 weights: ShortSleepWeights = ShortSleepWeights()): Pair<BufferResult, ZonedDateTime>? {
+    if (work.isEmpty()) return null
     val results = work.map { it.due }.distinct().sorted().map { d ->
         val tasks = work.filter { !it.due.isAfter(d) }.map { Task(it.title, it.hours, it.heaviness) }
         val avail = workCapableHours(pattern, now, d)
         val r = (computeBuffer(avail, tasks, shortSleep, weights) as BufferState.Value).result
-        r.copy(deadlineLabel = DEADLINE_FMT.format(d))
+        r.copy(deadlineLabel = DEADLINE_FMT.format(d)) to d
     }
-    return BufferState.Value(results.minBy { it.hours })
+    return results.minBy { it.first.hours }
 }

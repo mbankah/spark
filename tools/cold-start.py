@@ -1,5 +1,5 @@
 # LA4: the launcher's cold start, measured from outside Spark (a test inside Spark cannot kill its own process).
-#   python tools/cold-start.py 10
+#   python tools/cold-start.py 10 --compile     (--compile installs the baseline profile first, as a phone does a little after install)
 # Stopping the app switches its accessibility service off in Android, so the service is put back at the end.
 import re
 import statistics
@@ -15,7 +15,12 @@ def sh(cmd):
     return subprocess.run([ADB, 'shell', cmd], capture_output=True, text=True, timeout=120).stdout
 
 
-n = int(sys.argv[1]) if len(sys.argv) > 1 else 10
+n = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 10
+if '--compile' in sys.argv:
+    # What a phone does by itself a little after install: the baseline profile in the APK is installed and the app compiled from it.
+    sh('am start -n app.efa/.MainActivity'); time.sleep(5)
+    sh('am broadcast -a androidx.profileinstaller.action.INSTALL_PROFILE app.efa/androidx.profileinstaller.ProfileInstallReceiver'); time.sleep(3)
+    sh('cmd package compile -f -m speed-profile app.efa')
 times = []
 for _ in range(n):
     sh('am force-stop app.efa')

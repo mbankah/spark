@@ -92,6 +92,7 @@ class BlockRepo(
             fingerprint = processed.fingerprint, thumbPath = file.absolutePath, thumbBytes = processed.thumb.size))
         db.blocks().upsert((row ?: newRow(ds)).copy(verified = true, creditedMin = v.creditedMinutes, recovered = v.recovered,
             weaker = v.weaker, provenAtMs = now.toInstant().toEpochMilli()))
+        creditTasks(ds, v.creditedMinutes, now)
         return v
     }
 
@@ -125,6 +126,7 @@ class BlockRepo(
             val ms = now.toInstant().toEpochMilli()
             db.commits().insert(CommitUseRow(sha, blockKey(ds), ms))
             db.blocks().upsert((row ?: newRow(ds)).copy(verified = true, creditedMin = v.creditedMinutes, recovered = v.recovered, weaker = false, provenAtMs = ms))
+            creditTasks(ds, v.creditedMinutes, now)
         }
         return v
     }
@@ -150,6 +152,13 @@ class BlockRepo(
         val rows = db.photos().withThumbs()
         rows.forEach { r -> r.thumbPath?.let { File(it).delete() }; db.photos().dropThumb(r.id) }
         return rows.size
+    }
+
+    /** RS6: a proven study or code block reduces the open tasks. Cycles and lectures have their own work and credit nothing here. */
+    private suspend fun creditTasks(ds: DatedSlot, creditedMin: Int, now: ZonedDateTime) {
+        if (ds.slot.type !in TASK_SLOT_TYPES || creditedMin <= 0) return
+        val plan = PlanRepo(db)
+        plan.credit(creditedMin, now.toInstant().toEpochMilli(), activePeriod(plan.periods(), now.toLocalDate()))
     }
 
     private fun lastWake(now: ZonedDateTime): ZonedDateTime? =

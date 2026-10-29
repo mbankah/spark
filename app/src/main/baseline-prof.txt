@@ -1,0 +1,6 @@
+# Baseline profile for Spark (LA4). Compose, Room and AndroidX ship their own rules inside their libraries; these cover Spark's own code so the
+# classes the home screen needs at start are compiled ahead of time. H = hot, S = used at startup, P = used after startup.
+HSPLapp/efa/**->**(**)**
+HSPLefa/**->**(**)**
+Lapp/efa/**;
+Lefa/**;

@@ -1,0 +1,7 @@
+kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
+event,2026-11-03,,16:30,17:30,Cryptography lecture,lecture,Watson LT A,,standard,,
+event,2026-11-02,,09:00,10:00,Randomness and Computation lecture,lecture,,,,cancel,Moved to Wednesday
+event,2026-11-04,,09:00,10:00,Randomness and Computation lecture,lecture,Murray LC-UG05,,none,,
+deadline,2026-11-06,,12:00,,CS Project report,,,8,,,
+period,2026-11-02,2026-11-06,,,Assignment week,assignment_week,,,,,
+period,2026-11-09,2026-11-13,,,,catch_up_week,,,,,

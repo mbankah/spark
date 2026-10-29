@@ -27,17 +27,24 @@ class QuickAddFlowTest {
 
     @Before fun clean() {
         // Start each test with no stored tasks; the seeded pattern stays.
-        EfaDb.get(ApplicationProvider.getApplicationContext<Context>()).openHelper.writableDatabase.execSQL("DELETE FROM task")
+        val w = EfaDb.get(ApplicationProvider.getApplicationContext<Context>()).openHelper.writableDatabase
+        w.execSQL("DELETE FROM task"); w.execSQL("DELETE FROM overlay_item")
+        // Missed blocks since first use come back as work (RS1), and that would change which deadline the Buffer is measured to. Start as if first used now.
+        w.execSQL("UPDATE meta SET value = '${System.currentTimeMillis()}' WHERE key = 'first_use_epoch_ms'")
     }
 
     @Test fun D2_B3_quick_add_title_then_save_gives_a_real_Buffer_with_working() {
         rule.onNodeWithContentDescription("Quick add").performClick()
         rule.onNodeWithContentDescription("Title").performTextInput("Neural Computation coursework")
         rule.onNodeWithContentDescription("Heaviness 8 of 10").performClick()
+        // Due tonight at 23:59, so this task is always the deadline the Buffer is measured to, whatever the time of day the test runs.
+        rule.onNodeWithText("Today").performClick(); rule.onNodeWithText("23:59").performClick()
         rule.onNodeWithText("Save").performClick()
         // Back home, the Buffer card is a real number and opens its working.
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Tap dial for the sum").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription("Buffer", substring = true).performClick()
+        rule.onNode(SemanticsMatcher("is the Buffer card") { n ->
+            (androidx.compose.ui.semantics.SemanticsProperties.ContentDescription in n.config && n.config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].firstOrNull()?.startsWith("Buffer.") == true)
+        }).performClick()
         rule.onNodeWithText("Buffer working").assertExists()
         rule.onNodeWithText("Neural Computation coursework (heaviness 8): 10.0h x 1.0 = 10.0h", substring = true).assertExists()
     }

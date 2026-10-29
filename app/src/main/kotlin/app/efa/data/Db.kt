@@ -29,7 +29,7 @@ data class MetaRow(@PrimaryKey val key: String, val value: String)
  * hoursEstimate is fixed at entry from the heaviness slider; calibration (layer 7) will correct it.
  * `doneAtMs` stays null until a proven block completes it, so nothing counts as done without proof (P8).
  */
-@Entity(tableName = "task")
+@Entity(tableName = "task", indices = [Index(value = ["sourceKey"], unique = true)])
 data class TaskRow(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
@@ -37,7 +37,76 @@ data class TaskRow(
     val heaviness: Int, val hoursEstimate: Double,
     val createdMs: Long,
     val doneAtMs: Long? = null,
+    /** "manual" (quick-add), "import" (a deadline row), "import-cycle" (a lecture a file added, D1) or "missed" (RS1). */
+    @ColumnInfo(defaultValue = "'manual'") val source: String = "manual",
+    /** Makes an automatic or imported task appear once (IM8, RS5). Null for quick-add. */
+    val sourceKey: String? = null,
+    /** Minutes of proven work already credited to this task (RS6). */
+    @ColumnInfo(defaultValue = "0") val doneMin: Int = 0,
+    val importId: Long? = null,
+    /** Why an automatic task exists, shown to you (RS8, Z4). */
+    @ColumnInfo(defaultValue = "''") val reason: String = "",
+) {
+    fun remainingHours() = (hoursEstimate - doneMin / 60.0).coerceAtLeast(0.0)
+    fun remainingMin() = Math.ceil(hoursEstimate * 60 - doneMin).toInt().coerceAtLeast(0)
+    fun dueAt(): java.time.ZonedDateTime = java.time.Instant.ofEpochMilli(dueMs).atZone(java.time.ZoneId.of(dueZone))
+    fun toDue() = efa.DueWork(title, remainingHours(), heaviness, dueAt())
+}
+
+/**
+ * A dated change to the weekly pattern (IM1): an imported event or cancel, or free time turned into work (F3). `rowHash` makes a row
+ * appear once however often it is offered (IM8). `reason` is what the person is told (RS8).
+ */
+@Entity(tableName = "overlay_item", indices = [Index(value = ["rowHash"], unique = true)])
+data class OverlayRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val date: String, val startMin: Int, val endMin: Int,
+    val title: String, val type: String, val venue: String, val notes: String,
+    val hardAlarm: Boolean, val cancelled: Boolean,
+    val kind: String,            // "import" or "convert"
+    val rowHash: String, val importId: Long?, val reason: String, val createdMs: Long,
+) {
+    fun toSlot(): PatternSlot { val d = java.time.LocalDate.parse(date); return PatternSlot(d.dayOfWeek, startMin, endMin, title, type, venue, hardAlarm, notes, d, cancelled) }
+}
+
+/** An assignment week or a catch-up week (PW1). It orders work and labels home; it moves nothing (PW2). */
+@Entity(tableName = "period", indices = [Index(value = ["rowHash"], unique = true)])
+data class PlannedPeriodRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val startDate: String, val endDate: String, val kind: String, val title: String, val rowHash: String, val importId: Long?,
 )
+
+/** One applied file (IM8, IM12). `fileHash` stops the same file being logged twice; removing the import deletes its row. */
+@Entity(tableName = "import_log", indices = [Index(value = ["fileHash"], unique = true)])
+data class ImportLogRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val atMs: Long, val name: String, val fileHash: String, val summary: String,
+)
+
+@Dao
+interface OverlayDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: OverlayRow): Long
+    @Query("SELECT * FROM overlay_item ORDER BY date, startMin") suspend fun all(): List<OverlayRow>
+    @Query("SELECT rowHash FROM overlay_item") suspend fun hashes(): List<String>
+    @Query("DELETE FROM overlay_item WHERE importId = :importId") suspend fun deleteByImport(importId: Long): Int
+    @Query("SELECT * FROM overlay_item WHERE kind = 'convert' AND createdMs >= :sinceMs ORDER BY createdMs") suspend fun convertedSince(sinceMs: Long): List<OverlayRow>
+}
+
+@Dao
+interface PeriodDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: PlannedPeriodRow): Long
+    @Query("SELECT * FROM period ORDER BY startDate") suspend fun all(): List<PlannedPeriodRow>
+    @Query("SELECT rowHash FROM period") suspend fun hashes(): List<String>
+    @Query("DELETE FROM period WHERE importId = :importId") suspend fun deleteByImport(importId: Long): Int
+}
+
+@Dao
+interface ImportDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: ImportLogRow): Long
+    @Query("SELECT * FROM import_log ORDER BY id DESC") suspend fun all(): List<ImportLogRow>
+    @Query("SELECT * FROM import_log WHERE fileHash = :hash") suspend fun byHash(hash: String): ImportLogRow?
+    @Query("DELETE FROM import_log WHERE id = :id") suspend fun delete(id: Long)
+}
 
 /**
  * One block on one planned day (key from efa.blockKey). `holdAtMs` is when the one-second hold finished (W1).
@@ -159,7 +228,14 @@ interface PhotoDao {
 @Dao
 interface TaskDao {
     @Insert suspend fun insert(row: TaskRow): Long
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertOnce(row: TaskRow): Long
     @Query("SELECT * FROM task WHERE doneAtMs IS NULL ORDER BY dueMs") suspend fun open(): List<TaskRow>
+    @Query("SELECT * FROM task WHERE source = 'missed' AND createdMs >= :sinceMs ORDER BY createdMs") suspend fun missedSince(sinceMs: Long): List<TaskRow>
+    @Query("SELECT sourceKey FROM task WHERE sourceKey IS NOT NULL") suspend fun sourceKeys(): List<String>
+    @Query("UPDATE task SET doneMin = doneMin + :min WHERE id = :id") suspend fun addDone(id: Long, min: Int)
+    @Query("UPDATE task SET doneAtMs = :nowMs WHERE id = :id") suspend fun close(id: Long, nowMs: Long)
+    @Query("SELECT * FROM task WHERE id = :id") suspend fun get(id: Long): TaskRow?
+    @Query("DELETE FROM task WHERE importId = :importId AND doneMin = 0") suspend fun deleteByImport(importId: Long): Int
 }
 
 @Dao
@@ -176,7 +252,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class], version = 6, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class], version = 7, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -188,11 +264,14 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun allowances(): AllowanceDao
     abstract fun tamper(): TamperDao
     abstract fun held(): HeldDao
+    abstract fun overlay(): OverlayDao
+    abstract fun periods(): PeriodDao
+    abstract fun imports(): ImportDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { inst = it }
         }
     }
 }
@@ -229,6 +308,23 @@ val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
         connection.execSQL("CREATE TABLE IF NOT EXISTS `held_notification` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `pkg` TEXT NOT NULL, `label` TEXT NOT NULL, `title` TEXT NOT NULL, `text` TEXT NOT NULL, `atMs` INTEGER NOT NULL, `reviewedAtMs` INTEGER)")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `tamper` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `atMs` INTEGER NOT NULL, `kind` TEXT NOT NULL, `detail` TEXT NOT NULL)")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `allowance` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `pkg` TEXT, `untilMs` INTEGER NOT NULL, `atMs` INTEGER NOT NULL, `wallLength` INTEGER NOT NULL)")
+    }
+}
+
+val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `task` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'manual'")
+        connection.execSQL("ALTER TABLE `task` ADD COLUMN `sourceKey` TEXT")
+        connection.execSQL("ALTER TABLE `task` ADD COLUMN `doneMin` INTEGER NOT NULL DEFAULT 0")
+        connection.execSQL("ALTER TABLE `task` ADD COLUMN `importId` INTEGER")
+        connection.execSQL("ALTER TABLE `task` ADD COLUMN `reason` TEXT NOT NULL DEFAULT ''")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_task_sourceKey` ON `task` (`sourceKey`)")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `overlay_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` TEXT NOT NULL, `startMin` INTEGER NOT NULL, `endMin` INTEGER NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `venue` TEXT NOT NULL, `notes` TEXT NOT NULL, `hardAlarm` INTEGER NOT NULL, `cancelled` INTEGER NOT NULL, `kind` TEXT NOT NULL, `rowHash` TEXT NOT NULL, `importId` INTEGER, `reason` TEXT NOT NULL, `createdMs` INTEGER NOT NULL)")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_overlay_item_rowHash` ON `overlay_item` (`rowHash`)")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `period` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT NOT NULL, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `rowHash` TEXT NOT NULL, `importId` INTEGER)")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_period_rowHash` ON `period` (`rowHash`)")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `import_log` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `atMs` INTEGER NOT NULL, `name` TEXT NOT NULL, `fileHash` TEXT NOT NULL, `summary` TEXT NOT NULL)")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_import_log_fileHash` ON `import_log` (`fileHash`)")
     }
 }
 

@@ -4,8 +4,9 @@ import android.content.Context
 import app.efa.data.BlockRepo
 import app.efa.data.BlockingRepo
 import app.efa.data.EfaDb
+import app.efa.data.META_FIRST_USE
+import app.efa.data.PlanRepo
 import efa.*
-import java.time.Instant
 import java.time.ZonedDateTime
 
 /**
@@ -29,14 +30,20 @@ object BlockingState {
     suspend fun refresh(ctx: Context) {
         try {
             val db = EfaDb.get(ctx)
-            val pattern = db.pattern().all().map { it.toSlot() }
             val repo = BlockingRepo(db)
             val now = now()
+            val plan = PlanRepo(db)
+            // RS1, RS3: missed work comes back and free time turns into work. It must never stop blocking, so a failure here is ignored.
+            try {
+                val firstUse = db.meta().get(META_FIRST_USE)?.toLongOrNull() ?: now.toInstant().toEpochMilli()
+                plan.automate(now, firstUse, BlockRepo(ctx, db, emptyList()).verifiedKeys())
+            } catch (e: Exception) { android.util.Log.w("efa-plan", "automation skipped: ${e.message}") }
+            val pattern = plan.slots()
             android.util.Log.i("efa-state", "snapshot loaded: ${pattern.size} blocks")
             snapshot = Snapshot(
                 pattern = pattern, list = repo.list().orEmpty(), allow = repo.allowances(now),
                 verified = BlockRepo(ctx, db, pattern).verifiedKeys(),
-                tasks = db.tasks().open().map { DueWork(it.title, it.hoursEstimate, it.heaviness, Instant.ofEpochMilli(it.dueMs).atZone(now.zone)) },
+                tasks = db.tasks().open().map { it.toDue() },
             )
         } catch (e: Exception) { /* keep the last snapshot */ }
     }

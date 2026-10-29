@@ -53,6 +53,7 @@ put(1, [...range('P', 1, 11), ...range('A', 1, 9), ...range('D', 1, 7), ...range
   ...range('SH', 1, 5), ...range('AP', 1, 8), ...range('WG', 1, 10), ...range('L', 1, 8), 'Y1', 'Y2', 'Y3', 'Y6',
   'K1', 'K2', 'K3', 'K10', 'G1', 'G4', 'G5', 'X1', 'X4', 'X5', 'X6', 'X7', 'O4', 'O9', 'O5', 'O6', 'O7', 'O8',
   'O1', 'O14', 'R20-F4', 'R20-F2']);
+put(1, [...range('IM', 1, 12), ...range('PW', 1, 3), ...range('RS', 1, 9)]);   // section 25, built early at your request
 put(2, range('S', 1, 7));
 put(3, [...range('M', 1, 10), ...range('Z', 1, 4), 'G2', 'Y7', 'X2', 'R20-F1', 'O2']);
 put(4, [...range('N', 1, 7), 'R20-F3']);
@@ -67,7 +68,7 @@ const dev = new Set([
   ...range('S', 1, 7), ...range('M', 1, 3), 'M5', 'M6', 'M8', 'M10', 'Z1', 'Z2', 'X2', 'X5', 'X4',
   'U1', 'U2', 'U3', 'U4', 'U8', 'U11', 'U12', ...range('LA', 1, 14), 'K10', 'K1', 'K3', 'L2', 'L3', 'A8', 'A9',
   'ST4', 'ST7', 'WG5', 'WG6', 'WG10', 'AP3', 'AP4', 'AP8', 'F2', 'G2', 'E3', 'E4', 'E6', 'E7', 'E11', 'R20-F2',
-  'K5', 'K6', 'K8', 'Y2', 'N2', 'N7', 'V2', 'T3',
+  'K5', 'K6', 'K8', 'Y2', 'N2', 'N7', 'V2', 'T3', 'IM10',
 ]);
 
 // Planned test home by layer + area. Test names are filled in as tests are written.

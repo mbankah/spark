@@ -232,3 +232,27 @@ class LauncherE2ETest {
         assertTrue(total < 1000, "start took $total ms")
     }
 }
+
+/** LA4 on a real window: the time the phone spends drawing the frame that shows each keystroke's results, measured with frame metrics. */
+@RunWith(AndroidJUnit4::class)
+class SearchFrameTimeTest {
+    @get:Rule val rule = androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
+
+    @Test fun LA4_the_frame_that_shows_each_keystroke_takes_under_100_ms_to_draw() {
+        val many = (1..600).map { AppInfo("p$it", "Filler app number $it") } + listOf("Calendar", "Camera", "Chrome", "Instagram", "YouTube").map { AppInfo("pkg.${it.lowercase()}", it) }
+        val frames = java.util.Collections.synchronizedList(mutableListOf<Long>())
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        rule.activity.runOnUiThread {
+            rule.activity.window.addOnFrameMetricsAvailableListener({ _, m, _ -> frames += m.getMetric(android.view.FrameMetrics.TOTAL_DURATION) / 1_000_000 }, handler)
+        }
+        rule.setContent { EfaTheme { SearchScreen(many, { null }, {}, {}) } }
+        val f = rule.onNodeWithContentDescription("Type the name of an app")
+        f.performTextInput("i"); rule.waitForIdle(); Thread.sleep(500)
+        frames.clear()
+        for (ch in "nstagram") { f.performTextInput(ch.toString()); rule.waitForIdle(); Thread.sleep(150) }
+        rule.onNodeWithText("Instagram").assertExists()
+        val worst = frames.maxOrNull() ?: 0L
+        assertTrue(frames.isNotEmpty(), "no frames were measured")
+        assertTrue(worst < 100, "slowest frame $worst ms of $frames")
+    }
+}

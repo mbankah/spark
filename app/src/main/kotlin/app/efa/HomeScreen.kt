@@ -46,6 +46,8 @@ data class HomeState(
     val heldWaiting: Boolean = false,   // held notifications exist: shown without a count (WG7)
     val unavailable: Boolean = false,   // the database could not be read (X7)
     val launcherPaused: Boolean = false, // Spark handed the home screen back after 3 crashes in 10 minutes (LA3)
+    val period: String? = null,          // "Assignment week, until Fri 6 Nov" (PW3)
+    val moved: List<String> = emptyList(), // what Spark moved for you in the last day and a half, with the reason (RS8)
 )
 
 /** The home screen follows the drawing (design/ColdDark.dc.html): date and phone state, a big clock, the Buffer dial, now, next, money. */
@@ -71,8 +73,10 @@ fun HomeScreen(
                 BasicText(s.time, style = Ts(c.text, 88.sp, FontWeight.Bold, letterSpacing = (-3.5).sp, lineHeight = 88.sp))
                 SparkLogo(44.dp)
             }
+            s.period?.let { Label(it) }
             if (s.launcherPaused) InfoCard("LAUNCHER PAUSED", "Put Spark back as a home choice", onRestoreLauncher, "Spark crashed 3 times in 10 minutes, so the phone's own home screen took over. Blocking kept running.")
             BufferCard(s.buffer, onBuffer)
+            if (s.moved.isNotEmpty()) InfoCard("MOVED FOR YOU", s.moved.first(), null, (s.moved.drop(1).take(2) + listOfNotNull(s.moved.size.minus(3).takeIf { it > 0 }?.let { "And $it more." })).joinToString(" ").ifBlank { null })
             if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read. Nothing is shown rather than something wrong.")
             else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null)
             else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() })

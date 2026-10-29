@@ -7,11 +7,6 @@ package efa
 
 import java.time.DayOfWeek
 
-data class PatternSlot(
-    val day: DayOfWeek, val startMin: Int, val endMin: Int, val title: String, val type: String,
-    val venue: String, val hardAlarm: Boolean, val notes: String,
-)
-
 object WeekB {
     val slots: List<PatternSlot> = listOf(
         PatternSlot(DayOfWeek.MONDAY, 450, 470, "Wake, shower", "routine", "", false, "Alarm across the room, water, light on; shower 15 minutes, every morning."),

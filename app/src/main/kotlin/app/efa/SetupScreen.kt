@@ -39,6 +39,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
+    onImport: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -48,6 +49,13 @@ fun SetupScreen(
         BasicText("Setup", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
         BlockingCard(blocking, onOpenAccessibility, onChooseList)
         NotificationsCard(notifications, onOpenNotificationAccess, onAllowBufferNotice)
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("TIMETABLE")
+            BasicText("Adapt the timetable from a CSV file.", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("Lectures that moved, deadlines, assignment weeks and catch-up weeks. Spark checks the file and shows the Buffer before and after, and changes nothing until you say so.", style = Ts(c.muted, 14.sp))
+            Btn("Import a timetable file", onImport, modifier = Modifier.fillMaxWidth())
+        }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("HOME")

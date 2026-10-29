@@ -34,6 +34,26 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- IM10: a timetable file arrives by Open with or Share. Not BROWSABLE, so a web link cannot send one. It is only ever previewed (IM5). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="text/csv" />
+                <data android:mimeType="text/comma-separated-values" />
+                <data android:mimeType="application/csv" />
+                <data android:mimeType="application/vnd.ms-excel" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/csv" />
+                <data android:mimeType="text/comma-separated-values" />
+                <data android:mimeType="application/csv" />
+                <data android:mimeType="application/vnd.ms-excel" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
         <!-- Home app (U3, LA3): the same activity as a home-screen candidate. It is a separate alias so it can be switched off alone, which
              is how Spark hands the home screen back to Android after 3 crashes in 10 minutes while staying openable from its icon. -->

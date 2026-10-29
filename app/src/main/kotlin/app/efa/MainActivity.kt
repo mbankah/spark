@@ -29,6 +29,11 @@ import app.efa.data.LocationFix
 import app.efa.data.PlaceRepo
 import app.efa.data.VenueStatus
 import app.efa.data.TaskRow
+import app.efa.data.ImportLogRow
+import app.efa.data.PlanRepo
+import app.efa.data.PlannedPeriodRow
+import app.efa.data.activePeriod
+import app.efa.data.toOpen
 import app.efa.data.seedIfEmpty
 import efa.*
 import kotlinx.coroutines.Dispatchers
@@ -41,21 +46,25 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
 /** Everything the screens need, loaded from the database. null pattern means the database failed (X7). */
-private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, val verified: Set<String> = emptySet())
+private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, val verified: Set<String> = emptySet(), val periods: List<PlannedPeriodRow> = emptyList(), val moved: List<String> = emptyList())
 
 class MainActivity : ComponentActivity() {
     /** An action asked for by the Buffer notification (LA11), consumed by the screen state once. */
     private val pendingAction = mutableStateOf<String?>(null)
 
+    /** IM10: a timetable file that arrived by Open with or Share, read once and then only previewed (IM5). */
+    private val incomingIntent = mutableStateOf<Intent?>(null)
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         pendingAction.value = intent.getStringExtra(BufferNotifier.EXTRA_ACTION)
+        if (ImportSource.isImportIntent(intent)) incomingIntent.value = intent
     }
 
     /** U6: the essentials are one tap from home. Each opens whatever app the phone uses for it; if there is none, nothing happens. */
@@ -73,6 +82,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()   // status bar icons follow the system light/dark setting; revisit when mode can differ from the system
         pendingAction.value = intent?.getStringExtra(BufferNotifier.EXTRA_ACTION)
+        if (savedInstanceState == null && ImportSource.isImportIntent(intent)) incomingIntent.value = intent
         val db = EfaDb.get(this)
         setContent {
             EfaTheme {
@@ -95,6 +105,40 @@ class MainActivity : ComponentActivity() {
                 var everDone by remember { mutableStateOf(false) }
                 var launcherPaused by remember { mutableStateOf(CrashGuard.handedOverAt(applicationContext) != null) }
                 val scope = rememberCoroutineScope()
+                var importUi by remember { mutableStateOf<ImportUi>(ImportUi.Idle) }
+                var imports by remember { mutableStateOf<List<ImportLogRow>>(emptyList()) }
+                var wall by remember { mutableStateOf<Triple<String, String, () -> Unit>?>(null) }
+                /** IM4, IM5: read, check and preview a file. Nothing is written. */
+                val checkIncoming: suspend (Incoming?) -> Unit = { inc ->
+                    importUi = if (inc == null) ImportUi.Failed("That file could not be read.") else try {
+                        val now = ZonedDateTime.now(LONDON); val plan = PlanRepo(db)
+                        db.seedIfEmpty(System.currentTimeMillis(), LONDON.id)       // a file can arrive before the first screen has loaded
+                        ImportUi.Checked(inc.name, verifyImport(parseTimetableCsv(inc.text, now.toLocalDate()), plan.slots(), plan.known(), db.tasks().open().map { it.toDue() }, now), fileHash(inc.text))
+                    } catch (e: Exception) { ImportUi.Failed("That file could not be checked.") }
+                    screen = Screen.IMPORT
+                }
+                val chooseFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                    if (uri != null) scope.launch(Dispatchers.IO) { checkIncoming(ImportSource.read(applicationContext, uri)) }
+                }
+                LaunchedEffect(incomingIntent.value) {
+                    val i = incomingIntent.value ?: return@LaunchedEffect
+                    incomingIntent.value = null
+                    withContext(Dispatchers.IO) { checkIncoming(ImportSource.read(applicationContext, i)) }
+                }
+                LaunchedEffect(screen, reload) { if (screen == Screen.IMPORT) imports = withContext(Dispatchers.IO) { db.imports().all() } }
+                /** IM11: one transaction; if it fails nothing was written and the screen says so. */
+                val applyChecked: () -> Unit = {
+                    val ui = importUi as? ImportUi.Checked
+                    if (ui != null) scope.launch(Dispatchers.IO) {
+                        importUi = try {
+                            val v = ui.verification
+                            PlanRepo(db).apply(v, ui.name, ui.fileHash, System.currentTimeMillis(), LONDON.id, v.summaryLines().joinToString(". "))
+                            BlockingState.refresh(applicationContext)
+                            ImportUi.Done(v.summaryLines())
+                        } catch (e: Exception) { ImportUi.Failed("Applying failed (${e.javaClass.simpleName}).") }
+                        reload++; screen = Screen.IMPORT
+                    }
+                }
                 val askRuntime = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { reload++ }
                 val askRole = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { reload++ }
                 val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -106,7 +150,7 @@ class MainActivity : ComponentActivity() {
                     loaded = withContext(Dispatchers.IO) {
                         try {
                             db.seedIfEmpty(System.currentTimeMillis(), LONDON.id)
-                            val pattern = db.pattern().all().map { it.toSlot() }
+                            val pattern = PlanRepo(db).slots()
                             val repo = BlockRepo(applicationContext, db, pattern)
                             repo.cleanThumbs()                          // ST1, ST4: expired and over-ceiling thumbnails go
                             val pr = PlaceRepo(db)
@@ -125,7 +169,10 @@ class MainActivity : ComponentActivity() {
                             launcherPaused = CrashGuard.handedOverAt(applicationContext) != null
                             everDone = was || setupComplete(done)
                             doneSteps = done; setupLoaded = true
-                            Loaded(pattern, db.tasks().open(), repo.verifiedKeys())
+                            val since = System.currentTimeMillis() - 36L * 3_600_000
+                            val due = DateTimeFormatter.ofPattern("EEE HH:mm")
+                            val moved = db.tasks().missedSince(since).map { "${it.reason}. Back in the Buffer: ${fmt1(it.hoursEstimate)}h, due ${due.format(it.dueAt())}." } + db.overlay().convertedSince(since).map { it.reason }
+                            Loaded(pattern, db.tasks().open(), repo.verifiedKeys(), PlanRepo(db).periods(), moved)
                         } catch (e: Exception) { Loaded(null, emptyList()) }   // never show a wrong schedule or Buffer
                     }
                 }
@@ -174,6 +221,10 @@ class MainActivity : ComponentActivity() {
                     else {
                         val nn = l?.pattern?.let { nowAndNext(it, clock) }
                         val hhmm = DateTimeFormatter.ofPattern("HH:mm")
+                        val period = l?.let { activePeriod(it.periods, clock.toLocalDate()) }
+                        val alloc = l?.pattern?.let { p -> allocateTasks(p, l.tasks.map { it.toOpen(period) }, clock) }
+                        // RS2, RS8: what is placed in a block is said in the block's own line, split across blocks when it is big.
+                        val includes: (DatedSlot) -> String = { ds -> alloc?.inSlot(ds).orEmpty().takeIf { it.isNotEmpty() }?.joinToString(", ", "Includes: ") { "${it.task.title} (${it.minutes} min)" }.orEmpty() }
                         val phoneDecision = blockList?.takeIf { it.isNotEmpty() }?.let { BlockingState.decide(it.first()) }
                         HomeScreen(
                             HomeState(
@@ -183,14 +234,16 @@ class MainActivity : ComponentActivity() {
                                 time = hhmm.format(clock), buffer = buffer,
                                 nowLabel = nn?.now?.let { "Now, until ${hhmm.format(it.end)}" },
                                 nowTitle = nn?.now?.slot?.title,
-                                nowDetail = nn?.now?.let { listOf(it.detail(), proofHint(proofFor(it.slot))).filter { s -> s.isNotBlank() }.joinToString(". ") },
+                                nowDetail = nn?.now?.let { listOf(it.detail(), includes(it), proofHint(proofFor(it.slot))).filter { s -> s.isNotBlank() }.joinToString(". ") },
                                 nowOpensBlock = nn?.now?.let { proofFor(it.slot) != Proof.NONE } == true,
-                                next = l?.pattern?.let { p -> upcoming(p, clock, 2).map { NextRow(hhmm.format(it.start), it.slot.title, it.detail()) } }.orEmpty(),
+                                next = l?.pattern?.let { p -> upcoming(p, clock, 2).map { NextRow(hhmm.format(it.start), it.slot.title, listOf(it.detail(), includes(it)).filter { s -> s.isNotBlank() }.joinToString(". ")) } }.orEmpty(),
                                 freeToSpendPence = null,    // record-only for the first 14 days (G6)
                                 proofDue = l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { "${it.slot.title}, ended ${hhmm.format(it.end)}. Take its photo." },
                                 heldWaiting = heldWaiting,
                                 unavailable = l != null && l.pattern == null,
                                 launcherPaused = launcherPaused,
+                                period = period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
+                                moved = l?.moved.orEmpty(),
                             ),
                             onEssential = { key -> launchEssential(key) },
                             onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
@@ -226,6 +279,7 @@ class MainActivity : ComponentActivity() {
                         onOpenNotificationAccess = { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
                         onAllowBufferNotice = { if (Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) else { noticeOn = BufferNotifier.allowed(applicationContext); BufferNotifier.update(applicationContext) } },
                         onOpenAccessibility = { openAccessibilitySettings(applicationContext) },
+                        onImport = { importUi = ImportUi.Idle; screen = Screen.IMPORT },
                         onChooseList = {
                             scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = if (blockList == null) Screen.BLOCKLIST else Screen.LIST_GATE } }
                         })
@@ -237,6 +291,25 @@ class MainActivity : ComponentActivity() {
                         onOpenApp = { pkg -> packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
                         onSeen = { scope.launch(Dispatchers.IO) { HeldRepo(db).markReviewed(digestState.ready.map { it.id }, System.currentTimeMillis()); reload++ } },
                         onBack = { screen = Screen.HOME })
+                    Screen.IMPORT -> ImportScreen(importUi, imports,
+                        onChoose = { chooseFile.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv", "application/vnd.ms-excel", "text/plain")) },
+                        onCopyFormat = {
+                            (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("Spark timetable format", TIMETABLE_AI_PROMPT))
+                            importUi = ImportUi.Done(listOf("Copied. Paste it into an AI app, then paste your timetable under it."))
+                        },
+                        onApply = {
+                            val v = (importUi as? ImportUi.Checked)?.verification
+                            if (v != null && v.needsWall) {
+                                wall = Triple("Apply a file that loosens", v.loosening.joinToString(". ") + ". Type the characters below by hand to apply it.", applyChecked); screen = Screen.IMPORT_WALL
+                            } else applyChecked()
+                        },
+                        onRemove = { row ->
+                            wall = Triple("Remove an import", "Removing ${row.name} can take away a commitment or a deadline, so it needs the wall.", {
+                                scope.launch(Dispatchers.IO) { PlanRepo(db).removeImport(row.id); BlockingState.refresh(applicationContext); reload++ }
+                            }); screen = Screen.IMPORT_WALL
+                        },
+                        onBack = { importUi = ImportUi.Idle; screen = Screen.SETUP })
+                    Screen.IMPORT_WALL -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { screen = Screen.IMPORT; w.third() }, onCancel = { screen = Screen.IMPORT }) } ?: run { screen = Screen.IMPORT }
                     Screen.LIST_GATE ->ListWallGate(onPassed = { screen = Screen.BLOCKLIST }, onCancel = { screen = Screen.SETUP })
                     Screen.BLOCKLIST -> BlockListScreen(apps, blockList,
                         onSave = { chosen -> scope.launch(Dispatchers.IO) { BlockingRepo(db).saveList(chosen); reload++; withContext(Dispatchers.Main) { screen = if (setupNeeded) Screen.HOME else Screen.SETUP } } },
@@ -273,7 +346,7 @@ class MainActivity : ComponentActivity() {
 /** Study cycles from the week plus stored manual tasks, then the Buffer (B1). Short-sleep is false until sleep logging exists (layer 2). */
 private fun bufferOf(l: Loaded, now: ZonedDateTime, extra: DueWork? = null): BufferState {
     val pattern = l.pattern ?: return BufferState.NoDeadline
-    val manual = l.tasks.map { DueWork(it.title, it.hoursEstimate, it.heaviness, Instant.ofEpochMilli(it.dueMs).atZone(ZoneId.of(it.dueZone))) }
+    val manual = l.tasks.map { it.toDue() }
     return bufferNow(now, studyCycles(pattern, now) + manual + listOfNotNull(extra), pattern, shortSleep = false)
 }
 

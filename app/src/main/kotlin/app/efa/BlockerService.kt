@@ -23,7 +23,8 @@ class BlockerService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); delay(60_000) } }
+        SleepCollector.start(applicationContext)          // layer 2: passive sleep logging lives as long as this service
+        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); delay(60_000) } }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -51,5 +52,5 @@ class BlockerService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
-    override fun onDestroy() { scope.cancel(); super.onDestroy() }
+    override fun onDestroy() { scope.cancel(); SleepCollector.stop(applicationContext); super.onDestroy() }
 }

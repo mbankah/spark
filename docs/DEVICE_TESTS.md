@@ -152,3 +152,16 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | T13 | Do a proven study block with a task open. | The task's remaining time falls by the minutes the block was credited. |
 | T14 | Open a block that has a task placed in it. | Its line says "Includes: ..." with the minutes, and a big task shows split across several blocks. |
 | T15 | Time how long Spark takes from tapping its icon to the home screen after a restart, and again a few hours after installing. | About half a second after the app has had time to compile itself (the baseline profile). Tell me the real numbers. |
+
+## Passive sleep logging (layer 2) and the first overnight test (Q6)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| P1 | Setup, check the Sleep log card with the blocking service on. | "No night recorded yet" at first, and a line saying logging has started. With the service off it says Off. |
+| P2 | Put the phone on charge by the bed as usual. Use it normally until bed. Turn the screen off when you lie down. Do not touch it all night. | Nothing happens. No alarm, no sound. |
+| P3 | Wake as normal and look at the Sleep log card after 12:00. | "Last night: Xh Ym asleep, HH:MM to HH:MM." Tell me how far the start and the end are from what you remember. |
+| P4 | Check the night checks line. If you looked at the phone for a minute in the night. | "1 night check, taken off", and the sleep time is that much shorter. |
+| P5 | Check "Logging gaps". | 0. If it says 1 or more, Android stopped Spark during the night. Tell me the make and model, and whether battery saver was on. |
+| P6 | Scroll in bed for 30 minutes before sleeping. | The start is when the screen went off for the hour, not when you got into bed. |
+| P7 | Look at the battery use for Spark after a full day (Settings, Battery). | At or under about 5% (LA13). Tell me the number. |
+| P8 | Repeat for a week. | One summary line per night, and the card keeps counting nights. |

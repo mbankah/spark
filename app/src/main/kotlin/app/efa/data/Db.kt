@@ -83,6 +83,40 @@ data class ImportLogRow(
     val atMs: Long, val name: String, val fileHash: String, val summary: String,
 )
 
+/** Passive sleep logging (S5, S7): one row per screen, charging, movement or light event, and heartbeats that show the logger was alive. Kept 30 days (ST4). */
+@Entity(tableName = "sensor_event", indices = [Index(value = ["atMs"])])
+data class SensorEventRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val atMs: Long, val kind: Int, val value: Int,
+)
+
+/** One line per night, kept after the raw events are removed (ST4). Dates are the evening the night is counted from. */
+@Entity(tableName = "night_summary")
+data class NightSummaryRow(
+    @PrimaryKey val date: String,
+    val startMs: Long, val endMs: Long, val sleepMin: Int, val checkCount: Int, val checkMin: Int,
+    val chargingPct: Int, val motionEvents: Int, val darkPct: Int, val gapCount: Int, val derivedAtMs: Long,
+)
+
+@Dao
+interface SensorDao {
+    @Insert suspend fun insert(row: SensorEventRow): Long
+    @Query("SELECT * FROM sensor_event WHERE atMs >= :fromMs AND atMs < :untilMs ORDER BY atMs, id") suspend fun between(fromMs: Long, untilMs: Long): List<SensorEventRow>
+    @Query("SELECT * FROM sensor_event WHERE atMs < :beforeMs ORDER BY atMs, id") suspend fun before(beforeMs: Long): List<SensorEventRow>
+    @Query("DELETE FROM sensor_event WHERE atMs < :beforeMs") suspend fun deleteBefore(beforeMs: Long): Int
+    @Query("SELECT MAX(atMs) FROM sensor_event") suspend fun lastAt(): Long?
+    @Query("SELECT MIN(atMs) FROM sensor_event") suspend fun firstAt(): Long?
+    @Query("SELECT COUNT(*) FROM sensor_event") suspend fun count(): Int
+}
+
+@Dao
+interface NightDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(row: NightSummaryRow)
+    @Query("SELECT * FROM night_summary ORDER BY date DESC LIMIT 1") suspend fun latest(): NightSummaryRow?
+    @Query("SELECT * FROM night_summary ORDER BY date") suspend fun all(): List<NightSummaryRow>
+    @Query("SELECT * FROM night_summary WHERE date = :date") suspend fun get(date: String): NightSummaryRow?
+}
+
 @Dao
 interface OverlayDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: OverlayRow): Long
@@ -252,7 +286,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class], version = 7, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class], version = 8, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -267,11 +301,13 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun overlay(): OverlayDao
     abstract fun periods(): PeriodDao
     abstract fun imports(): ImportDao
+    abstract fun sensors(): SensorDao
+    abstract fun nights(): NightDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build().also { inst = it }
         }
     }
 }
@@ -325,6 +361,14 @@ val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
         connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_period_rowHash` ON `period` (`rowHash`)")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `import_log` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `atMs` INTEGER NOT NULL, `name` TEXT NOT NULL, `fileHash` TEXT NOT NULL, `summary` TEXT NOT NULL)")
         connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_import_log_fileHash` ON `import_log` (`fileHash`)")
+    }
+}
+
+val MIGRATION_7_8 = object : androidx.room.migration.Migration(7, 8) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `sensor_event` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `atMs` INTEGER NOT NULL, `kind` INTEGER NOT NULL, `value` INTEGER NOT NULL)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_sensor_event_atMs` ON `sensor_event` (`atMs`)")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `night_summary` (`date` TEXT NOT NULL, `startMs` INTEGER NOT NULL, `endMs` INTEGER NOT NULL, `sleepMin` INTEGER NOT NULL, `checkCount` INTEGER NOT NULL, `checkMin` INTEGER NOT NULL, `chargingPct` INTEGER NOT NULL, `motionEvents` INTEGER NOT NULL, `darkPct` INTEGER NOT NULL, `gapCount` INTEGER NOT NULL, `derivedAtMs` INTEGER NOT NULL, PRIMARY KEY(`date`))")
     }
 }
 

@@ -39,7 +39,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {},
+    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(),
 ) {
     val c = LocalColors.current
     Column(
@@ -49,6 +49,7 @@ fun SetupScreen(
         BasicText("Setup", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
         BlockingCard(blocking, onOpenAccessibility, onChooseList)
         NotificationsCard(notifications, onOpenNotificationAccess, onAllowBufferNotice)
+        SleepCard(sleep, blocking.serviceOn)
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("TIMETABLE")
@@ -121,5 +122,24 @@ private fun GitCard(git: GitConfig.Ok?, onGit: (GitConfig.Ok) -> Unit) {
                 is GitConfig.Ok -> { onGit(r); error = null; saved = true }
             }
         }, primary = git == null, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** What the sleep log has so far (layer 2). Record only: nothing here is a rule. */
+data class SleepStatus(val nights: Int = 0, val lastDate: String? = null, val lastSleepMin: Int = 0, val lastStart: String = "", val lastEnd: String = "", val lastChecks: Int = 0, val lastGaps: Int = 0, val events: Int = 0, val sinceText: String? = null)
+
+@Composable
+fun SleepCard(s: SleepStatus, serviceOn: Boolean) {
+    val c = LocalColors.current
+    Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Label("SLEEP LOG")
+        if (!serviceOn) BasicText("Off. Logging runs with the blocking service, so turn that on first.", style = Ts(c.text, 16.sp, FontWeight.Bold))
+        else if (s.lastDate == null) BasicText("No night recorded yet. A night needs the screen off for an hour.", style = Ts(c.text, 16.sp, FontWeight.Bold))
+        else {
+            BasicText("Last night: ${s.lastSleepMin / 60}h ${s.lastSleepMin % 60}m asleep, ${s.lastStart} to ${s.lastEnd}.", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText((if (s.lastChecks == 0) "No night checks." else "${s.lastChecks} night check${if (s.lastChecks == 1) "" else "s"}, taken off.") + " Logging gaps: ${s.lastGaps}.", style = Ts(c.muted, 14.sp))
+        }
+        BasicText("Record only, with no rules attached. It notes the screen, charging, movement and light, never a microphone, and keeps raw events 30 days and a summary line per night.", style = Ts(c.muted, 13.sp))
+        if (serviceOn) BasicText("${s.nights} night${if (s.nights == 1) "" else "s"} kept, ${s.events} recent events${s.sinceText?.let { ", logging since $it" } ?: ""}.", style = Ts(c.muted, 13.sp))
     }
 }

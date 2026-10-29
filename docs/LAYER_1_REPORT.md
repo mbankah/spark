@@ -252,3 +252,20 @@ Built early at your request. It fits the app (see `docs/IMPORT_COMPLIANCE.md`), 
 - No walks are added for an imported lecture (Q-G45). A day off and a library week are still planned in the app, which is layer 8.
 - What a week does beyond ordering work (Q-G40), how much free time converts (Q-G41, Q-G42) and which missed things return (Q-G43) are defaults for you to confirm.
 - Speed and every share route are emulator results only. See `docs/DEVICE_TESTS.md` T1 to T15.
+
+## Update: passive sleep logging, record only (layer 2: S1 to S7, ST4)
+
+**Built:**
+- `core/.../Sleep.kt`: a night read from sensor events alone (S1): sleep starts at the first screen-off followed by 60 minutes of screen-off, small night checks under 15 minutes are joined and taken off, a screen-on of 15 minutes or more ends the night (S2, S3), awake time in bed (S4), the charging share, movement count, dark share and logging gaps (S5, S7), and the 30-day clean-up rule (ST4).
+- An Android collector inside the blocking service: screen on and off, charging, Android's significant-motion trigger, and a light reading about every 10 minutes while the screen is off. No microphone and no location. A heartbeat every 15 minutes shows the logger stayed alive.
+- Database version 8 with its migration: raw events and one summary line per night. Finished nights are summarised, raw events older than 30 days are deleted, and an old summary is never rewritten.
+- A Sleep log card in Setup with last night, night checks and logging gaps. It is a readout only: no rule uses sleep yet.
+
+**Tested:**
+- `:core:test`: 319 tests, 0 failed, and `:app:connectedDebugAndroidTest`: 197 tests, 0 failed. The core tests include the 25-hour night of the clock change and 500 random event sets.
+- Emulator tests: storage, summary, retention, the migration, the card, and the real service recording screen off and on from the power key, charging and unplugging, a light reading, no microphone permission, and a minute of logging writing only a handful of rows.
+
+**Not built or not proven:**
+- Nothing here has run overnight on a real phone (Q6, `docs/DEVICE_TESTS.md` P1 to P8). Whether Android keeps the service alive all night on your phone, and how much battery it costs, are unknown until then.
+- Android's Sleep API and Health Connect (S5, S6) are not built (Q-G50). The shutdown and wake photos that bound a night are layer 3.
+- Sleep drives no rule yet: no alarm, no cutoff change, no short-sleep Buffer weighting.

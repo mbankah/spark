@@ -31,6 +31,7 @@ import app.efa.data.VenueStatus
 import app.efa.data.TaskRow
 import app.efa.data.ImportLogRow
 import app.efa.data.PlanRepo
+import app.efa.data.SleepRepo
 import app.efa.data.PlannedPeriodRow
 import app.efa.data.activePeriod
 import app.efa.data.toOpen
@@ -51,7 +52,7 @@ private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MA
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
 /** Everything the screens need, loaded from the database. null pattern means the database failed (X7). */
-private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, val verified: Set<String> = emptySet(), val periods: List<PlannedPeriodRow> = emptyList(), val moved: List<String> = emptyList())
+private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, val verified: Set<String> = emptySet(), val periods: List<PlannedPeriodRow> = emptyList(), val moved: List<String> = emptyList(), val sleep: SleepStatus = SleepStatus())
 
 class MainActivity : ComponentActivity() {
     /** An action asked for by the Buffer notification (LA11), consumed by the screen state once. */
@@ -172,7 +173,13 @@ class MainActivity : ComponentActivity() {
                             val since = System.currentTimeMillis() - 36L * 3_600_000
                             val due = DateTimeFormatter.ofPattern("EEE HH:mm")
                             val moved = db.tasks().missedSince(since).map { "${it.reason}. Back in the Buffer: ${fmt1(it.hoursEstimate)}h, due ${due.format(it.dueAt())}." } + db.overlay().convertedSince(since).map { it.reason }
-                            Loaded(pattern, db.tasks().open(), repo.verifiedKeys(), PlanRepo(db).periods(), moved)
+                            val hhmmFmt = DateTimeFormatter.ofPattern("HH:mm")
+                            val night = SleepRepo(db).latestNight()
+                            val sleep = SleepStatus(db.nights().all().size, night?.date, night?.sleepMin ?: 0,
+                                night?.let { hhmmFmt.format(Instant.ofEpochMilli(it.startMs).atZone(LONDON)) }.orEmpty(), night?.let { hhmmFmt.format(Instant.ofEpochMilli(it.endMs).atZone(LONDON)) }.orEmpty(),
+                                night?.checkCount ?: 0, night?.gapCount ?: 0, db.sensors().count(),
+                                db.sensors().firstAt()?.let { DateTimeFormatter.ofPattern("EEE d MMM").format(Instant.ofEpochMilli(it).atZone(LONDON)) })
+                            Loaded(pattern, db.tasks().open(), repo.verifiedKeys(), PlanRepo(db).periods(), moved, sleep)
                         } catch (e: Exception) { Loaded(null, emptyList()) }   // never show a wrong schedule or Buffer
                     }
                 }
@@ -280,6 +287,7 @@ class MainActivity : ComponentActivity() {
                         onAllowBufferNotice = { if (Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) else { noticeOn = BufferNotifier.allowed(applicationContext); BufferNotifier.update(applicationContext) } },
                         onOpenAccessibility = { openAccessibilitySettings(applicationContext) },
                         onImport = { importUi = ImportUi.Idle; screen = Screen.IMPORT },
+                        sleep = l?.sleep ?: SleepStatus(),
                         onChooseList = {
                             scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = if (blockList == null) Screen.BLOCKLIST else Screen.LIST_GATE } }
                         })

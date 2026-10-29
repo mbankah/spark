@@ -19,8 +19,16 @@ class CatchUpTest {
     @Test fun `RS1 D5 a missed lecture comes back at its own length, due the end of the next day, with the reason`() {
         val c = catchUps(t(10, 27, 8, 0)).single { it.key == "missed:" + blockKey(mondayLecture) }
         assertEquals("Catch-up: Randomness and Computation lecture", c.title); assertEquals(1.0, c.hours)
-        assertEquals("Missed Randomness and Computation lecture lecture", c.reason)
+        assertEquals("Missed Randomness and Computation lecture", c.reason)
         assertEquals(endOfDayCutoff(slots, d(10, 27)), c.due)
+    }
+
+    @Test fun `Z4 after a bad night the reason says so and what it costs`() {
+        val now = t(10, 27, 8, 0)
+        val bad = missedCatchUps(slots, now, emptySet(), emptySet(), firstUse, badNightDays = setOf(d(10, 26)))
+        val c = bad.single { it.key == "missed:" + blockKey(mondayLecture) }
+        assertEquals("Bad night, missed Randomness and Computation lecture, Buffer -1.0h", c.reason)
+        assertTrue(catchUps(now).single { it.key == "missed:" + blockKey(mondayLecture) }.reason.startsWith("Missed "), "a normal night keeps the plain reason")
     }
 
     @Test fun `RS1 B7 nothing comes back while the backfill window is still open`() {

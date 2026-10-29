@@ -14,10 +14,10 @@ const val CATCH_UP_LOOKBACK_DAYS = 3L
  * RS1, D5: a lecture or work block that ended without its proof and whose backfill window has closed (B7: next morning) becomes work in
  * the Buffer, due by the end of the next day. A lecture comes back at its own length (the recording); a study cycle comes back at its
  * cycle size. The lost time stays lost (W2, B6): this adds the content back, it does not forgive anything.
- * [known] holds keys already turned into work. [notBefore] is when the app was first used, so installing it does not invent a backlog.
+ * [badNightDays] are the days that began after a night of 6.5 hours of sleep or less (B8), so the reason can say so (Z4). [known] holds keys already turned into work. [notBefore] is when the app was first used, so installing it does not invent a backlog.
  */
 fun missedCatchUps(
-    slots: List<PatternSlot>, now: ZonedDateTime, verified: Set<String>, known: Set<String>, notBefore: ZonedDateTime, zone: ZoneId = now.zone,
+    slots: List<PatternSlot>, now: ZonedDateTime, verified: Set<String>, known: Set<String>, notBefore: ZonedDateTime, zone: ZoneId = now.zone, badNightDays: Set<java.time.LocalDate> = emptySet(),
 ): List<CatchUp> =
     (-CATCH_UP_LOOKBACK_DAYS..0L).flatMap { slotsFor(slots, now.toLocalDate().plusDays(it), zone) }
         .filter { it.slot.type in CATCH_UP_TYPES && !isConversion(it.slot) }   // a converted slot's work is the open tasks, which stay open
@@ -35,5 +35,8 @@ fun missedCatchUps(
             }
             val name = ds.slot.title.substringBefore(" - ").removePrefix("Notes and problems: ")
             val noun = if (ds.slot.type == "lecture" || ds.slot.type == "tutorial") "lecture" else "study block"
-            CatchUp("missed:" + blockKey(ds), "Catch-up: $name", hours, heaviness, endOfDayCutoff(slots, ds.plannedDay.plusDays(1), zone), "Missed $name $noun")
+            val label = if (name.endsWith(noun, ignoreCase = true)) name else "$name $noun"
+            CatchUp("missed:" + blockKey(ds), "Catch-up: $name", hours, heaviness, endOfDayCutoff(slots, ds.plannedDay.plusDays(1), zone),
+                // Z4: after a bad night the reason says so, with what it costs, for example "Bad night, missed Randomness lecture, Buffer -1.0h"
+                if (ds.plannedDay in badNightDays) "Bad night, missed $label, Buffer -${fmt1(hours)}h" else "Missed $label")
         }

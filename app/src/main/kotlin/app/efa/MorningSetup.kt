@@ -23,14 +23,14 @@ import app.efa.data.RefKind
 /** What a reference photo looks like to the person: when it was taken and where the picture is, or null when none is set. */
 data class RefInfo(val takenText: String, val path: String, val stale: Boolean = false)
 
-data class MorningSetupStatus(val night: RefInfo? = null, val standing: RefInfo? = null, val ready: RefInfo? = null, val alarmText: String? = null)
+data class MorningSetupStatus(val night: RefInfo? = null, val standing: RefInfo? = null, val ready: RefInfo? = null, val alarmText: String? = null, val stepsOn: Boolean = false, val stepSensor: Boolean = true)
 
 /**
  * The morning set up (M1, M4, M8): the photo of tomorrow's setup taken the night before, the optional standing reference, and the ready spot.
  * Photos are taken with the in-app camera only (A7) and a new one replaces the old.
  */
 @Composable
-fun MorningSetupScreen(s: MorningSetupStatus, message: String?, onTake: (String) -> Unit, onClearStanding: () -> Unit, onBack: () -> Unit) {
+fun MorningSetupScreen(s: MorningSetupStatus, message: String?, onTake: (String) -> Unit, onClearStanding: () -> Unit, onBack: () -> Unit, onAllowSteps: () -> Unit = {}) {
     val c = LocalColors.current
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
@@ -45,6 +45,12 @@ fun MorningSetupScreen(s: MorningSetupStatus, message: String?, onTake: (String)
         RefRow("READY SPOT", "The last getting-ready step at a fixed spot, such as the bag by the door. Taken once. This photo ends the social block.", s.ready, "Take the ready spot photo", { onTake(RefKind.READY) })
         RefRow("STANDING REFERENCE (OPTIONAL)", "If your setup moves around, add a fixed spot the alarm can also match.", s.standing, "Take a standing reference", { onTake(RefKind.STANDING) })
         if (s.standing != null) Btn("Remove the standing reference", onClearStanding, modifier = Modifier.fillMaxWidth())
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Label("STEPS (THE WEAKER FALLBACK)")
+            BasicText(when { !s.stepSensor -> "This phone cannot count steps, so a failed photo goes to a 3 minute wait instead."; s.stepsOn -> "On. If two photos fail, walking 40 steps stops the alarm, marked as the weaker check."; else -> "Off. If two photos fail, there is a 3 minute wait instead." }, style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("Steps are counted from when the alarm rings. The photo always comes first, so shaking the phone cannot stop the alarm.", style = Ts(c.muted, 13.sp))
+            if (s.stepSensor && !s.stepsOn) Btn("Allow step counting", onAllowSteps, modifier = Modifier.fillMaxWidth())
+        }
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
     }
 }

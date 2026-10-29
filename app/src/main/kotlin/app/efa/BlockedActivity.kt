@@ -75,7 +75,10 @@ class BlockedActivity : ComponentActivity() {
                         BlockingState.refresh(applicationContext)
                         withContext(Dispatchers.Main) { launchApp(pkg); finishAndRemoveTask() }
                     }
-                }, bufferCost = BlockingState.bufferCost(d))
+                }, bufferCost = BlockingState.bufferCost(d), onReady = {
+                    startActivity(Intent(this@BlockedActivity, MainActivity::class.java).putExtra(BufferNotifier.EXTRA_ACTION, BufferNotifier.ACTION_READY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                    finish()
+                })
             }
         }
     }
@@ -88,7 +91,7 @@ private val HM = DateTimeFormatter.ofPattern("HH:mm")
 @Composable
 fun BlockedCard(
     appLabel: String, d: Decision.Block, nightUsesTonight: Int, onHome: () -> Unit, onWallPassed: (Int) -> Unit,
-    bufferCost: Pair<BufferState, BufferState>?,
+    bufferCost: Pair<BufferState, BufferState>?, onReady: () -> Unit = {},
 ) {
     val c = LocalColors.current
     var wallOpen by remember { mutableStateOf(false) }
@@ -97,7 +100,7 @@ fun BlockedCard(
     val wake = snap?.pattern?.let { nextWake(it, now) }
     val offer = if (d.night && wake != null) nightOffer(now, wake, nightUsesTonight, fullyVerifiedDay = false) else null
     val len = if (d.night) offer?.wallLength ?: WallLength.nightOverride(nightUsesTonight + 1) else WallLength.OPEN_BLOCKED_APP
-    val canOpen = !d.night || offer?.allowed == true
+    val canOpen = (!d.night || offer?.allowed == true) && !d.reason.isMorning
     val target = remember(wallOpen, len) { newWallString(len) }
     val wallRequester = remember { BringIntoViewRequester() }
     LaunchedEffect(wallOpen) { if (wallOpen) { kotlinx.coroutines.delay(150); wallRequester.bringIntoView() } }
@@ -117,6 +120,8 @@ fun BlockedCard(
                     BlockReason.TRANSITION -> "Transition: ${d.label}, until ${HM.format(d.until)}."
                     BlockReason.PLANNING -> "Planning block: ${d.label}, until ${HM.format(d.until)}."
                     BlockReason.NIGHT -> "Past the night cutoff. It lifts at your wake time, ${HM.format(d.until)}."
+                    BlockReason.MORNING_ALARM -> "The alarm is ringing. Stop it with the photo first."
+                    BlockReason.MORNING_READY -> "Morning: social stays blocked until you photograph your ready spot. If you cannot, it ends by itself at ${HM.format(d.until)}."
                 },
                 style = Ts(c.text, 18.sp),
             )
@@ -135,9 +140,12 @@ fun BlockedCard(
                     else "No override is possible now: it is within 6 hours of your wake time.",
                     style = Ts(c.text, 16.sp),
                 )
+            } else if (d.reason.isMorning) {
+                BasicText("It cannot be opened with a typed string. Calls, messages, maps, music and the Buffer still work.", style = Ts(c.text, 16.sp))
             } else BasicText("Opening it costs no block. It opens for 30 minutes, then blocks again.", style = Ts(c.text, 16.sp))
         }
-        Btn("Go home", onHome, primary = true, modifier = Modifier.fillMaxWidth())
+        if (d.reason == BlockReason.MORNING_READY) Btn("Take the ready photo", onReady, primary = true, modifier = Modifier.fillMaxWidth())
+        Btn("Go home", onHome, primary = d.reason != BlockReason.MORNING_READY, modifier = Modifier.fillMaxWidth())
         if (canOpen) {
             if (!wallOpen) Btn("Open anyway: type $len characters", { wallOpen = true }, modifier = Modifier.fillMaxWidth())
             else Column(Modifier.fillMaxWidth().bringIntoViewRequester(wallRequester).card().padding(16.dp)) { WallField(target) { onWallPassed(len) } }

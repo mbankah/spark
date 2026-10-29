@@ -61,7 +61,9 @@ class PlanRepo(private val db: EfaDb) {
         val known = db.tasks().sourceKeys().toSet()
         val nowMs = now.toInstant().toEpochMilli()
         val added = ArrayList<TaskRow>()
-        for (c in missedCatchUps(slots, now, verified, known, java.time.Instant.ofEpochMilli(firstUseMs).atZone(now.zone))) {
+        // Z4: a day that began after 6.5 hours of sleep or less is a bad night, and the reason says so.
+        val bad = db.nights().all().filter { it.sleepMin <= SHORT_SLEEP_MAX_HOURS * 60 }.map { LocalDate.parse(it.date).plusDays(1) }.toSet()
+        for (c in missedCatchUps(slots, now, verified, known, java.time.Instant.ofEpochMilli(firstUseMs).atZone(now.zone), badNightDays = bad)) {
             val row = TaskRow(title = c.title, dueMs = c.due.toInstant().toEpochMilli(), dueZone = c.due.zone.id, heaviness = c.heaviness, hoursEstimate = c.hours,
                 createdMs = nowMs, source = "missed", sourceKey = c.key, reason = c.reason)
             if (db.tasks().insertOnce(row) > 0) added += row

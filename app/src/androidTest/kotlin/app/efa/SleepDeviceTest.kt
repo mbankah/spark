@@ -214,3 +214,19 @@ class SleepCollectorE2ETest {
         assertTrue(kinds(before).size <= 4, kinds(before).toString())
     }
 }
+
+@RunWith(AndroidJUnit4::class)
+class SleepAwakeLineTest {
+    @get:Rule val rule = createComposeRule()
+
+    @Test fun S4_the_card_shows_the_awake_time_between_waking_and_the_alarm_photo() {
+        val s = SleepStatus(nights = 1, lastDate = "2026-11-03", lastSleepMin = 452, lastStart = "23:30", lastEnd = "07:10", events = 20, awakeInBedMin = 22)
+        rule.setContent { EfaTheme { SleepCard(s, serviceOn = true) } }
+        rule.onNodeWithText("Awake in bed before the alarm photo: 22 min.").assertExists()
+    }
+
+    @Test fun S4_with_no_alarm_photo_there_is_no_awake_line() {
+        rule.setContent { EfaTheme { SleepCard(SleepStatus(nights = 1, lastDate = "2026-11-03", lastSleepMin = 452, lastStart = "23:30", lastEnd = "07:10"), serviceOn = true) } }
+        rule.onNodeWithText("Awake in bed", substring = true).assertDoesNotExist()
+    }
+}

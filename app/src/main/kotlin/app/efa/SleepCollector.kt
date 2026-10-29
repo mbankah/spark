@@ -100,6 +100,7 @@ object SleepCollector {
         ticks++
         scope.launch {
             repo.heartbeat()
+            try { AlarmScheduler.refresh(app) } catch (e: Exception) { /* the last alarm stays set (X7) */ }
             if (ticks % 10 == 0) repo.rollup(Instant.now())
         }
         if (screenOff && ticks % 10 == 5) sampleLight(app, repo)

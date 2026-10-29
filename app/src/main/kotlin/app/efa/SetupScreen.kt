@@ -133,7 +133,7 @@ private fun GitCard(git: GitConfig.Ok?, onGit: (GitConfig.Ok) -> Unit) {
 }
 
 /** What the sleep log has so far (layer 2). Record only: nothing here is a rule. */
-data class SleepStatus(val nights: Int = 0, val lastDate: String? = null, val lastSleepMin: Int = 0, val lastStart: String = "", val lastEnd: String = "", val lastChecks: Int = 0, val lastGaps: Int = 0, val events: Int = 0, val sinceText: String? = null)
+data class SleepStatus(val nights: Int = 0, val lastDate: String? = null, val lastSleepMin: Int = 0, val lastStart: String = "", val lastEnd: String = "", val lastChecks: Int = 0, val lastGaps: Int = 0, val events: Int = 0, val sinceText: String? = null, val awakeInBedMin: Int? = null)
 
 @Composable
 fun SleepCard(s: SleepStatus, serviceOn: Boolean) {
@@ -145,6 +145,7 @@ fun SleepCard(s: SleepStatus, serviceOn: Boolean) {
         else {
             BasicText("Last night: ${s.lastSleepMin / 60}h ${s.lastSleepMin % 60}m asleep, ${s.lastStart} to ${s.lastEnd}.", style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText((if (s.lastChecks == 0) "No night checks." else "${s.lastChecks} night check${if (s.lastChecks == 1) "" else "s"}, taken off.") + " Logging gaps: ${s.lastGaps}.", style = Ts(c.muted, 14.sp))
+            s.awakeInBedMin?.let { BasicText("Awake in bed before the alarm photo: $it min.", style = Ts(c.muted, 14.sp)) }   // S4
         }
         BasicText("Record only, with no rules attached. It notes the screen, charging, movement and light, never a microphone, and keeps raw events 30 days and a summary line per night.", style = Ts(c.muted, 13.sp))
         if (serviceOn) BasicText("${s.nights} night${if (s.nights == 1) "" else "s"} kept, ${s.events} recent events${s.sinceText?.let { ", logging since $it" } ?: ""}.", style = Ts(c.muted, 13.sp))

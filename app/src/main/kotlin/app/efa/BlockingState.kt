@@ -5,7 +5,9 @@ import app.efa.data.BlockRepo
 import app.efa.data.BlockingRepo
 import app.efa.data.EfaDb
 import app.efa.data.META_FIRST_USE
+import app.efa.data.MorningRepo
 import app.efa.data.PlanRepo
+import app.efa.data.toState
 import efa.*
 import java.time.ZonedDateTime
 
@@ -17,7 +19,7 @@ import java.time.ZonedDateTime
  */
 class Snapshot(
     val pattern: List<PatternSlot>, val list: Set<String>, val allow: Allowances,
-    val verified: Set<String>, val tasks: List<DueWork>,
+    val verified: Set<String>, val tasks: List<DueWork>, val morning: MorningState? = null,
 )
 
 object BlockingState {
@@ -44,13 +46,14 @@ object BlockingState {
                 pattern = pattern, list = repo.list().orEmpty(), allow = repo.allowances(now),
                 verified = BlockRepo(ctx, db, pattern).verifiedKeys(),
                 tasks = db.tasks().open().map { it.toDue() },
+                morning = MorningRepo(db).latest()?.toState(),
             )
         } catch (e: Exception) { /* keep the last snapshot */ }
     }
 
     fun decide(pkg: String): Decision {
         val s = snapshot ?: return Decision.Allow
-        return decide(pkg, now(), s.pattern, s.list, s.allow, s.verified)
+        return decide(pkg, now(), s.pattern, s.list, s.allow, s.verified, s.morning)
     }
 
     /** U7: the Buffer now and the Buffer if the current work block is lost, as arithmetic and not a warning. */

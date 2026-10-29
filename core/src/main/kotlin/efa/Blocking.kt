@@ -4,7 +4,10 @@ import java.time.Duration
 import java.time.ZonedDateTime
 
 /** Why a blocked app is blocked right now. Shown on the blocked card (U7, W5). */
-enum class BlockReason { WORK_BLOCK, GETTING_READY, TRANSITION, PLANNING, NIGHT }
+enum class BlockReason { WORK_BLOCK, GETTING_READY, TRANSITION, PLANNING, NIGHT, MORNING_ALARM, MORNING_READY }
+
+/** M5, M6: the morning reasons cannot be passed with the typed wall, because the person chose the list once and the block ends with a photo (M6, M8). */
+val BlockReason.isMorning get() = this == BlockReason.MORNING_ALARM || this == BlockReason.MORNING_READY
 
 /** K3: blocked during independent study and work blocks, the wake-up and getting-ready window, transitions. Planning blocks are independent work. */
 fun firmReasonFor(type: String): BlockReason? = when (type) {
@@ -46,9 +49,16 @@ fun nightWindow(pattern: List<PatternSlot>, now: ZonedDateTime, fallAsleep: Dura
  */
 fun decide(
     pkg: String, now: ZonedDateTime, pattern: List<PatternSlot>, list: Set<String>,
-    allow: Allowances = Allowances(), verifiedKeys: Set<String> = emptySet(),
+    allow: Allowances = Allowances(), verifiedKeys: Set<String> = emptySet(), morning: MorningState? = null,
 ): Decision {
     if (pkg !in list) return Decision.Allow
+    // M5, M6, M8, M9: while the alarm rings and until the ready photo, the listed apps are blocked completely. Calls, maps, banking, music and
+    // everything not on the list stay open (the check above), and a stuck block ends by itself (LA1, see readyReleaseAt).
+    when (morningPhase(morning, now)) {
+        MorningPhase.RINGING -> return Decision.Block(BlockReason.MORNING_ALARM, "Alarm", now.plusMinutes(1), 0, night = false)
+        MorningPhase.WAITING_FOR_READY -> return Decision.Block(BlockReason.MORNING_READY, "Ready photo", readyReleaseAt(morning!!.stoppedMs!!, now.zone), 0, night = false)
+        else -> {}
+    }
     if (allow.appUntil[pkg]?.isAfter(now) == true) return Decision.Allow
     val current = nowAndNext(pattern, now).now
     val firm = current?.let { firmReasonFor(it.slot.type) }

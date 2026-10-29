@@ -23,12 +23,14 @@ class BlockerService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         SleepCollector.start(applicationContext)          // layer 2: passive sleep logging lives as long as this service
         scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); delay(60_000) } }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
+        if (AlarmSession.ringing && event.packageName?.toString() != packageName && event.packageName?.toString() != "com.android.systemui") { showAlarm(); return }
         val packages = LinkedHashSet<String>()
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) event.packageName?.toString()?.let { packages += it }
         try {
@@ -50,7 +52,14 @@ class BlockerService : AccessibilityService() {
         startActivity(Intent(this, BlockedActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION).putExtra(BlockedActivity.EXTRA_PKG, pkg))
     }
 
+    /** M5: when the alarm rings the alarm screen is put in front, even while another app is open. An accessibility service may start an activity from the background. */
+    fun showAlarm() {
+        startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION))
+    }
+
     override fun onInterrupt() {}
 
-    override fun onDestroy() { scope.cancel(); SleepCollector.stop(applicationContext); super.onDestroy() }
+    companion object { @Volatile var instance: BlockerService? = null }
+
+    override fun onDestroy() { if (instance === this) instance = null; scope.cancel(); SleepCollector.stop(applicationContext); super.onDestroy() }
 }

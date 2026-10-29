@@ -28,6 +28,7 @@ object BufferNotifier {
     const val ID = 4201
     const val EXTRA_ACTION = "efa_action"
     const val ACTION_QUICK_ADD = "quick_add"
+    const val ACTION_READY = "ready_photo"      // M8: the blocked card sends you to the ready photo
 
     /** Tests switch this to simulate a refused permission, because revoking the real one would kill the test process. */
     @Volatile var allowedOverride: ((Context) -> Boolean)? = null

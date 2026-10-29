@@ -225,3 +225,28 @@ class MorningSetupFlowTest {
         assertTrue(r.passed, "two photos of the same scene scored ${r.score} (pass mark $MATCH_PASS_SCORE)")
     }
 }
+
+@RunWith(AndroidJUnit4::class)
+class MorningStepsCardTest {
+    @get:Rule val rule = createComposeRule()
+
+    @Test fun M2_with_steps_off_the_screen_says_a_wait_replaces_them_and_offers_the_permission() {
+        var asked = false
+        rule.setContent { EfaTheme { MorningSetupScreen(MorningSetupStatus(stepsOn = false), null, {}, {}, {}, onAllowSteps = { asked = true }) } }
+        rule.onNodeWithText("Off. If two photos fail, there is a 3 minute wait instead.").performScrollTo().assertExists()
+        rule.onNodeWithText("Allow step counting").performScrollTo().performClick(); assertTrue(asked)
+    }
+
+    @Test fun M2_M3_with_steps_on_the_screen_says_the_photo_always_comes_first() {
+        rule.setContent { EfaTheme { MorningSetupScreen(MorningSetupStatus(stepsOn = true), null, {}, {}, {}) } }
+        rule.onNodeWithText("On. If two photos fail, walking 40 steps stops the alarm, marked as the weaker check.").performScrollTo().assertExists()
+        rule.onNodeWithText("shaking the phone cannot stop the alarm", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithText("Allow step counting").assertDoesNotExist()
+    }
+
+    @Test fun M10_a_phone_with_no_step_counter_says_so_and_offers_nothing() {
+        rule.setContent { EfaTheme { MorningSetupScreen(MorningSetupStatus(stepSensor = false), null, {}, {}, {}) } }
+        rule.onNodeWithText("This phone cannot count steps, so a failed photo goes to a 3 minute wait instead.").performScrollTo().assertExists()
+        rule.onNodeWithText("Allow step counting").assertDoesNotExist()
+    }
+}

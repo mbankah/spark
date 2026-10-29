@@ -46,7 +46,9 @@ class QuickAddFlowTest {
             (androidx.compose.ui.semantics.SemanticsProperties.ContentDescription in n.config && n.config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].firstOrNull()?.startsWith("Buffer.") == true)
         }).performClick()
         rule.onNodeWithText("Buffer working").assertExists()
-        rule.onNodeWithText("Neural Computation coursework (heaviness 8): 10.0h x 1.0 = 10.0h", substring = true).assertExists()
+        // The home screen shows the old Buffer until the stored task has been read back, so the working is waited for and not read at once.
+        try { rule.waitUntil(10_000) { rule.onAllNodesWithText("Neural Computation coursework (heaviness 8): 10.0h x 1.0 = 10.0h", substring = true).fetchSemanticsNodes().isNotEmpty() } }
+        catch (e: Throwable) { throw AssertionError("working screen: " + rule.onRoot().printToString(3500), e) }
     }
 
     @Test fun D2_saving_needs_a_title() {

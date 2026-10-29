@@ -48,13 +48,14 @@ data class HomeState(
     val launcherPaused: Boolean = false, // Spark handed the home screen back after 3 crashes in 10 minutes (LA3)
     val period: String? = null,          // "Assignment week, until Fri 6 Nov" (PW3)
     val moved: List<String> = emptyList(), // what Spark moved for you in the last day and a half, with the reason (RS8)
+    val morning: String? = null,         // M6, M8: social is blocked until the ready photo
 )
 
 /** The home screen follows the drawing (design/ColdDark.dc.html): date and phone state, a big clock, the Buffer dial, now, next, money. */
 @Composable
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
-    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {},
+    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -75,6 +76,7 @@ fun HomeScreen(
             }
             s.period?.let { Label(it) }
             if (s.launcherPaused) InfoCard("LAUNCHER PAUSED", "Put Spark back as a home choice", onRestoreLauncher, "Spark crashed 3 times in 10 minutes, so the phone's own home screen took over. Blocking kept running.")
+            s.morning?.let { InfoCard("MORNING", "Ready photo needed", onReady, it) }
             BufferCard(s.buffer, onBuffer)
             if (s.moved.isNotEmpty()) InfoCard("MOVED FOR YOU", s.moved.first(), null, (s.moved.drop(1).take(2) + listOfNotNull(s.moved.size.minus(3).takeIf { it > 0 }?.let { "And $it more." })).joinToString(" ").ifBlank { null })
             if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read. Nothing is shown rather than something wrong.")

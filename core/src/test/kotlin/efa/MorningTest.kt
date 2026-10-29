@@ -225,3 +225,66 @@ class MorningPhaseTest {
         assertEquals(Duration.ofMinutes(22), awakeBeforeAlarmStopped(ms(7, 10), ms(7, 32)))
     }
 }
+
+class MorningBlockTest {
+    private val slots = WeekB.slots
+    private val list = setOf("com.instagram.android")
+    private val day = LocalDate.of(2026, 11, 4)                 // a Wednesday
+    private fun t(h: Int, m: Int = 0, d: Int = 4) = at(LocalDate.of(2026, 11, d), LocalTime.of(h, m))
+    private fun ms(h: Int, m: Int = 0, d: Int = 4) = t(h, m, d).toInstant().toEpochMilli()
+    private fun d(now: java.time.ZonedDateTime, m: MorningState?, pkg: String = "com.instagram.android", allow: Allowances = Allowances()) = decide(pkg, now, slots, list, allow, emptySet(), m)
+    private val ringing = MorningState(day, ringStartedMs = ms(7, 30))
+    private val waiting = MorningState(day, ringStartedMs = ms(7, 30), stoppedMs = ms(7, 33), stopMethod = StopMethod.PHOTO)
+    private val ready = waiting.copy(readyMs = ms(8, 10), readyMethod = StopMethod.PHOTO)
+
+    @Test fun `M5 while the alarm rings the listed apps are blocked, and the reason says so`() {
+        val b = d(t(7, 31), ringing) as Decision.Block
+        assertEquals(BlockReason.MORNING_ALARM, b.reason); assertTrue(b.reason.isMorning)
+    }
+
+    @Test fun `M6 after the alarm stops the listed apps stay blocked completely until the ready photo`() {
+        for (time in listOf(t(7, 34), t(9, 0), t(13, 59))) { val b = d(time, waiting) as Decision.Block; assertEquals(BlockReason.MORNING_READY, b.reason) }
+        assertEquals(readyReleaseAt(ms(7, 33), LONDON), (d(t(8), waiting) as Decision.Block).until)
+    }
+
+    @Test fun `M8 the ready photo ends it at once and the normal rules go on`() {
+        val after = d(t(8, 11), ready)
+        assertTrue(after !is Decision.Block || !(after as Decision.Block).reason.isMorning, "the block must be over, got $after")
+    }
+
+    @Test fun `M9 everything not on the list stays open during the alarm and the social block, so calls, maps, banking and music work`() {
+        for (pkg in listOf("com.android.dialer", "com.google.android.apps.maps", "com.spotify.music", "com.barclays.android", "app.efa"))
+            for (m in listOf(ringing, waiting)) assertEquals(Decision.Allow, d(t(7, 40), m, pkg), pkg)
+    }
+
+    @Test fun `M6 the wall cannot open a morning-blocked app, because an allowance never lifts the morning block`() {
+        val allow = Allowances(appUntil = mapOf("com.instagram.android" to t(9)))
+        assertTrue(d(t(7, 40), waiting, allow = allow) is Decision.Block); assertTrue(d(t(7, 31), ringing, allow = allow) is Decision.Block)
+    }
+
+    @Test fun `LA1 a social block that never gets its photo ends by itself at 14-00`() {
+        assertTrue(d(t(13, 59), waiting) is Decision.Block)
+        val late = d(t(14, 0), waiting); assertTrue(late !is Decision.Block || !(late as Decision.Block).reason.isMorning)
+    }
+
+    @Test fun `LA1 yesterday's unfinished morning never blocks today`() {
+        val yesterday = MorningState(day.minusDays(1), ringStartedMs = ms(7, 30, 3), stoppedMs = ms(7, 33, 3))
+        val b = d(t(7, 0), yesterday); assertTrue(b !is Decision.Block || !(b as Decision.Block).reason.isMorning)
+    }
+
+    @Test fun `X2 a morning the phone missed blocks nothing`() {
+        val missed = MorningState(day)
+        val b = d(t(9, 0), missed); assertTrue(b !is Decision.Block || !(b as Decision.Block).reason.isMorning)
+        assertEquals(MorningPhase.NONE, morningPhase(missed, t(9)))
+    }
+
+    @Test fun `M5 with no morning state the rules are exactly what they were`() {
+        for (h in listOf(7, 10, 15, 23)) assertEquals(decide("com.instagram.android", t(h), slots, list), decide("com.instagram.android", t(h), slots, list, morning = null))
+    }
+
+    @Test fun `M6 the morning block comes before a work block, so a person who has just woken is told the real reason`() {
+        val workTime = at(LocalDate.of(2026, 11, 2), LocalTime.of(10, 30))                 // inside a Monday study block
+        val m = MorningState(LocalDate.of(2026, 11, 2), ringStartedMs = ms(7, 30, 2), stoppedMs = ms(10, 0, 2))
+        assertEquals(BlockReason.MORNING_READY, (decide("com.instagram.android", workTime, slots, list, Allowances(), emptySet(), m) as Decision.Block).reason)
+    }
+}

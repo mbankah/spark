@@ -32,6 +32,9 @@ import app.efa.data.TaskRow
 import app.efa.data.ImportLogRow
 import app.efa.data.PlanRepo
 import app.efa.data.SleepRepo
+import app.efa.data.MorningRepo
+import app.efa.data.MorningRow
+import app.efa.data.toState
 import app.efa.data.ReferenceRepo
 import app.efa.data.RefKind
 import app.efa.data.RefResult
@@ -51,7 +54,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -116,14 +119,24 @@ class MainActivity : ComponentActivity() {
                 var morningUi by remember { mutableStateOf(MorningSetupStatus()) }
                 var morningMessage by remember { mutableStateOf<String?>(null) }
                 var cameraKind by remember { mutableStateOf(RefKind.NIGHT) }
+                var morning by remember { mutableStateOf<MorningRow?>(null) }
+                var readyMessage by remember { mutableStateOf<String?>(null) }
+                var hasReadyRef by remember { mutableStateOf(true) }
                 val refreshMorning: suspend () -> Unit = {
                     val refs = ReferenceRepo(applicationContext, db).status()
                     val fmt = DateTimeFormatter.ofPattern("EEE HH:mm")
                     fun info(kind: String) = refs[kind]?.let { RefInfo(fmt.format(Instant.ofEpochMilli(it.takenAtMs).atZone(LONDON)), it.path,
                         stale = kind == RefKind.NIGHT && System.currentTimeMillis() - it.takenAtMs > NIGHT_REFERENCE_VALID.toMillis()) }
-                    morningUi = MorningSetupStatus(info(RefKind.NIGHT), info(RefKind.STANDING), info(RefKind.READY))
+                    morningUi = MorningSetupStatus(info(RefKind.NIGHT), info(RefKind.STANDING), info(RefKind.READY), null, AlarmSession.stepsAvailable(applicationContext),
+                        (getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager).getDefaultSensor(android.hardware.Sensor.TYPE_STEP_COUNTER) != null)
                 }
                 LaunchedEffect(screen, reload) { if (screen == Screen.MORNING || screen == Screen.SETUP) withContext(Dispatchers.IO) { refreshMorning() } }
+                LaunchedEffect(screen, reload, clock) {
+                    withContext(Dispatchers.IO) {
+                        morning = try { MorningRepo(db).latest() } catch (e: Exception) { morning }
+                        hasReadyRef = ReferenceRepo(applicationContext, db).status().containsKey(RefKind.READY)
+                    }
+                }
                 /** IM4, IM5: read, check and preview a file. Nothing is written. */
                 val checkIncoming: suspend (Incoming?) -> Unit = { inc ->
                     importUi = if (inc == null) ImportUi.Failed("That file could not be read.") else try {
@@ -156,11 +169,15 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 val askRuntime = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { reload++ }
+                val askSteps = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { reload++ }
                 val askRole = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { reload++ }
                 val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
                     noticeOn = BufferNotifier.allowed(applicationContext); BufferNotifier.update(applicationContext)
                 }
-                LaunchedEffect(pendingAction.value) { if (pendingAction.value == BufferNotifier.ACTION_QUICK_ADD) { screen = Screen.QUICK_ADD; pendingAction.value = null } }
+                LaunchedEffect(pendingAction.value) {
+                    if (pendingAction.value == BufferNotifier.ACTION_QUICK_ADD) { screen = Screen.QUICK_ADD; pendingAction.value = null }
+                    if (pendingAction.value == BufferNotifier.ACTION_READY) { screen = Screen.READY; pendingAction.value = null }
+                }
 
                 LaunchedEffect(reload) {
                     loaded = withContext(Dispatchers.IO) {
@@ -173,6 +190,7 @@ class MainActivity : ComponentActivity() {
                             places = PlacesState(pr.home(), pr.statuses(pattern.filter { it.type == "lecture" || it.type == "tutorial" }.map { it.venue }.filter { it.isNotBlank() }), GitConfigRepo(db).get())
                             blockList = BlockingRepo(db).list()
                             BlockingState.refresh(applicationContext)       // the blocking service sees the change at once
+                            try { AlarmScheduler.refresh(applicationContext) } catch (e: Exception) { /* the last alarm stays set (X7) */ }
                             heldWaiting = HeldRepo(db).anyUnreviewed()
                             BufferNotifier.update(applicationContext)
                             // U1, U4: which setup steps are done right now, and a log entry once when one that was done goes off.
@@ -193,7 +211,13 @@ class MainActivity : ComponentActivity() {
                             val sleep = SleepStatus(db.nights().all().size, night?.date, night?.sleepMin ?: 0,
                                 night?.let { hhmmFmt.format(Instant.ofEpochMilli(it.startMs).atZone(LONDON)) }.orEmpty(), night?.let { hhmmFmt.format(Instant.ofEpochMilli(it.endMs).atZone(LONDON)) }.orEmpty(),
                                 night?.checkCount ?: 0, night?.gapCount ?: 0, db.sensors().count(),
-                                db.sensors().firstAt()?.let { DateTimeFormatter.ofPattern("EEE d MMM").format(Instant.ofEpochMilli(it).atZone(LONDON)) })
+                                db.sensors().firstAt()?.let { DateTimeFormatter.ofPattern("EEE d MMM").format(Instant.ofEpochMilli(it).atZone(LONDON)) },
+                                // S4: from waking (the first long screen-on) to the photo that stopped the alarm, for the night that ended that morning
+                                run {
+                                    val m = MorningRepo(db).latest()
+                                    if (night != null && m?.stoppedMs != null && java.time.LocalDate.parse(night.date).plusDays(1) == java.time.LocalDate.parse(m.date))
+                                        awakeBeforeAlarmStopped(night.endMs, m.stoppedMs).toMinutes().toInt().takeIf { it in 0..180 } else null
+                                })
                             Loaded(pattern, db.tasks().open(), repo.verifiedKeys(), PlanRepo(db).periods(), moved, sleep)
                         } catch (e: Exception) { Loaded(null, emptyList()) }   // never show a wrong schedule or Buffer
                     }
@@ -264,6 +288,11 @@ class MainActivity : ComponentActivity() {
                                 heldWaiting = heldWaiting,
                                 unavailable = l != null && l.pattern == null,
                                 launcherPaused = launcherPaused,
+                                morning = when (morningPhase(morning?.toState(), clock)) {
+                                    MorningPhase.WAITING_FOR_READY -> "Social is blocked until you take the ready photo. It ends by itself at ${hhmm.format(readyReleaseAt(morning!!.stoppedMs!!, clock.zone))} if you cannot."
+                                    MorningPhase.RINGING -> "The alarm is ringing."
+                                    else -> null
+                                },
                                 period = period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
                             ),
@@ -271,6 +300,7 @@ class MainActivity : ComponentActivity() {
                             onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
                             onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ },
                             onHeld = { screen = Screen.DIGEST },
+                            onReady = { screen = Screen.READY },
                             onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
                             onBuffer = { if (buffer is BufferState.Value) screen = Screen.WORKING },
@@ -338,7 +368,8 @@ class MainActivity : ComponentActivity() {
                     Screen.MORNING -> MorningSetupScreen(morningUi, morningMessage,
                         onTake = { kind -> cameraKind = kind; morningMessage = null; screen = Screen.MORNING_CAMERA },
                         onClearStanding = { scope.launch(Dispatchers.IO) { ReferenceRepo(applicationContext, db).clear(RefKind.STANDING); refreshMorning() } },
-                        onBack = { screen = Screen.SETUP })
+                        onBack = { screen = Screen.SETUP },
+                        onAllowSteps = { askSteps.launch(Manifest.permission.ACTIVITY_RECOGNITION) })
                     Screen.MORNING_CAMERA -> CameraCapture(
                         onJpeg = { jpeg ->
                             scope.launch(Dispatchers.IO) {
@@ -351,6 +382,41 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.READY -> {
+                        // Read the morning fresh on every entry: it may have changed since the last tick, and an old copy would send you home.
+                        var fresh by remember { mutableStateOf(false) }
+                        LaunchedEffect(reload) {
+                            withContext(Dispatchers.IO) { morning = try { MorningRepo(db).latest() } catch (e: Exception) { morning }; hasReadyRef = ReferenceRepo(applicationContext, db).status().containsKey(RefKind.READY) }
+                            fresh = true
+                        }
+                        val m = morning
+                        val date = m?.let { java.time.LocalDate.parse(it.date) }
+                        if (!fresh) Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
+                        else if (m == null || date == null || m.stoppedMs == null || m.readyMs != null) { screen = Screen.HOME }
+                        else {
+                            var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+                            LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); nowMs = System.currentTimeMillis() } }
+                            val offer = nextOffer(m.readyFailed, !hasReadyRef, 0, false, m.readyWaitStartedMs, nowMs)
+                            LaunchedEffect(offer is Offer.Wait) { if (offer is Offer.Wait && m.readyWaitStartedMs == null) withContext(Dispatchers.IO) { MorningRepo(db).startReadyWait(date, System.currentTimeMillis()); reload++ } }
+                            val msg = readyMessage ?: if (!hasReadyRef) "No ready spot photo is set, so it cannot be checked. Wait instead." else null
+                            ReadyScreen(AlarmUi("", offer, msg, (offer as? Offer.Wait)?.let { ((it.untilMs - nowMs) / 1000).toInt().coerceAtLeast(0) }),
+                                onTakePhoto = { readyMessage = null; screen = Screen.READY_CAMERA },
+                                onCameraBroken = { scope.launch(Dispatchers.IO) { MorningRepo(db).let { r -> r.readyFailed(date); r.readyFailed(date) }; reload++ } },
+                                onDone = { method -> scope.launch(Dispatchers.IO) { MorningRepo(db).ready(date, method, System.currentTimeMillis()); BlockingState.refresh(applicationContext); reload++; screen = Screen.HOME } },
+                                onBack = { screen = Screen.HOME })
+                        }
+                    }
+                    Screen.READY_CAMERA -> CameraCapture(
+                        onJpeg = { jpeg ->
+                            scope.launch(Dispatchers.IO) {
+                                val m = morning; val date = m?.let { java.time.LocalDate.parse(it.date) }
+                                if (date == null) { screen = Screen.HOME; return@launch }
+                                val r = ReferenceRepo(applicationContext, db).match(listOf(RefKind.READY), jpeg, System.currentTimeMillis())
+                                if (r.result.passed) { MorningRepo(db).ready(date, StopMethod.PHOTO, System.currentTimeMillis()); BlockingState.refresh(applicationContext); readyMessage = null; reload++; screen = Screen.HOME }
+                                else { MorningRepo(db).readyFailed(date); readyMessage = if (r.result.tooDark) "That photo is too dark to check. Turn a light on." else "That does not match your ready spot (score ${r.result.score}, it needs ${MATCH_PASS_SCORE})."; reload++; screen = Screen.READY }
+                            }
+                        },
+                        onCancel = { screen = Screen.READY })
                     Screen.LIST_GATE ->ListWallGate(onPassed = { screen = Screen.BLOCKLIST }, onCancel = { screen = Screen.SETUP })
                     Screen.BLOCKLIST -> BlockListScreen(apps, blockList,
                         onSave = { chosen -> scope.launch(Dispatchers.IO) { BlockingRepo(db).saveList(chosen); reload++; withContext(Dispatchers.Main) { screen = if (setupNeeded) Screen.HOME else Screen.SETUP } } },

@@ -269,3 +269,24 @@ Built early at your request. It fits the app (see `docs/IMPORT_COMPLIANCE.md`), 
 - Nothing here has run overnight on a real phone (Q6, `docs/DEVICE_TESTS.md` P1 to P8). Whether Android keeps the service alive all night on your phone, and how much battery it costs, are unknown until then.
 - Android's Sleep API and Health Connect (S5, S6) are not built (Q-G50). The shutdown and wake photos that bound a night are layer 3.
 - Sleep drives no rule yet: no alarm, no cutoff change, no short-sleep Buffer weighting.
+
+## Update: the morning (layer 3: M1 to M10, Z1, Z2, Z4, G2, X2, Y7)
+
+**Built:**
+- `core/.../Morning.kt`: matching a live photo to a reference (a 16 x 16 grey summary, tolerant of lighting and a small movement of the phone, blank photos never match), the alarm time (onset plus 8 hours, never sooner than 3 hours after onset, backstop at 12:00, hard alarm 30 minutes before, none on a day off), the stop ladder (photo twice, then 40 steps, then a 3 minute wait), and the morning phase (ringing, waiting for the ready photo, done, with a release at 14:00).
+- Reference photos: the night-before setup, the optional standing reference and the ready spot, kept at working size without location data, replaced by a new one, with a morning setup screen.
+- The alarm: one alarm always set (the backstop until sleep has started, then onset plus 8 hours), re-planned every minute, set again at boot, and a morning the phone missed is flagged without penalty (X2). It rings with the alarm sound and vibration, opens over the lock screen, cannot be left with Back, and stops only with a matching photo, or after two failed photos with steps or a short wait, each marked as weaker.
+- The social block (M5, M6, M8, M9): while the alarm rings and after it stops, the apps on your list are blocked with no typed wall, and the ready photo at the fixed spot ends it. Everything else stays open. It ends by itself at 14:00 so it can never trap you.
+- Awake time in bed from waking to the alarm photo (S4) on the Sleep log card, and a "Bad night" reason on catch-up work (Z4).
+- Database version 9.
+
+**Tested:**
+- `:core:test`: 364 tests, 0 failed, including 50 different rooms never matching, many lighting and shake cases, every alarm time rule, every rung of the ladder having a way out, and the blocking decisions.
+- Emulator, with the real camera and the real alarm manager: two photos of the same scene match, the alarm rings at its time, its screen comes to the front, a matching photo stops it and records how; two wrong photos lead to the weaker checks and the alarm keeps ringing; Back does not leave it; with no reference it goes straight to the weaker checks; the blocked card has no wall; the real ready photo lifts the block; a wrong ready photo leaves it in place.
+
+**Found by testing:** Android now needs the alarm-clock permission to set an exact alarm. The Compose test rule also drives every other Compose screen in the process, which froze the alarm screen in my first end-to-end test, so those tests are driven through the accessibility tree instead.
+
+**Not built or not proven:**
+- None of it has run in a real morning on your phone. The match pass mark of 65 is a guess until it meets your room (Q-G53). Whether the alarm opens over your lock screen, how loud it is and how Android treats it overnight are for the checklist A1 to A13.
+- The shutdown photo (S1), Z3 (the drift of the wake time) and a day off without an alarm come with the night layer and layer 8 (Q-G60, Q-G62).
+- **Test flakiness, stated plainly:** 364 core tests pass every time. Of 260 emulator tests, a full run takes about ten minutes on a busy emulator and, in the last four full runs, one or two timing-sensitive end-to-end tests failed each time and a different one each time (a notification read too early, a typed-wall field not yet on screen, a dropped frame, a back-button check). Each of them passes when run on its own and the reasons found were races in the tests, which now wait for what they read. The last full run had one such failure (LA10, which passed alone straight after). Nothing failed twice for the same reason.

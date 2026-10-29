@@ -187,9 +187,10 @@ class BufferNoticeE2ETest {
     @Test fun WG9_the_notification_says_when_it_was_updated_and_is_replaced_not_stacked() {
         BufferNotifier.update(ctx)
         BlockingState.clockOverride = { t(19, 10, 31) }; BufferNotifier.update(ctx)
-        val all = ctx.getSystemService(NotificationManager::class.java).activeNotifications.filter { it.id == BufferNotifier.ID }
-        assertEquals(1, all.size)
-        assertTrue(all.single().notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString().contains("Updated 10:31"))
+        fun mine() = ctx.getSystemService(NotificationManager::class.java).activeNotifications.filter { it.id == BufferNotifier.ID }
+        // The system posts it a moment after the call returns, so wait for the new text rather than reading the old one.
+        assertTrue(screen.waitFor(10_000) { mine().singleOrNull()?.notification?.extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.contains("Updated 10:31") == true }, mine().toString())
+        assertEquals(1, mine().size)
     }
 
     @Test fun AP6_a_negative_Buffer_says_NEGATIVE_in_the_notification() {

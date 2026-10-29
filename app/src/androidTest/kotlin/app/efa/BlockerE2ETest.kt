@@ -66,6 +66,20 @@ internal class TestScreen(inst: Instrumentation) {
         return (n ?: node).performAction(AccessibilityNodeInfo.ACTION_CLICK)
     }
 
+    /** Clicks the control whose text or description is exactly [label], which is how a Compose button is named when other text starts with the same words. */
+    fun clickExact(label: String): Boolean {
+        val node = checkNotNull(find { it.text?.toString() == label || it.contentDescription?.toString() == label }) { "no control called \"$label\"" }
+        var n: AccessibilityNodeInfo? = node
+        while (n != null && !n.isClickable) n = n.parent
+        return (n ?: node).performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
+    /** Scrolls the screen up with swipes until [sub] is on it, for a control that starts below the fold. */
+    fun scrollTo(sub: String, swipes: Int = 8): Boolean {
+        repeat(swipes) { if (has(sub)) return true; shell("input swipe 540 1900 540 700 300"); Thread.sleep(500) }
+        return has(sub)
+    }
+
     /** Every visible text, for a failure message. */
     fun dump(): String {
         val out = mutableListOf<String>()
@@ -158,6 +172,7 @@ class BlockerE2ETest {
 
     private fun typeWall(): String {
         val target = checkNotNull(screen.text("Characters to type: ")).contentDescription.toString().removePrefix("Characters to type: ")
+        assertTrue(screen.waitFor(5_000) { screen.has("Type the characters here") }, "the field did not appear. Screen: " + screen.dump())
         val field = checkNotNull(screen.text("Type the characters here"))
         Thread.sleep(1_500)                                          // the field takes focus by itself when the wall opens
         // One key press at a time, waiting for the field to take each one, as a person types.

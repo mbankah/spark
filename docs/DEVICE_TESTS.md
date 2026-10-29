@@ -165,3 +165,21 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | P6 | Scroll in bed for 30 minutes before sleeping. | The start is when the screen went off for the hour, not when you got into bed. |
 | P7 | Look at the battery use for Spark after a full day (Settings, Battery). | At or under about 5% (LA13). Tell me the number. |
 | P8 | Repeat for a week. | One summary line per night, and the card keeps counting nights. |
+
+## The morning (layer 3)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| A1 | Setup, "Set up mornings". Take the ready spot photo (the bag by the door) once. | "Saved." The photo shows on the screen. |
+| A2 | The night before, set up your study space and breakfast equipment and press "Take tonight's setup photo" from where you will stand. Use a spot you cannot see from your bed. | Saved, with the time. It replaces last night\'s. |
+| A3 | Allow step counting if you want the fallback. | The card says On. |
+| A4 | Go to sleep as normal. In the morning the alarm should ring about 8 hours after you fell asleep, or at 12:00 at the latest. Tell me the time it rang and when you fell asleep. | It rings loud, vibrates, and the alarm screen is over the lock screen. Tell me if it did not. |
+| A5 | Take the photo from where you stood the night before. | It stops. Tell me the score if it did not (it says "score N, it needs 65"). |
+| A6 | Stand somewhere else and photograph a wall. | "That does not match." The alarm keeps ringing. A second wrong try leads to the steps or the wait. |
+| A7 | Shake the phone hard while it rings. | Nothing stops it. Steps only count after two photo attempts have failed. |
+| A8 | Press Back, press Home, pull down the notification shade. | The alarm cannot be left. |
+| A9 | After the alarm stops, try Instagram or another app on your list. | The blocked card says social stays blocked until the ready photo, with no typed wall. Phone calls, messages, maps and music still work. |
+| A10 | Take the ready photo at the bag by the door. | The block ends at once. The home card goes. |
+| A11 | Do not take it. | The block ends by itself at 14:00, and the card said so. |
+| A12 | Switch the phone off before the alarm and on again after it. | The morning is flagged missed with no penalty and no social block, and the next alarm is set. |
+| A13 | Setup, Sleep log, after a night with an alarm. | "Awake in bed before the alarm photo: N min." |

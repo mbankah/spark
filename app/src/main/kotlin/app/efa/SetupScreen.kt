@@ -39,7 +39,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(),
+    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "",
 ) {
     val c = LocalColors.current
     Column(
@@ -50,6 +50,13 @@ fun SetupScreen(
         BlockingCard(blocking, onOpenAccessibility, onChooseList)
         NotificationsCard(notifications, onOpenNotificationAccess, onAllowBufferNotice)
         SleepCard(sleep, blocking.serviceOn)
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("MORNING")
+            BasicText(morningText.ifBlank { "Not set up." }, style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("A photo of tomorrow's setup stops the alarm, and social stays blocked until the ready photo.", style = Ts(c.muted, 14.sp))
+            Btn("Set up mornings", onMorning, modifier = Modifier.fillMaxWidth())
+        }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("TIMETABLE")

@@ -32,6 +32,10 @@ import app.efa.data.TaskRow
 import app.efa.data.ImportLogRow
 import app.efa.data.PlanRepo
 import app.efa.data.SleepRepo
+import app.efa.data.ReferenceRepo
+import app.efa.data.RefKind
+import app.efa.data.RefResult
+import app.efa.data.NIGHT_REFERENCE_VALID
 import app.efa.data.PlannedPeriodRow
 import app.efa.data.activePeriod
 import app.efa.data.toOpen
@@ -47,7 +51,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -109,6 +113,17 @@ class MainActivity : ComponentActivity() {
                 var importUi by remember { mutableStateOf<ImportUi>(ImportUi.Idle) }
                 var imports by remember { mutableStateOf<List<ImportLogRow>>(emptyList()) }
                 var wall by remember { mutableStateOf<Triple<String, String, () -> Unit>?>(null) }
+                var morningUi by remember { mutableStateOf(MorningSetupStatus()) }
+                var morningMessage by remember { mutableStateOf<String?>(null) }
+                var cameraKind by remember { mutableStateOf(RefKind.NIGHT) }
+                val refreshMorning: suspend () -> Unit = {
+                    val refs = ReferenceRepo(applicationContext, db).status()
+                    val fmt = DateTimeFormatter.ofPattern("EEE HH:mm")
+                    fun info(kind: String) = refs[kind]?.let { RefInfo(fmt.format(Instant.ofEpochMilli(it.takenAtMs).atZone(LONDON)), it.path,
+                        stale = kind == RefKind.NIGHT && System.currentTimeMillis() - it.takenAtMs > NIGHT_REFERENCE_VALID.toMillis()) }
+                    morningUi = MorningSetupStatus(info(RefKind.NIGHT), info(RefKind.STANDING), info(RefKind.READY))
+                }
+                LaunchedEffect(screen, reload) { if (screen == Screen.MORNING || screen == Screen.SETUP) withContext(Dispatchers.IO) { refreshMorning() } }
                 /** IM4, IM5: read, check and preview a file. Nothing is written. */
                 val checkIncoming: suspend (Incoming?) -> Unit = { inc ->
                     importUi = if (inc == null) ImportUi.Failed("That file could not be read.") else try {
@@ -287,6 +302,8 @@ class MainActivity : ComponentActivity() {
                         onAllowBufferNotice = { if (Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) else { noticeOn = BufferNotifier.allowed(applicationContext); BufferNotifier.update(applicationContext) } },
                         onOpenAccessibility = { openAccessibilitySettings(applicationContext) },
                         onImport = { importUi = ImportUi.Idle; screen = Screen.IMPORT },
+                        onMorning = { morningMessage = null; screen = Screen.MORNING },
+                        morningText = when { morningUi.night != null && morningUi.ready != null -> "Set up: tonight's photo and the ready spot."; morningUi.ready != null -> "Ready spot set. Take tonight's setup photo."; morningUi.night != null -> "Tonight's photo set. Take the ready spot photo."; else -> "" },
                         sleep = l?.sleep ?: SleepStatus(),
                         onChooseList = {
                             scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = if (blockList == null) Screen.BLOCKLIST else Screen.LIST_GATE } }
@@ -318,6 +335,22 @@ class MainActivity : ComponentActivity() {
                         },
                         onBack = { importUi = ImportUi.Idle; screen = Screen.SETUP })
                     Screen.IMPORT_WALL -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { screen = Screen.IMPORT; w.third() }, onCancel = { screen = Screen.IMPORT }) } ?: run { screen = Screen.IMPORT }
+                    Screen.MORNING -> MorningSetupScreen(morningUi, morningMessage,
+                        onTake = { kind -> cameraKind = kind; morningMessage = null; screen = Screen.MORNING_CAMERA },
+                        onClearStanding = { scope.launch(Dispatchers.IO) { ReferenceRepo(applicationContext, db).clear(RefKind.STANDING); refreshMorning() } },
+                        onBack = { screen = Screen.SETUP })
+                    Screen.MORNING_CAMERA -> CameraCapture(
+                        onJpeg = { jpeg ->
+                            scope.launch(Dispatchers.IO) {
+                                morningMessage = when (ReferenceRepo(applicationContext, db).set(cameraKind, jpeg, System.currentTimeMillis())) {
+                                    is RefResult.Saved -> "Saved. It replaces the old one."
+                                    RefResult.TooDark -> "That photo shows nothing to match, it is too dark or blank. Turn a light on and take it again."
+                                    RefResult.Unreadable -> "The photo could not be read. Take it again."
+                                }
+                                refreshMorning(); screen = Screen.MORNING
+                            }
+                        },
+                        onCancel = { screen = Screen.MORNING })
                     Screen.LIST_GATE ->ListWallGate(onPassed = { screen = Screen.BLOCKLIST }, onCancel = { screen = Screen.SETUP })
                     Screen.BLOCKLIST -> BlockListScreen(apps, blockList,
                         onSave = { chosen -> scope.launch(Dispatchers.IO) { BlockingRepo(db).saveList(chosen); reload++; withContext(Dispatchers.Main) { screen = if (setupNeeded) Screen.HOME else Screen.SETUP } } },

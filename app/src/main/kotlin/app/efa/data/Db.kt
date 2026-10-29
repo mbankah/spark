@@ -117,6 +117,48 @@ interface NightDao {
     @Query("SELECT * FROM night_summary WHERE date = :date") suspend fun get(date: String): NightSummaryRow?
 }
 
+/**
+ * A reference photo for the morning (M1, M4, M8, ST3): "night" is the setup photographed the night before, "standing" the optional fixed
+ * reference, "ready" the last getting-ready step at its fixed spot. A new one replaces the old. `signature` is the 16 x 16 grey summary the
+ * match uses; the working-size picture is only kept so it can be shown, and is re-encoded without location data (ST7).
+ */
+@Entity(tableName = "reference_photo")
+data class ReferencePhotoRow(
+    @PrimaryKey val kind: String,
+    val signature: ByteArray, val path: String, val bytes: Int, val takenAtMs: Long,
+) {
+    override fun equals(other: Any?) = other is ReferencePhotoRow && kind == other.kind && signature.contentEquals(other.signature) && path == other.path && bytes == other.bytes && takenAtMs == other.takenAtMs
+    override fun hashCode() = kind.hashCode() * 31 + signature.contentHashCode()
+}
+
+/** One morning, keyed by the date the alarm rang (M5, M6, M8, X2). Times are epoch milliseconds. */
+@Entity(tableName = "morning")
+data class MorningRow(
+    @PrimaryKey val date: String,
+    val alarmAtMs: Long, val alarmReason: String,
+    val ringStartedMs: Long? = null, val stoppedMs: Long? = null, val stopMethod: String? = null,
+    val failedPhotos: Int = 0, val bestScore: Int = 0, val steps: Int = 0, val waitStartedMs: Long? = null,
+    val readyMs: Long? = null, val readyMethod: String? = null, val readyFailed: Int = 0, val readyWaitStartedMs: Long? = null,
+    /** X2: the phone was off or dead at alarm time. Flagged, with no penalty. */
+    val missed: Boolean = false,
+)
+
+@Dao
+interface ReferenceDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: ReferencePhotoRow)
+    @Query("SELECT * FROM reference_photo WHERE kind = :kind") suspend fun get(kind: String): ReferencePhotoRow?
+    @Query("SELECT * FROM reference_photo") suspend fun all(): List<ReferencePhotoRow>
+    @Query("DELETE FROM reference_photo WHERE kind = :kind") suspend fun delete(kind: String)
+}
+
+@Dao
+interface MorningDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MorningRow)
+    @Query("SELECT * FROM morning WHERE date = :date") suspend fun get(date: String): MorningRow?
+    @Query("SELECT * FROM morning ORDER BY date DESC LIMIT 1") suspend fun latest(): MorningRow?
+    @Query("SELECT * FROM morning WHERE date >= :since ORDER BY date") suspend fun since(since: String): List<MorningRow>
+}
+
 @Dao
 interface OverlayDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: OverlayRow): Long
@@ -286,7 +328,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class], version = 8, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class], version = 9, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -303,11 +345,13 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun imports(): ImportDao
     abstract fun sensors(): SensorDao
     abstract fun nights(): NightDao
+    abstract fun references(): ReferenceDao
+    abstract fun mornings(): MorningDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build().also { inst = it }
         }
     }
 }
@@ -369,6 +413,13 @@ val MIGRATION_7_8 = object : androidx.room.migration.Migration(7, 8) {
         connection.execSQL("CREATE TABLE IF NOT EXISTS `sensor_event` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `atMs` INTEGER NOT NULL, `kind` INTEGER NOT NULL, `value` INTEGER NOT NULL)")
         connection.execSQL("CREATE INDEX IF NOT EXISTS `index_sensor_event_atMs` ON `sensor_event` (`atMs`)")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `night_summary` (`date` TEXT NOT NULL, `startMs` INTEGER NOT NULL, `endMs` INTEGER NOT NULL, `sleepMin` INTEGER NOT NULL, `checkCount` INTEGER NOT NULL, `checkMin` INTEGER NOT NULL, `chargingPct` INTEGER NOT NULL, `motionEvents` INTEGER NOT NULL, `darkPct` INTEGER NOT NULL, `gapCount` INTEGER NOT NULL, `derivedAtMs` INTEGER NOT NULL, PRIMARY KEY(`date`))")
+    }
+}
+
+val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `reference_photo` (`kind` TEXT NOT NULL, `signature` BLOB NOT NULL, `path` TEXT NOT NULL, `bytes` INTEGER NOT NULL, `takenAtMs` INTEGER NOT NULL, PRIMARY KEY(`kind`))")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `morning` (`date` TEXT NOT NULL, `alarmAtMs` INTEGER NOT NULL, `alarmReason` TEXT NOT NULL, `ringStartedMs` INTEGER, `stoppedMs` INTEGER, `stopMethod` TEXT, `failedPhotos` INTEGER NOT NULL, `bestScore` INTEGER NOT NULL, `steps` INTEGER NOT NULL, `waitStartedMs` INTEGER, `readyMs` INTEGER, `readyMethod` TEXT, `readyFailed` INTEGER NOT NULL, `readyWaitStartedMs` INTEGER, `missed` INTEGER NOT NULL, PRIMARY KEY(`date`))")
     }
 }
 

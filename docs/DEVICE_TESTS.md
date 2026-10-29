@@ -183,3 +183,14 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | A11 | Do not take it. | The block ends by itself at 14:00, and the card said so. |
 | A12 | Switch the phone off before the alarm and on again after it. | The morning is flagged missed with no penalty and no social block, and the next alarm is set. |
 | A13 | Setup, Sleep log, after a night with an alarm. | "Awake in bed before the alarm photo: N min." |
+
+## The night (layer 4)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| B1 | After a day where every lecture, work block and commitment has its photo, open a blocked app after the night cutoff. | The card says an override opens your blocked apps for 45 minutes. |
+| B2 | After an ordinary day with one proof missing. | 30 minutes. |
+| B3 | Be 60 minutes late stopping the alarm one morning. That night. | The cutoff is 60 minutes later than usual, and the 8-hour sum on the card names the later wake. The extra is a quarter of an hour less each day after. |
+| B4 | Take the night-before photo at 21:30 after scrolling in bed from 19:00 to 21:00. Next day look at the Sleep log. | Sleep starts at the last screen-off after the photo, not at 19:00. |
+| B5 | Forget the night-before photo. | The Sleep log still gives a night from the sensors. |
+| B6 | Try an override within 6 hours of your wake. | It is refused. |

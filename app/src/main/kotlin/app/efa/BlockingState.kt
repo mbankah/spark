@@ -19,7 +19,7 @@ import java.time.ZonedDateTime
  */
 class Snapshot(
     val pattern: List<PatternSlot>, val list: Set<String>, val allow: Allowances,
-    val verified: Set<String>, val tasks: List<DueWork>, val morning: MorningState? = null,
+    val verified: Set<String>, val tasks: List<DueWork>, val morning: MorningState? = null, val lateness: Lateness = emptyMap(),
 )
 
 object BlockingState {
@@ -47,13 +47,22 @@ object BlockingState {
                 verified = BlockRepo(ctx, db, pattern).verifiedKeys(),
                 tasks = db.tasks().open().map { it.toDue() },
                 morning = MorningRepo(db).latest()?.toState(),
+                lateness = MorningRepo(db).lateness(pattern, now.toLocalDate()),
             )
         } catch (e: Exception) { /* keep the last snapshot */ }
     }
 
     fun decide(pkg: String): Decision {
         val s = snapshot ?: return Decision.Allow
-        return decide(pkg, now(), s.pattern, s.list, s.allow, s.verified, s.morning)
+        return decide(pkg, now(), s.pattern, s.list, s.allow, s.verified, s.morning, s.lateness)
+    }
+
+    /** N5: whether the day this night belongs to was fully verified, which makes an override 45 minutes and not 30. */
+    fun fullyVerifiedTonight(): Boolean {
+        val s = snapshot ?: return false
+        val now = now()
+        val wake = driftedWake(s.pattern, now, s.lateness) ?: return false
+        return fullyVerifiedDay(s.pattern, dayOfNight(wake), s.verified, now)
     }
 
     /** U7: the Buffer now and the Buffer if the current work block is lost, as arithmetic and not a warning. */

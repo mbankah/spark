@@ -59,7 +59,7 @@ class BlockedActivity : ComponentActivity() {
                     decision = d
                     val s = BlockingState.snapshot
                     if (d is Decision.Block && d.night && s != null) {
-                        val w = nightWindow(s.pattern, BlockingState.now())
+                        val w = nightWindow(s.pattern, BlockingState.now(), lateness = s.lateness)
                         if (w != null) uses = withContext(Dispatchers.IO) { BlockingRepo(db).nightUsesSince(w.cutoff) }
                     }
                     if (d is Decision.Allow) { launchApp(pkg); finish() }       // an allowance began in the meantime
@@ -70,7 +70,7 @@ class BlockedActivity : ComponentActivity() {
                         val now = BlockingState.now()
                         val s = BlockingState.snapshot
                         val repo = BlockingRepo(db)
-                        if (d.night) repo.nightOverride(now, overrideMinutes(fullyVerifiedDay = false), len)
+                        if (d.night) repo.nightOverride(now, overrideMinutes(BlockingState.fullyVerifiedTonight()), len)
                         else repo.openApp(pkg, now, len, nowAndNext(s?.pattern.orEmpty(), now).now, BlockRepo(applicationContext, db, s?.pattern.orEmpty()))
                         BlockingState.refresh(applicationContext)
                         withContext(Dispatchers.Main) { launchApp(pkg); finishAndRemoveTask() }
@@ -97,8 +97,8 @@ fun BlockedCard(
     var wallOpen by remember { mutableStateOf(false) }
     val snap = BlockingState.snapshot
     val now = BlockingState.now()
-    val wake = snap?.pattern?.let { nextWake(it, now) }
-    val offer = if (d.night && wake != null) nightOffer(now, wake, nightUsesTonight, fullyVerifiedDay = false) else null
+    val wake = snap?.pattern?.let { driftedWake(it, now, snap.lateness) }      // Z3: a late morning moves the target later
+    val offer = if (d.night && wake != null) nightOffer(now, wake, nightUsesTonight, BlockingState.fullyVerifiedTonight()) else null
     val len = if (d.night) offer?.wallLength ?: WallLength.nightOverride(nightUsesTonight + 1) else WallLength.OPEN_BLOCKED_APP
     val canOpen = (!d.night || offer?.allowed == true) && !d.reason.isMorning
     val target = remember(wallOpen, len) { newWallString(len) }

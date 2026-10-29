@@ -90,7 +90,7 @@ if (missing.length) { console.error('UNMAPPED:', missing.map(r => r.key).join(',
 const found = new Map();
 const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(d + '/' + e.name) : [d + '/' + e.name]);
 for (const f of fs.existsSync('core/src/test') ? walk('core/src/test').filter(f => f.endsWith('.kt')) : []) {
-  for (const m of fs.readFileSync(f, 'utf8').matchAll(/fun `((?:[A-Z]{1,2}\d+ )+)([^`]*)`/g)) {
+  for (const m of fs.readFileSync(f, 'utf8').matchAll(/fun `((?:(?:[A-Z]{1,2}\d+|R20-F\d) )+)([^`]*)`/g)) {
     for (const id of m[1].trim().split(' ')) {
       if (!found.has(id)) found.set(id, []);
       found.get(id).push({ file: f.replace('core/src/test/kotlin/', 'core/src/test/kotlin/'), name: (m[1] + m[2]).trim() });

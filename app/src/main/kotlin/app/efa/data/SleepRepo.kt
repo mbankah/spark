@@ -43,7 +43,10 @@ class SleepRepo(private val db: EfaDb) {
             if (d !in recent && db.nights().get(d.toString()) != null) continue   // an old night already summarised: its raw events may be half deleted, so never redo it
             // Charging state at bedtime comes from the last charging event before the window, so read a day earlier.
             val ev = events(from - 24L * 3_600_000, until)
-            val s = summariseNight(d, ev, zone) ?: continue
+            // S1, S2: the night-before photo is the shutdown photo and the photo that stopped the alarm is the wake photo. Either may be missing.
+            val shutdown = db.references().get(RefKind.NIGHT)?.takenAtMs
+            val wakePhoto = db.mornings().get(d.plusDays(1).toString())?.stoppedMs
+            val s = summariseNight(d, ev, zone, shutdown, wakePhoto) ?: continue
             db.nights().upsert(NightSummaryRow(d.toString(), s.night.startMs, s.night.endMs, s.night.sleepMin, s.night.checkCount, s.night.checkMin,
                 s.chargingPct, s.motionEvents, s.darkPct, s.gapCount, now.toEpochMilli()))
             written++
@@ -51,6 +54,9 @@ class SleepRepo(private val db: EfaDb) {
         db.sensors().deleteBefore(now.minus(StoragePolicy.SENSOR_EVENTS_KEEP).toEpochMilli())
         written
     }
+
+    /** The time of the night-before photo, which is the shutdown photo (S1), or null. */
+    suspend fun shutdownPhotoMs(): Long? = db.references().get(RefKind.NIGHT)?.takenAtMs
 
     suspend fun latestNight(): NightSummaryRow? = db.nights().latest()
 }

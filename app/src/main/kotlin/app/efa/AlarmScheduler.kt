@@ -32,7 +32,8 @@ object AlarmScheduler {
     /** Where sleep started, if the live night says it has and the person is still in it. */
     suspend fun liveOnset(repo: SleepRepo, now: ZonedDateTime): ZonedDateTime? {
         val (from, _) = nightWindow(now.toLocalDate().let { if (now.toLocalTime().isBefore(NIGHT_UNTIL)) it.minusDays(1) else it }, now.zone)
-        val night = deriveNight(repo.events(from, now.toInstant().toEpochMilli() + 1), from, now.toInstant().toEpochMilli() + 1) ?: return null
+        val shutdown = repo.shutdownPhotoMs()          // S2: sleep cannot have started before the shutdown photo
+        val night = deriveNight(repo.events(from, now.toInstant().toEpochMilli() + 1), from, now.toInstant().toEpochMilli() + 1, shutdown) ?: return null
         val stillAsleep = night.endMs >= now.toInstant().toEpochMilli() - 60_000
         return if (stillAsleep) Instant.ofEpochMilli(night.startMs).atZone(now.zone) else null
     }

@@ -34,8 +34,8 @@ sealed interface Decision {
 /** Where tonight's night window sits for [now]: from the cutoff to the next planned wake (N1, N2). null outside it. */
 data class NightWindow(val cutoff: ZonedDateTime, val wake: ZonedDateTime)
 
-fun nightWindow(pattern: List<PatternSlot>, now: ZonedDateTime, fallAsleep: Duration = FALL_ASLEEP_DEFAULT): NightWindow? {
-    val wake = nextWake(pattern, now) ?: return null
+fun nightWindow(pattern: List<PatternSlot>, now: ZonedDateTime, fallAsleep: Duration = FALL_ASLEEP_DEFAULT, lateness: Lateness = emptyMap()): NightWindow? {
+    val wake = driftedWake(pattern, now, lateness) ?: return null          // Z3: a late morning moves the next target later, then it comes back
     val cutoff = nightCutoff(wake, fallAsleep)
     return if (!now.isBefore(cutoff)) NightWindow(cutoff, wake) else null
 }
@@ -49,7 +49,7 @@ fun nightWindow(pattern: List<PatternSlot>, now: ZonedDateTime, fallAsleep: Dura
  */
 fun decide(
     pkg: String, now: ZonedDateTime, pattern: List<PatternSlot>, list: Set<String>,
-    allow: Allowances = Allowances(), verifiedKeys: Set<String> = emptySet(), morning: MorningState? = null,
+    allow: Allowances = Allowances(), verifiedKeys: Set<String> = emptySet(), morning: MorningState? = null, lateness: Lateness = emptyMap(),
 ): Decision {
     if (pkg !in list) return Decision.Allow
     // M5, M6, M8, M9: while the alarm rings and until the ready photo, the listed apps are blocked completely. Calls, maps, banking, music and
@@ -66,7 +66,7 @@ fun decide(
         val minutes = if (firm == BlockReason.WORK_BLOCK && blockKey(current) !in verifiedKeys) Duration.between(current.start, current.end).toMinutes().toInt() else 0
         return Decision.Block(firm, current.slot.title, current.end, minutes, night = false)
     }
-    val window = nightWindow(pattern, now)
+    val window = nightWindow(pattern, now, lateness = lateness)
     val sleeping = current?.slot?.type == "sleep"
     if (window != null || sleeping) {
         if (allow.nightUntil?.isAfter(now) == true) return Decision.Allow

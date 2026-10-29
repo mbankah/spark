@@ -45,6 +45,19 @@ class MorningRepo(private val db: EfaDb) {
     suspend fun ready(date: LocalDate, method: StopMethod, nowMs: Long) =
         update(date) { if (it.readyMs != null) it else it.copy(readyMs = nowMs, readyMethod = method.name) }
 
+    /**
+     * Z3: for each of the last 14 mornings that the alarm was stopped, how many minutes later than the planned wake that was. Only late mornings
+     * are listed. A morning with no planned wake (a free morning) has none.
+     */
+    suspend fun lateness(slots: List<PatternSlot>, today: LocalDate, zone: ZoneId = LONDON): Lateness =
+        db.mornings().since(today.minusDays(14).toString()).mapNotNull { r ->
+            val stopped = r.stoppedMs ?: return@mapNotNull null
+            val date = LocalDate.parse(r.date)
+            val planned = slotsFor(slots, date, zone).firstOrNull { it.slot.title == "Wake, shower" }?.start ?: return@mapNotNull null
+            val late = ((stopped - planned.toInstant().toEpochMilli()) / 60_000).toInt()
+            if (late > 0) date to late else null
+        }.toMap()
+
     private suspend fun update(date: LocalDate, f: (MorningRow) -> MorningRow) = db.withTransaction {
         db.mornings().get(date.toString())?.let { db.mornings().put(f(it)) }
     }

@@ -290,3 +290,20 @@ Built early at your request. It fits the app (see `docs/IMPORT_COMPLIANCE.md`), 
 - None of it has run in a real morning on your phone. The match pass mark of 65 is a guess until it meets your room (Q-G53). Whether the alarm opens over your lock screen, how loud it is and how Android treats it overnight are for the checklist A1 to A13.
 - The shutdown photo (S1), Z3 (the drift of the wake time) and a day off without an alarm come with the night layer and layer 8 (Q-G60, Q-G62).
 - **Test flakiness, stated plainly:** 364 core tests pass every time. Of 260 emulator tests, a full run takes about ten minutes on a busy emulator and, in the last four full runs, one or two timing-sensitive end-to-end tests failed each time and a different one each time (a notification read too early, a typed-wall field not yet on screen, a dropped frame, a back-button check). Each of them passes when run on its own and the reasons found were races in the tests, which now wait for what they read. The last full run had one such failure (LA10, which passed alone straight after). Nothing failed twice for the same reason.
+
+## Update: the night (layer 4: N1 to N7, Z3, S1, S2, O2, R20-F3)
+
+Most of the night rule was already built with blocking in layer 1: the cutoff, the list closing after it, the typed override that buys 30 minutes, the string growing by 25 for each extra override tonight, the 8-hour sum on the card, and the hard stop 6 hours before wake. This layer finishes it and wires the rest.
+
+**Built:**
+- N5: after a fully verified day an override buys 45 minutes and not 30. The card and the override both use it.
+- Z3: a late morning moves the next target wake later by that much (at most 2 hours) and it comes back 15 minutes a day. The night cutoff, the hard stop and the 8-hour sum use the drifted wake. Lateness is read from the alarm photo times.
+- S1, S2: the night-before photo is the shutdown photo and the photo that stops the alarm is the wake photo. Sleep starts after the first and ends by the second. Without either, the sensors alone still give a night.
+
+**Tested:**
+- `:core:test`: 393 tests, 0 failed. They include the drift arithmetic day by day, the cap, the 14-day horizon, the clock change on 25 October 2026, the cutoff and hard stop moving with the drift, a fully verified day with each block missing in turn, and every combination of shutdown and wake photo never giving a backwards night.
+- Emulator (272 tests, 0 failed in the last full run): the stored lateness, the photo bounds on a real database, and on the real phone the override card offering 45 or 30 minutes and a late morning keeping the list open for the extra hour.
+
+**Not built or not proven:**
+- Nothing here has run over a real night on your phone (checklist B1 to B6).
+- Y8 (earned phone access never overrides the cutoff) comes with the rewards, and the shutdown photo earns no credit until then (Q-G64, Q-G66). The drift does not move the study due times (Q-G63).

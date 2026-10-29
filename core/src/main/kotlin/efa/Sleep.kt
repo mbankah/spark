@@ -33,6 +33,8 @@ val SERVICE_GAP: Duration = Duration.ofMinutes(40)
 /** The evening the night is counted from and the time it is read until, as wall-clock times on the evening's date and the next day. */
 val NIGHT_FROM: LocalTime = LocalTime.of(18, 0)
 val NIGHT_UNTIL: LocalTime = LocalTime.of(12, 0)
+/** A shutdown photo counts only if it was taken within this long of the evening start (18:00 to 03:00), so a photo taken in the morning cannot cut the night short (Q-G64). */
+val SHUTDOWN_VALID_FOR: Duration = Duration.ofHours(9)
 
 data class SleepNight(
     val startMs: Long, val endMs: Long,
@@ -51,7 +53,14 @@ data class NightSummary(
  * the same night, and ends at the first long screen-on after that. Scrolling in bed is not sleep because a screen-on of 15 minutes or
  * more before the quiet stretch moves the start later. [events] may be in any order. Returns null when there is no quiet stretch.
  */
-fun deriveNight(events: List<SensorEvent>, fromMs: Long, untilMs: Long): SleepNight? {
+fun deriveNight(events: List<SensorEvent>, fromMs: Long, untilMs: Long, shutdownPhotoMs: Long? = null, wakePhotoMs: Long? = null): SleepNight? {
+    // S1, S2: the shutdown photo and the wake photo bound the sleep window. A photo outside the evening-to-noon window, or none, changes nothing.
+    val from = shutdownPhotoMs?.takeIf { it in fromMs until untilMs && it <= fromMs + SHUTDOWN_VALID_FOR.toMillis() } ?: fromMs
+    val until = wakePhotoMs?.takeIf { it in (from + 1) until untilMs } ?: untilMs
+    return deriveNightIn(events, from, until)
+}
+
+private fun deriveNightIn(events: List<SensorEvent>, fromMs: Long, untilMs: Long): SleepNight? {
     val screen = events.filter { it.atMs in fromMs until untilMs && (it.kind == SensorKind.SCREEN_ON || it.kind == SensorKind.SCREEN_OFF) }.sortedBy { it.atMs }
     if (screen.isEmpty()) return null
     // Screen-off intervals, each starting at an observed screen-off.
@@ -86,9 +95,9 @@ fun nightWindow(date: LocalDate, zone: ZoneId = LONDON): Pair<Long, Long> =
     ZonedDateTime.of(date, NIGHT_FROM, zone).toInstant().toEpochMilli() to ZonedDateTime.of(date.plusDays(1), NIGHT_UNTIL, zone).toInstant().toEpochMilli()
 
 /** S5, S7: the extra signals over the sleeping part of the night, and how many times the logger went quiet. */
-fun summariseNight(date: LocalDate, events: List<SensorEvent>, zone: ZoneId = LONDON): NightSummary? {
+fun summariseNight(date: LocalDate, events: List<SensorEvent>, zone: ZoneId = LONDON, shutdownPhotoMs: Long? = null, wakePhotoMs: Long? = null): NightSummary? {
     val (from, until) = nightWindow(date, zone)
-    val night = deriveNight(events, from, until) ?: return null
+    val night = deriveNight(events, from, until, shutdownPhotoMs, wakePhotoMs) ?: return null
     val inNight = events.filter { it.atMs in night.startMs..night.endMs }.sortedBy { it.atMs }
     // Charging share: time between the night's start and end spent charging, from the last charging event before the start.
     val charging = events.filter { it.kind == SensorKind.CHARGING_ON || it.kind == SensorKind.CHARGING_OFF }.sortedBy { it.atMs }

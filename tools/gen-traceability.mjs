@@ -106,6 +106,17 @@ for (const f of fs.existsSync('app/src/androidTest') ? walk('app/src/androidTest
     }
   }
 }
+// Core tests named with underscores (the style used from layer 2 on), the Windows service tests (C#) and the browser extension tests (JavaScript).
+const add = (id, f, name) => { if (!found.has(id)) found.set(id, []); found.get(id).push({ file: f, name }); };
+for (const f of fs.existsSync('core/src/test') ? walk('core/src/test').filter(f => f.endsWith('.kt')) : []) {
+  for (const m of fs.readFileSync(f, 'utf8').matchAll(/fun ((?:[A-Z]{1,2}\d+_)+)([A-Za-z0-9_]*)\(/g)) for (const id of m[1].split('_').filter(Boolean)) add(id, f, (m[1] + m[2]).replace(/_/g, ' '));
+}
+for (const f of fs.existsSync('windows') ? walk('windows').filter(f => f.endsWith('.cs') && f.includes('Tests') && !f.includes('/obj/') && !f.includes('/bin/')) : []) {
+  for (const m of fs.readFileSync(f, 'utf8').matchAll(/public (?:async Task|void) ((?:[A-Z]{1,2}\d+_)+)([A-Za-z0-9_]*)\(/g)) for (const id of m[1].split('_').filter(Boolean)) add(id, f, (m[1] + m[2]).replace(/_/g, ' ') + ' (windows)');
+}
+for (const f of fs.existsSync('windows/extension/test') ? walk('windows/extension/test').filter(f => f.endsWith('.mjs')) : []) {
+  for (const m of fs.readFileSync(f, 'utf8').matchAll(/test\('((?:[A-Z]{1,2}\d+(?:, )?)+): ([^']*)'/g)) for (const id of m[1].split(', ')) add(id, f, id + ': ' + m[2] + ' (extension)');
+}
 const withTests = [...rows.keys()].filter(k => found.has(k)).length;
 const esc = s => s.replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
 const order = [...rows.values()].sort((a, b) => [...a.sections][0] - [...b.sections][0]);

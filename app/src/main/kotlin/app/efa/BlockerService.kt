@@ -27,7 +27,7 @@ class BlockerService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         SleepCollector.start(applicationContext)          // layer 2: passive sleep logging lives as long as this service
-        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); delay(60_000) } }
+        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); PcLink.tick(applicationContext); delay(60_000) } }
     }
 
     private val lastBrowserCheck = HashMap<String, Long>()

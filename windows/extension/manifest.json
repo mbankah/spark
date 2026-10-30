@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Spark",
+  "description": "Blocks the sites of your blocked apps during work blocks. It only asks Spark Guard on this PC what is blocked. It reads no pages and sends nothing anywhere.",
+  "version": "1.0.0",
+  "permissions": ["declarativeNetRequest", "alarms", "storage"],
+  "host_permissions": ["http://127.0.0.1:47831/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "web_accessible_resources": [{ "resources": ["blocked.html"], "matches": ["<all_urls>"] }]
+}

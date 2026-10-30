@@ -263,3 +263,16 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E37 | Open the same site from a link inside another app (an in-app web view). | It may open. This is a stated limit. |
 | E38 | Open a site that is not listed. | It opens normally. |
 
+## Windows PC (A2, A4, K4 to K9)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E39 | On the PC, run SparkGuard-Setup.exe as administrator. | The wizard ends on a page with the PC address and a pairing code. Services shows "Spark Guard" running, set to restart if it fails. |
+| E40 | On the phone: Setup, Link a Windows PC. Type the address and code. | "Sent" shows. The PC now has `C:\ProgramData\SparkGuard\state.json`. |
+| E41 | In a work block, open youtube.com in Firefox on the PC. | It does not load. The hosts file has a marked Spark block. |
+| E42 | As administrator, delete the Spark lines from the hosts file. | They are back within about a second, and `guard.log` has an "attempt" line. |
+| E43 | Load the extension (README.txt) and open youtube.com in Chrome during a block, with encrypted DNS on. | The extension's blocked page shows. |
+| E44 | Stop the service, then start it. | It keeps the last plan. `guard.log` has stopped and started lines. |
+| E45 | Uninstall from Settings, Apps. | The Spark lines are gone from the hosts file and its permissions are back to normal. |
+| E46 | Check your antivirus. | It does not flag the service. If it does, that is E7 and needs an exclusion. |
+

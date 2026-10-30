@@ -372,3 +372,11 @@ You asked for the resets, so the six work blocks that ran straight into another 
 
 **Not yet proven on a real phone:** E36 to E38, with the browsers you use. Only Chrome has run for real. The other eight are known by their address bar id from the unit-tested list and may need correcting on your phone.
 
+## Update: the Windows PC part, its installer and the specification check (A2 to A4, K4 to K9), 30 October 2026
+
+**Built:** Spark Guard, a Windows service (C#, .NET 8) that makes the hosts file match what the phone sends, puts it back within a second if changed and logs the attempt, keeps its last state across restarts, and answers the browser extension on this PC only. The phone sends a signed plan every minute (Setup, Link a Windows PC). A Chrome/Edge/Brave extension is the second layer. An Inno Setup installer sets the service to restart by itself, allows the port on private networks only, and shows the address and pairing code; uninstalling cleans the hosts file. The protocol is written down in `PC_PROTOCOL.md`.
+
+**Tested:** 39 service tests in C#, 9 extension tests in JavaScript, 10 phone tests of the signing and windows, and `tools/pc-link-e2e.sh`, which runs the emulator's phone against the real service on a temporary hosts file and checks the block it wrote. **The installer was built and its uninstall cleanup was run on a temporary file. The installer itself has not been run.**
+
+**Specification check:** `SPEC_VERIFICATION.md`. 199 of 277 ledger rows have a test. 38 are not code, 6 are built but not linked by name, and the rest are **not built**: the web app and sync, OpenStreetMap routing, Health Connect, a trusted time source, the room change prompt, Check MyUoB, icon and grid settings, the settings-page wall, split-screen tests, appearance modes, a light theme, and widgets from other apps.
+

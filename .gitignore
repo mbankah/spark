@@ -6,3 +6,8 @@ local.properties
 *.iml
 *.apk
 .DS_Store
+windows/dist/
+windows/publish/
+windows/**/bin/
+windows/**/obj/
+windows/extension/package.json.bak

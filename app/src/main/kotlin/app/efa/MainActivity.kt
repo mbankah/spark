@@ -69,7 +69,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS, PC }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -155,6 +155,16 @@ class MainActivity : ComponentActivity() {
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
+                var pcAddress by remember { mutableStateOf("") }
+                var pcCode by remember { mutableStateOf("") }
+                var pcStatus by remember { mutableStateOf("Not sent yet.") }
+                LaunchedEffect(screen, reload) {
+                    if (screen == Screen.SETUP || screen == Screen.PC) withContext(Dispatchers.IO) {
+                        pcAddress = db.meta().get(app.efa.data.META_PC_ADDRESS).orEmpty(); pcCode = db.meta().get(app.efa.data.META_PC_CODE).orEmpty()
+                        val last = db.meta().get(app.efa.data.META_PC_LAST)?.split("|", limit = 2)
+                        pcStatus = pcStatusText(last?.getOrNull(0)?.toLongOrNull()?.takeIf { last.getOrNull(1).isNullOrEmpty() }, last?.getOrNull(1)?.takeIf { it.isNotEmpty() }, System.currentTimeMillis())
+                    }
+                }
                 var browsers by remember { mutableStateOf<List<BrowserCoverage>>(emptyList()) }
                 LaunchedEffect(screen) {
                     if (screen == Screen.SETUP) browsers = withContext(Dispatchers.IO) {
@@ -490,6 +500,8 @@ class MainActivity : ComponentActivity() {
                         onLibrary = { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY },
                         onWidgets = { widgetMessage = null; screen = Screen.WIDGETS },
                         browsers = browsers,
+                        onPc = { screen = Screen.PC },
+                        pcText = if (pcAddress.isBlank()) "" else "Linked to $pcAddress. $pcStatus",
                         voiceQuietOff = voiceQuietOff,
                         onVoiceQuiet = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_VOICE_QUIET_OFF, if (v) "1" else "0")); reload++ } },
                         onShopping = { screen = Screen.SHOPPING },
@@ -542,6 +554,10 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.PC -> PcScreen(pcAddress, pcCode, pcStatus,
+                        onSave = { a, k -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_PC_ADDRESS, a)); db.meta().put(MetaRow(app.efa.data.META_PC_CODE, k)); PcLink.push(applicationContext); reload++ } },
+                        onSend = { scope.launch(Dispatchers.IO) { PcLink.push(applicationContext); reload++ } },
+                        onBack = { screen = Screen.SETUP })
                     Screen.WIDGETS -> {
                         val edit: (((List<Placement>, LocalDate) -> List<Placement>), String?) -> Unit = { f, msg ->
                             scope.launch(Dispatchers.IO) {

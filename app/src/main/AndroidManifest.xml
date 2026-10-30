@@ -31,6 +31,7 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:name=".SparkApp"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <!-- The app itself, opened from its icon. One instance. -->

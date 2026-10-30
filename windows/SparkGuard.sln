@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SparkGuard.Core", "SparkGuard.Core\SparkGuard.Core.csproj", "{0873BF51-EA1B-4549-B91A-11782AECEDFD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SparkGuard.Service", "SparkGuard.Service\SparkGuard.Service.csproj", "{101D5567-35C6-4496-A80D-18B2FF82B160}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SparkGuard.Tests", "SparkGuard.Tests\SparkGuard.Tests.csproj", "{661B7434-CD86-483F-91E4-7F8B190B1752}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0873BF51-EA1B-4549-B91A-11782AECEDFD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0873BF51-EA1B-4549-B91A-11782AECEDFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0873BF51-EA1B-4549-B91A-11782AECEDFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0873BF51-EA1B-4549-B91A-11782AECEDFD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{101D5567-35C6-4496-A80D-18B2FF82B160}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{101D5567-35C6-4496-A80D-18B2FF82B160}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{101D5567-35C6-4496-A80D-18B2FF82B160}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{101D5567-35C6-4496-A80D-18B2FF82B160}.Release|Any CPU.Build.0 = Release|Any CPU
+		{661B7434-CD86-483F-91E4-7F8B190B1752}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{661B7434-CD86-483F-91E4-7F8B190B1752}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{661B7434-CD86-483F-91E4-7F8B190B1752}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{661B7434-CD86-483F-91E4-7F8B190B1752}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

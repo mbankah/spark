@@ -232,3 +232,13 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E21 | Start a work block at the library. | Blocking and the timer work exactly as at home. |
 | E22 | Remove the period. | The library, the walks and the unstarted catch-up work go. |
 
+## Calibration (layer 7: B5, R10, E9)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E23 | Add a task in quick-add. | Under the slider: "Heaviness 5 is about 6.3h of work, a first guess: 0 of 3 finished medium (4 to 6) tasks needed." |
+| E24 | Finish a task by proving its blocks. | Home shows "How long did it take?". Tapping it offers as planned, more, or less. |
+| E25 | Choose "needed 1 hour more". | The task is back in the Buffer with an hour added. |
+| E26 | Choose "took 50%". | It asks for the 75 character typed wall first. |
+| E27 | After three finished tasks of one size. | The quick-add note says "corrected x... from 3 finished ... tasks". |
+

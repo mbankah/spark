@@ -79,7 +79,7 @@ fun QuickAddScreen(
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             (1..10).forEach { h -> Chip("$h", h == heaviness, { heaviness = h }, "Heaviness $h of 10") }
         }
-        BasicText("Heaviness $heaviness is about ${fmt1(quickAddHours(heaviness))}h of work.", style = Ts(c.muted, 14.sp))
+        BasicText(CalibrationState.cal.note(heaviness), style = Ts(c.muted, 14.sp))
         Column(Modifier.fillMaxWidth().card().padding(16.dp)) {
             Label("IF YOU SAVE")
             BasicText(if (title.isBlank()) "Add a title to see the Buffer." else bufferIfAdded(draft), style = Ts(c.text, 20.sp, FontWeight.SemiBold))

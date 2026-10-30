@@ -35,7 +35,7 @@ private val DAY = DateTimeFormatter.ofPattern("EEE d MMM")
  */
 fun verifyImport(
     parsed: ParsedImport, slots: List<PatternSlot>, known: Set<String>, work: List<DueWork>,
-    now: ZonedDateTime, zone: ZoneId = LONDON,
+    now: ZonedDateTime, zone: ZoneId = LONDON, hoursFor: (Int) -> Double = ::quickAddHours,
 ): Verification {
     val errors = ArrayList(parsed.errors); val warnings = ArrayList(parsed.warnings)
     val overlay = ArrayList<OverlayItem>(); val newWork = ArrayList<NewWork>()
@@ -88,7 +88,7 @@ fun verifyImport(
         if (h in known) { already++; continue }
         val due = r.date.atTime(r.dueMin / 60, r.dueMin % 60).atZone(zone)
         if (!due.isAfter(now)) { warnings += ImportIssue(r.line, "start", "That time has already passed, skipped."); continue }
-        newWork += NewWork("deadline:$h", r.title, quickAddHours(r.heaviness), r.heaviness, due, "import")
+        newWork += NewWork("deadline:$h", r.title, hoursFor(r.heaviness), r.heaviness, due, "import")
     }
     for (r in parsed.rows.filterIsInstance<PeriodRow>()) {
         val h = r.hash()

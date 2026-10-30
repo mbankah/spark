@@ -196,6 +196,17 @@ interface DayOffDao {
     @Query("UPDATE day_off SET state = :state WHERE id = :id") suspend fun setState(id: Long, state: String)
 }
 
+/** One finished task and how long it really took (B5). Each task has at most one row, so it is asked about once. */
+@Entity(tableName = "calibration_sample")
+data class CalibrationRow(@PrimaryKey val taskId: Long, val heaviness: Int, val estimatedHours: Double, val actualHours: Double, val atMs: Long, val kind: String)
+
+@Dao
+interface CalibrationDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: CalibrationRow): Long
+    @Query("SELECT * FROM calibration_sample ORDER BY atMs") suspend fun all(): List<CalibrationRow>
+    @Query("SELECT * FROM calibration_sample WHERE taskId = :taskId") suspend fun get(taskId: Long): CalibrationRow?
+}
+
 @Dao
 interface OverlayDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: OverlayRow): Long
@@ -355,6 +366,10 @@ interface TaskDao {
     @Query("UPDATE task SET doneMin = doneMin + :min WHERE id = :id") suspend fun addDone(id: Long, min: Int)
     @Query("UPDATE task SET doneAtMs = :nowMs WHERE id = :id") suspend fun close(id: Long, nowMs: Long)
     @Query("SELECT * FROM task WHERE id = :id") suspend fun get(id: Long): TaskRow?
+    /** B5: the newest finished task of the kinds Spark estimated, since [sinceMs], that has not been asked about. */
+    @Query("SELECT * FROM task WHERE doneAtMs IS NOT NULL AND doneAtMs >= :sinceMs AND source IN ('manual', 'import') AND id NOT IN (SELECT taskId FROM calibration_sample) ORDER BY doneAtMs DESC LIMIT 1") suspend fun finishedUnreviewed(sinceMs: Long): TaskRow?
+    /** B5: "it needed more time" puts the task back in the Buffer with the extra added. */
+    @Query("UPDATE task SET doneAtMs = NULL, hoursEstimate = hoursEstimate + :extraHours WHERE id = :id") suspend fun reopen(id: Long, extraHours: Double)
     @Query("DELETE FROM task WHERE importId = :importId AND doneMin = 0") suspend fun deleteByImport(importId: Long): Int
     @Query("DELETE FROM task WHERE sourceKey = :key AND doneMin = 0 AND doneAtMs IS NULL") suspend fun deleteOpenByKey(key: String): Int
 }
@@ -374,7 +389,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class], version = 11, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class, CalibrationRow::class], version = 12, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -395,11 +410,12 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun mornings(): MorningDao
     abstract fun weekMoney(): WeekMoneyDao
     abstract fun daysOff(): DayOffDao
+    abstract fun calibration(): CalibrationDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12).build().also { inst = it }
         }
     }
 }
@@ -481,6 +497,12 @@ val MIGRATION_10_11 = object : androidx.room.migration.Migration(10, 11) {
     override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
         connection.execSQL("CREATE TABLE IF NOT EXISTS `day_off` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` TEXT NOT NULL, `groupId` INTEGER NOT NULL, `usedAtMs` INTEGER NOT NULL, `sameDay` INTEGER NOT NULL, `source` TEXT NOT NULL, `wallLength` INTEGER NOT NULL, `state` TEXT NOT NULL)")
         connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_day_off_date` ON `day_off` (`date`)")
+    }
+}
+
+val MIGRATION_11_12 = object : androidx.room.migration.Migration(11, 12) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `calibration_sample` (`taskId` INTEGER PRIMARY KEY NOT NULL, `heaviness` INTEGER NOT NULL, `estimatedHours` REAL NOT NULL, `actualHours` REAL NOT NULL, `atMs` INTEGER NOT NULL, `kind` TEXT NOT NULL)")
     }
 }
 

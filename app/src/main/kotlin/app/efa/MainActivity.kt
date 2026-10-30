@@ -36,6 +36,9 @@ import app.efa.data.MorningRepo
 import app.efa.data.META_FIRST_USE
 import app.efa.data.RewardsRepo
 import app.efa.data.uses
+import app.efa.data.CalibrationRepo
+import efa.TookReport
+import efa.WallLength
 import app.efa.data.libraryHours
 import app.efa.data.saveLibraryHours
 import app.efa.data.addLibraryPeriod
@@ -65,7 +68,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -132,6 +135,18 @@ class MainActivity : ComponentActivity() {
                 var wallLength by remember { mutableIntStateOf(efa.WallLength.IMPORT_LOOSEN) }
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
+                var review by remember { mutableStateOf<ReviewTask?>(null) }
+                var reviewRow by remember { mutableStateOf<app.efa.data.TaskRow?>(null) }
+                /** B5, E9: the estimates are corrected from finished tasks, and the newest finished task not yet asked about is offered on home. */
+                LaunchedEffect(screen, reload) {
+                    withContext(Dispatchers.IO) {
+                        val repo = CalibrationRepo(db)
+                        CalibrationState.cal = repo.calibration()
+                        val c = repo.nextToReview(System.currentTimeMillis() - 7L * 86_400_000)
+                        reviewRow = c?.task
+                        review = c?.let { ReviewTask(it.task.id, it.task.title, it.task.hoursEstimate, it.note) }
+                    }
+                }
                 /** C1, C2, O11: reads the calendar, the hours and the periods, and works out what a library period would do before it is planned. */
                 val refreshLibrary: (LocalDate?, Int, String?, Boolean, Int, Int) -> Unit = { start, days, message, editing, dOpen, dClose ->
                     scope.launch(Dispatchers.IO) {
@@ -178,7 +193,7 @@ class MainActivity : ComponentActivity() {
                     importUi = if (inc == null) ImportUi.Failed("That file could not be read.") else try {
                         val now = ZonedDateTime.now(LONDON); val plan = PlanRepo(db)
                         db.seedIfEmpty(System.currentTimeMillis(), LONDON.id)       // a file can arrive before the first screen has loaded
-                        ImportUi.Checked(inc.name, verifyImport(parseTimetableCsv(inc.text, now.toLocalDate()), plan.slots(), plan.known(), db.tasks().open().map { it.toDue() }, now), fileHash(inc.text))
+                        ImportUi.Checked(inc.name, verifyImport(parseTimetableCsv(inc.text, now.toLocalDate()), plan.slots(), plan.known(), db.tasks().open().map { it.toDue() }, now, hoursFor = CalibrationState.cal::hours), fileHash(inc.text))
                     } catch (e: Exception) { ImportUi.Failed("That file could not be checked.") }
                     screen = Screen.IMPORT
                 }
@@ -336,6 +351,7 @@ class MainActivity : ComponentActivity() {
                                     MorningPhase.RINGING -> "The alarm is ringing."
                                     else -> null
                                 },
+                                review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
                             ),
@@ -344,6 +360,7 @@ class MainActivity : ComponentActivity() {
                             onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ },
                             onHeld = { screen = Screen.DIGEST },
                             onReady = { screen = Screen.READY },
+                            onReview = { screen = Screen.REVIEW },
                             onMoney = { screen = Screen.MONEY },
                             onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
@@ -438,6 +455,19 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.REVIEW -> review?.let { r ->
+                        ReviewScreen(r,
+                            onReport = { rep ->
+                                val row = reviewRow
+                                if (row != null && rep is TookReport.LessFraction) {                     // R10: saying it took less loosens, so it goes through the wall
+                                    wallBack = Screen.HOME; wallLength = WallLength.CALIBRATE_LESS
+                                    wall = Triple("It took less", "Saying a task took less makes later estimates smaller and the Buffer looser. Type the characters below by hand.", {
+                                        scope.launch(Dispatchers.IO) { CalibrationRepo(db).report(row, rep, System.currentTimeMillis()); reload++ }
+                                    }); screen = Screen.GATE
+                                } else if (row != null) scope.launch(Dispatchers.IO) { CalibrationRepo(db).report(row, rep, System.currentTimeMillis()); BlockingState.refresh(applicationContext); reload++; withContext(Dispatchers.Main) { screen = Screen.HOME } }
+                            },
+                            onBack = { screen = Screen.HOME })
+                    } ?: run { screen = Screen.HOME }
                     Screen.LIBRARY -> libraryUi?.let { u ->
                         LibraryScreen(u,
                             onHours = { o, c2 -> scope.launch(Dispatchers.IO) { PlanRepo(db).saveLibraryHours(db, LibraryHours(o, c2)); refreshLibrary(u.start, u.days, "Hours saved: ${LibraryHours(o, c2).text()}", false, o, c2) } },
@@ -541,7 +571,7 @@ class MainActivity : ComponentActivity() {
                         onSave = { t ->
                             scope.launch(Dispatchers.IO) {
                                 db.tasks().insert(TaskRow(title = t.title, dueMs = t.due.toInstant().toEpochMilli(), dueZone = t.due.zone.id,
-                                    heaviness = t.heaviness, hoursEstimate = quickAddHours(t.heaviness), createdMs = System.currentTimeMillis()))
+                                    heaviness = t.heaviness, hoursEstimate = CalibrationState.cal.hours(t.heaviness), createdMs = System.currentTimeMillis()))
                                 reload++
                                 screen = Screen.HOME
                             }
@@ -562,4 +592,4 @@ private fun bufferOf(l: Loaded, now: ZonedDateTime, extra: DueWork? = null): Buf
 }
 
 private fun bufferWith(l: Loaded, now: ZonedDateTime, t: NewTask): BufferState =
-    bufferOf(l, now, DueWork(t.title, quickAddHours(t.heaviness), t.heaviness, t.due))
+    bufferOf(l, now, DueWork(t.title, CalibrationState.cal.hours(t.heaviness), t.heaviness, t.due))

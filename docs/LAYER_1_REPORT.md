@@ -348,3 +348,11 @@ You asked for the resets, so the six work blocks that ran straight into another 
 
 **Not yet proven on a real phone:** E18 to E22 in DEVICE_TESTS. The 15 minute walk is a fixed number until measured times exist (Q-G81).
 
+## Update: calibration (layer 7: B5, R10, E9), 30 October 2026
+
+**Built:** after a task closes, home asks once how long it really took. The answers correct the estimate for new tasks and imported deadlines of the same size band, and the quick-add screen says how many finished tasks the estimate rests on. Saying a task took less needs the typed wall, so inflating heaviness gains nothing (R10). Database v12.
+
+**Tested:** 10 core tests and 9 device tests (storage, migration 11 to 12, the screen).
+
+**Not yet proven on a real phone:** E23 to E27. The way I get the real time is a question, because proven blocks cannot see it (Q-G86). The 14 day shadow period for the estimate is replaced by waiting for 3 finished tasks per band (Q-G88).
+

@@ -34,6 +34,10 @@ interface BlockActions {
     /** One location read, taken right after the photo (A8). null when there is no permission or no precise fix. */
     suspend fun currentFix(): Fix?
     fun hasLocationPermission(): Boolean
+    /** R1, R2, R3: what a verified block bought: what it kept out of the Buffer, the open phone it earned, and the reward that is next. */
+    suspend fun rewardLines(ds: DatedSlot, creditedMin: Int): List<String> = emptyList()
+    /** F2, F4: why free time became this work block, or null when it did not. */
+    suspend fun conversionNote(ds: DatedSlot): String? = null
 }
 
 private val HM = DateTimeFormatter.ofPattern("HH:mm")
@@ -43,7 +47,7 @@ private val HM = DateTimeFormatter.ofPattern("HH:mm")
  * and there is no review screen after the photo (G5). Each branch says what happens when it cannot finish (X7).
  */
 @Composable
-fun BlockScreen(ds: DatedSlot, actions: BlockActions, onBack: () -> Unit) {
+fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, onBack: () -> Unit) {
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     val proof = remember(ds) { proofFor(ds.slot) }
@@ -57,6 +61,10 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onBack: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(ds) { row = actions.load(ds) }
+    var rewards by remember { mutableStateOf<List<String>>(emptyList()) }
+    var convNote by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(ds) { convNote = actions.conversionNote(ds) }
+    LaunchedEffect(row?.verified) { val r = row; if (r?.verified == true) rewards = actions.rewardLines(ds, r.creditedMin) }
     LaunchedEffect(Unit) { while (true) { now = ZonedDateTime.now(ds.start.zone); delay(1000) } }
 
     if (camera) {
@@ -89,6 +97,13 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onBack: () -> Unit) {
         Label(ds.slot.type.uppercase())
         BasicText(ds.slot.title, style = Ts(c.text, 26.sp, FontWeight.SemiBold))
         BasicText(ds.window(), style = Ts(c.muted, 16.sp, fontFamily = Mono))
+        convNote?.let { note ->
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Label("WHY THIS IS WORK")
+                BasicText(note, style = Ts(c.text, 15.sp))
+                if (!verified && now.isBefore(ds.end)) Btn("Make it a break: type 75 characters", { onTurnBack(ds) }, modifier = Modifier.fillMaxWidth())
+            }
+        }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("PROOF")
@@ -98,6 +113,7 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onBack: () -> Unit) {
                     val r = row!!
                     BasicText("Verified. ${r.creditedMin} min confirmed." + (if (r.recovered) " Recovered time." else "") + (if (r.weaker) " Weaker proof." else ""),
                         style = Ts(c.text, 20.sp, FontWeight.SemiBold))
+                    rewards.forEach { BasicText(it, style = Ts(c.muted, 15.sp)) }
                 }
                 proof == Proof.NONE -> {}
                 proof == Proof.GIT_COMMIT -> when {

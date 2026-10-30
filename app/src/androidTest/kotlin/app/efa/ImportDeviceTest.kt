@@ -131,6 +131,8 @@ class PlanStorageTest {
         hoursEstimate = hours, createdMs = 1L)
 
     @Test fun RS3_RS5_a_tight_Buffer_turns_free_time_into_work_once_and_never_a_protected_slot() = runBlocking {
+        // 3 hours of football and 6 protected hours leave Week B almost nothing to convert (Q-G69), so two free windows are added for this test.
+        db.pattern().insertAll(listOf(7, 3).map { PatternSlotRow(day = it, startMin = 1200, endMin = 1280, title = "Free time - phone open", type = "free", venue = "", hardAlarm = false, notes = "") })
         val now = at(LocalDate.of(2026, 11, 2), LocalTime.of(12, 0))
         db.tasks().insert(bigTask(70.0, at(LocalDate.of(2026, 11, 13), LocalTime.of(12, 0))))
         val r = plan.automate(now, firstUse, emptySet())
@@ -394,14 +396,14 @@ class ImportIntentTest {
             rule.onNodeWithText("THIS FILE LOOSENS").assertExists()
             rule.onNodeWithText("Apply, with the wall").performClick()
             rule.waitUntil(10_000) { rule.onAllNodesWithText("TYPE THIS EXACTLY, BY HAND (0 OF 75)").fetchSemanticsNodes().isNotEmpty() }
-            assertEquals(0, count("overlay_item"), "nothing is stored before the wall is passed")
+            assertEquals(0, count("overlay_item WHERE kind = 'import'"), "nothing is stored before the wall is passed")
             val target = rule.onNodeWithContentDescription("Characters to type", substring = true).fetchSemanticsNode().config
                 .let { c -> c[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].first().removePrefix("Characters to type: ") }
             assertEquals(75, target.length)
             val field = rule.onNodeWithContentDescription("Type the characters here")
             target.forEach { ch -> field.performTextInput(ch.toString()) }
             rule.waitUntil(15_000) { rule.onAllNodesWithText("DONE").fetchSemanticsNodes().isNotEmpty() }
-            assertEquals(1, count("overlay_item"))
+            assertEquals(1, count("overlay_item WHERE kind = 'import'"))
             assertTrue(runBlocking { PlanRepo(db).slots() }.any { it.cancelled && it.date == monday })
         }
     }
@@ -442,6 +444,7 @@ class AutoPlanE2ETest {
 
     @After fun restore() {
         BlockingState.clockOverride = null
+        db.openHelper.writableDatabase.execSQL("DELETE FROM pattern_slot WHERE title = 'Test free'")
         listOf("overlay_item", "period", "import_log", "task", "block").forEach { db.openHelper.writableDatabase.execSQL("DELETE FROM $it") }
         runBlocking { if (savedList == null) db.openHelper.writableDatabase.execSQL("DELETE FROM meta WHERE key = '$META_BLOCKLIST'") else db.meta().put(MetaRow(META_BLOCKLIST, savedList!!)) }
     }
@@ -459,6 +462,8 @@ class AutoPlanE2ETest {
     @Test fun RS3_RS8_a_tight_Buffer_turns_free_time_into_work_and_the_blocker_then_blocks_it_as_work() = runBlocking {
         val now = at(LocalDate.of(2026, 11, 2), LocalTime.of(12, 0))
         BlockingState.clockOverride = { now }
+        // 3 hours of football and 6 protected hours leave Week B almost nothing to convert (Q-G69), so two free windows are added for this test.
+        db.openHelper.writableDatabase.execSQL("INSERT INTO pattern_slot (day,startMin,endMin,title,type,venue,hardAlarm,notes,edited) VALUES (7,1200,1280,'Test free','free','',0,'',0), (3,1200,1280,'Test free','free','',0,'',0)")
         db.tasks().insert(TaskRow(title = "Dissertation", dueMs = at(LocalDate.of(2026, 11, 13), LocalTime.of(12, 0)).toInstant().toEpochMilli(), dueZone = LONDON.id,
             heaviness = 8, hoursEstimate = 140.0, createdMs = 1L))
         BlockingState.refresh(ctx)

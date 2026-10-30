@@ -33,6 +33,10 @@ import app.efa.data.ImportLogRow
 import app.efa.data.PlanRepo
 import app.efa.data.SleepRepo
 import app.efa.data.MorningRepo
+import app.efa.data.META_FIRST_USE
+import app.efa.data.RewardsRepo
+import app.efa.data.MoneyView
+import app.efa.data.turnBack
 import app.efa.data.MorningRow
 import app.efa.data.toState
 import app.efa.data.ReferenceRepo
@@ -54,12 +58,13 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
 /** Everything the screens need, loaded from the database. null pattern means the database failed (X7). */
-private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, val verified: Set<String> = emptySet(), val periods: List<PlannedPeriodRow> = emptyList(), val moved: List<String> = emptyList(), val sleep: SleepStatus = SleepStatus())
+private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, val verified: Set<String> = emptySet(), val periods: List<PlannedPeriodRow> = emptyList(), val moved: List<String> = emptyList(), val sleep: SleepStatus = SleepStatus(),
+    val shortSleep: Boolean = false, val money: MoneyView? = null, val earnings: List<Earning> = emptyList())
 
 class MainActivity : ComponentActivity() {
     /** An action asked for by the Buffer notification (LA11), consumed by the screen state once. */
@@ -116,6 +121,7 @@ class MainActivity : ComponentActivity() {
                 var importUi by remember { mutableStateOf<ImportUi>(ImportUi.Idle) }
                 var imports by remember { mutableStateOf<List<ImportLogRow>>(emptyList()) }
                 var wall by remember { mutableStateOf<Triple<String, String, () -> Unit>?>(null) }
+                var wallBack by remember { mutableStateOf(Screen.HOME) }
                 var morningUi by remember { mutableStateOf(MorningSetupStatus()) }
                 var morningMessage by remember { mutableStateOf<String?>(null) }
                 var cameraKind by remember { mutableStateOf(RefKind.NIGHT) }
@@ -218,7 +224,11 @@ class MainActivity : ComponentActivity() {
                                     if (night != null && m?.stoppedMs != null && java.time.LocalDate.parse(night.date).plusDays(1) == java.time.LocalDate.parse(m.date))
                                         awakeBeforeAlarmStopped(night.endMs, m.stoppedMs).toMinutes().toInt().takeIf { it in 0..180 } else null
                                 })
-                            Loaded(pattern, db.tasks().open(), repo.verifiedKeys(), PlanRepo(db).periods(), moved, sleep)
+                            val nowZ = ZonedDateTime.now(LONDON)
+                            val firstUse = db.meta().get(META_FIRST_USE)?.toLongOrNull() ?: nowZ.toInstant().toEpochMilli()
+                            val rewards = RewardsRepo(db)
+                            Loaded(pattern, db.tasks().open(), repo.verifiedKeys(), PlanRepo(db).periods(), moved, sleep,
+                                isShortSleepToday(db, nowZ), rewards.view(pattern, firstUse, nowZ), rewards.earnings(nowZ))
                         } catch (e: Exception) { Loaded(null, emptyList()) }   // never show a wrong schedule or Buffer
                     }
                 }
@@ -283,7 +293,10 @@ class MainActivity : ComponentActivity() {
                                 nowDetail = nn?.now?.let { listOf(it.detail(), includes(it), proofHint(proofFor(it.slot))).filter { s -> s.isNotBlank() }.joinToString(". ") },
                                 nowOpensBlock = nn?.now?.let { proofFor(it.slot) != Proof.NONE } == true,
                                 next = l?.pattern?.let { p -> upcoming(p, clock, 2).map { NextRow(hhmm.format(it.start), it.slot.title, listOf(it.detail(), includes(it)).filter { s -> s.isNotBlank() }.joinToString(". ")) } }.orEmpty(),
-                                freeToSpendPence = null,    // record-only for the first 14 days (G6)
+                                freeToSpendPence = l?.money?.takeIf { it.live }?.week?.money?.freeToSpendPence,      // G6: record-only for the first 14 days
+                                progress = l?.money?.week?.takeIf { it.plannedHours > 0 }?.progress(),
+                                moneyNote = l?.money?.takeIf { !it.live }?.let { "Money starts on ${DateTimeFormatter.ofPattern("EEE d MMM").format(it.liveFrom)}. Until then it is only recorded." },
+                                earnedOn = l?.pattern?.let { p -> earnedAccessActive(clock, l.earnings, p) } == true,
                                 proofDue = l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { "${it.slot.title}, ended ${hhmm.format(it.end)}. Take its photo." },
                                 heldWaiting = heldWaiting,
                                 unavailable = l != null && l.pattern == null,
@@ -301,6 +314,7 @@ class MainActivity : ComponentActivity() {
                             onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ },
                             onHeld = { screen = Screen.DIGEST },
                             onReady = { screen = Screen.READY },
+                            onMoney = { screen = Screen.MONEY },
                             onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
                             onBuffer = { if (buffer is BufferState.Value) screen = Screen.WORKING },
@@ -317,9 +331,19 @@ class MainActivity : ComponentActivity() {
                             override suspend fun recordHold(ds: DatedSlot, atMs: Long) = repo.recordHold(ds, atMs)
                             override suspend fun submitPhoto(ds: DatedSlot, jpeg: ByteArray, now: ZonedDateTime, fix: Fix?): Verdict = repo.submitPhoto(ds, jpeg, now, fix)
                             override suspend fun checkCommit(ds: DatedSlot, now: ZonedDateTime): Verdict = repo.checkCommit(ds, now)
+                            override suspend fun rewardLines(ds: DatedSlot, creditedMin: Int): List<String> =
+                                verifiedLines(ds.slot, java.time.Duration.between(ds.start, ds.end).toMinutes().toInt(), creditedMin, l?.pattern.orEmpty(), ZonedDateTime.now(ds.start.zone))
+                            override suspend fun conversionNote(ds: DatedSlot): String? =
+                                if (!isConversion(ds.slot)) null else db.overlay().conversion(ds.plannedDay.toString(), ds.slot.startMin)?.reason
+                                    ?.let { "$it. A free slot is assigned the night before and does not change in the moment without the typed wall." }
                             override suspend fun currentFix(): Fix? = LocationFix.current(applicationContext)
                             override fun hasLocationPermission() = LocationFix.hasPermission(applicationContext)
-                        }, onBack = { reload++; screen = Screen.HOME })
+                        }, onBack = { reload++; screen = Screen.HOME }, onTurnBack = { slot ->
+                            wallBack = Screen.HOME
+                            wall = Triple("Make it a break", "This was free time that the Buffer turned into work. Type the characters below by hand to turn it back. It will not be turned into work again.", {
+                                scope.launch(Dispatchers.IO) { PlanRepo(db).turnBack(db, slot.plannedDay, slot.slot.startMin, slot.slot.endMin + RESET_MIN, System.currentTimeMillis()); BlockingState.refresh(applicationContext); reload++ }
+                            }); screen = Screen.GATE
+                        })
                     }
                     Screen.SETUP -> SetupScreen(places,
                         onHome = { screen = Screen.MAP_HOME },
@@ -382,6 +406,8 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.MONEY -> l?.money?.let { MoneyScreen(it) { screen = Screen.HOME } } ?: run { screen = Screen.HOME }
+                    Screen.GATE -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { w.third(); screen = wallBack }, onCancel = { screen = wallBack }) } ?: run { screen = Screen.HOME }
                     Screen.READY -> {
                         // Read the morning fresh on every entry: it may have changed since the last tick, and an old copy would send you home.
                         var fresh by remember { mutableStateOf(false) }
@@ -454,7 +480,7 @@ class MainActivity : ComponentActivity() {
 private fun bufferOf(l: Loaded, now: ZonedDateTime, extra: DueWork? = null): BufferState {
     val pattern = l.pattern ?: return BufferState.NoDeadline
     val manual = l.tasks.map { it.toDue() }
-    return bufferNow(now, studyCycles(pattern, now) + manual + listOfNotNull(extra), pattern, shortSleep = false)
+    return bufferNow(now, studyCycles(pattern, now) + manual + listOfNotNull(extra), pattern, shortSleep = l.shortSleep)       // B8: short sleep counts remaining work heavier
 }
 
 private fun bufferWith(l: Loaded, now: ZonedDateTime, t: NewTask): BufferState =

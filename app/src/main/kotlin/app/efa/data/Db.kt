@@ -159,11 +159,31 @@ interface MorningDao {
     @Query("SELECT * FROM morning WHERE date >= :since ORDER BY date") suspend fun since(since: String): List<MorningRow>
 }
 
+/**
+ * A finished week of money (R9). Frozen when the week ends, so a later change to the calendar does not rewrite what was earned. `live` is false for
+ * weeks in the first 14 days, which record only (G6). Savings are the unearned part of the other 40 pounds.
+ */
+@Entity(tableName = "week_money")
+data class WeekMoneyRow(
+    @PrimaryKey val monday: String,
+    val plannedWeight: Double, val verifiedWeight: Double, val freeToSpendPence: Int, val savingsPence: Int, val live: Boolean, val closedAtMs: Long,
+)
+
+@Dao
+interface WeekMoneyDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: WeekMoneyRow): Long
+    @Query("SELECT * FROM week_money ORDER BY monday") suspend fun all(): List<WeekMoneyRow>
+    @Query("SELECT MAX(monday) FROM week_money") suspend fun lastMonday(): String?
+}
+
 @Dao
 interface OverlayDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: OverlayRow): Long
     @Query("SELECT * FROM overlay_item ORDER BY date, startMin") suspend fun all(): List<OverlayRow>
     @Query("SELECT rowHash FROM overlay_item") suspend fun hashes(): List<String>
+    @Query("SELECT * FROM overlay_item WHERE kind = 'declined'") suspend fun declined(): List<OverlayRow>
+    @Query("DELETE FROM overlay_item WHERE date = :date AND startMin >= :startMin AND startMin < :endMin AND kind IN ('convert', 'reset')") suspend fun deleteConversion(date: String, startMin: Int, endMin: Int): Int
+    @Query("SELECT * FROM overlay_item WHERE kind = 'convert' AND date = :date AND startMin = :startMin") suspend fun conversion(date: String, startMin: Int): OverlayRow?
     @Query("DELETE FROM overlay_item WHERE importId = :importId") suspend fun deleteByImport(importId: Long): Int
     @Query("SELECT * FROM overlay_item WHERE kind = 'convert' AND createdMs >= :sinceMs ORDER BY createdMs") suspend fun convertedSince(sinceMs: Long): List<OverlayRow>
 }
@@ -291,6 +311,8 @@ interface BlockDao {
     @Query("SELECT `key` FROM block WHERE verified = 1") suspend fun verifiedKeys(): List<String>
     @Query("SELECT COALESCE(SUM(creditedMin), 0) FROM block WHERE recovered = 1 AND provenAtMs >= :sinceMs") suspend fun recoveredMinutesSince(sinceMs: Long): Int
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(row: BlockRow): Long
+    @Query("SELECT * FROM block WHERE verified = 1 AND startMs >= :fromMs AND startMs < :untilMs") suspend fun verifiedBetween(fromMs: Long, untilMs: Long): List<BlockRow>
+    @Query("SELECT * FROM block WHERE verified = 1 AND provenAtMs >= :sinceMs") suspend fun provenSince(sinceMs: Long): List<BlockRow>
 }
 
 @Dao
@@ -328,7 +350,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class], version = 9, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class], version = 10, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -347,11 +369,12 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun nights(): NightDao
     abstract fun references(): ReferenceDao
     abstract fun mornings(): MorningDao
+    abstract fun weekMoney(): WeekMoneyDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build().also { inst = it }
         }
     }
 }
@@ -420,6 +443,12 @@ val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
     override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
         connection.execSQL("CREATE TABLE IF NOT EXISTS `reference_photo` (`kind` TEXT NOT NULL, `signature` BLOB NOT NULL, `path` TEXT NOT NULL, `bytes` INTEGER NOT NULL, `takenAtMs` INTEGER NOT NULL, PRIMARY KEY(`kind`))")
         connection.execSQL("CREATE TABLE IF NOT EXISTS `morning` (`date` TEXT NOT NULL, `alarmAtMs` INTEGER NOT NULL, `alarmReason` TEXT NOT NULL, `ringStartedMs` INTEGER, `stoppedMs` INTEGER, `stopMethod` TEXT, `failedPhotos` INTEGER NOT NULL, `bestScore` INTEGER NOT NULL, `steps` INTEGER NOT NULL, `waitStartedMs` INTEGER, `readyMs` INTEGER, `readyMethod` TEXT, `readyFailed` INTEGER NOT NULL, `readyWaitStartedMs` INTEGER, `missed` INTEGER NOT NULL, PRIMARY KEY(`date`))")
+    }
+}
+
+val MIGRATION_9_10 = object : androidx.room.migration.Migration(9, 10) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `week_money` (`monday` TEXT NOT NULL, `plannedWeight` REAL NOT NULL, `verifiedWeight` REAL NOT NULL, `freeToSpendPence` INTEGER NOT NULL, `savingsPence` INTEGER NOT NULL, `live` INTEGER NOT NULL, `closedAtMs` INTEGER NOT NULL, PRIMARY KEY(`monday`))")
     }
 }
 

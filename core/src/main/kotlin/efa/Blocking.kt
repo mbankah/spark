@@ -49,7 +49,7 @@ fun nightWindow(pattern: List<PatternSlot>, now: ZonedDateTime, fallAsleep: Dura
  */
 fun decide(
     pkg: String, now: ZonedDateTime, pattern: List<PatternSlot>, list: Set<String>,
-    allow: Allowances = Allowances(), verifiedKeys: Set<String> = emptySet(), morning: MorningState? = null, lateness: Lateness = emptyMap(),
+    allow: Allowances = Allowances(), verifiedKeys: Set<String> = emptySet(), morning: MorningState? = null, lateness: Lateness = emptyMap(), earnedAccess: Boolean = false,
 ): Decision {
     if (pkg !in list) return Decision.Allow
     // M5, M6, M8, M9: while the alarm rings and until the ready photo, the listed apps are blocked completely. Calls, maps, banking, music and
@@ -61,7 +61,8 @@ fun decide(
     }
     if (allow.appUntil[pkg]?.isAfter(now) == true) return Decision.Allow
     val current = nowAndNext(pattern, now).now
-    val firm = current?.let { firmReasonFor(it.slot.type) }
+    // R2, Y8: earned phone access lifts a transition or planning block. It never lifts a work block, the getting-ready block, the morning block or the night cutoff.
+    val firm = current?.let { firmReasonFor(it.slot.type) }?.takeUnless { earnedAccess && it in ACCESS_LIFTS }
     if (current != null && firm != null) {
         val minutes = if (firm == BlockReason.WORK_BLOCK && blockKey(current) !in verifiedKeys) Duration.between(current.start, current.end).toMinutes().toInt() else 0
         return Decision.Block(firm, current.slot.title, current.end, minutes, night = false)

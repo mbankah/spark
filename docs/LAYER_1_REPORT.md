@@ -307,3 +307,21 @@ Most of the night rule was already built with blocking in layer 1: the cutoff, t
 **Not built or not proven:**
 - Nothing here has run over a real night on your phone (checklist B1 to B6).
 - Y8 (earned phone access never overrides the cutoff) comes with the rewards, and the shutdown photo earns no credit until then (Q-G64, Q-G66). The drift does not move the study due times (Q-G63).
+
+## Update: rewards and free slots (layer 6: R1 to R9, F1 to F7, O3, Y4, Y5, Y8, W4, G6, B8)
+
+**Built:**
+- The weekly guide (R6 to R9, Y4, G6): free to spend is 25 pounds times confirmed weighted work over planned weighted work, food 40 pounds guaranteed, the rest to savings, read from the blocks that were proven. Finished weeks are frozen. Money counts from the first whole week after the 14 record-only days. A money screen shows the working, progress ("14.0 of 60.0 hours done") and savings.
+- Earned phone access (R2, O3, Y8, R5): 10 minutes of open phone per hour of confirmed work, spent only while a transition or planning block would have closed the phone. It never opens a work block, the getting-ready block, the morning block or the night cutoff.
+- Relief, progress and the reward (R1, R3, R4): a verified block says what it kept out of the Buffer, the phone it earned, and the next meal or free slot.
+- Free slots (F1, F2, F4, F5, F6, F7, Y5, W4, B8): an alarm when a free slot ends; a converted slot says why, ends with a 10 minute reset, is never under 40 minutes and can be turned back with the typed wall; 3 hours of personal football a week placed in free time on top of the 6 protected hours; and short-sleep days count remaining work heavier.
+- Database version 10.
+
+**Tested:**
+- `:core:test`: 443 tests, 0 failed, including the ledger's money table row by row, the 14-day boundary across the clock change, every rule earned access must not lift, the football arithmetic and the reset on every conversion.
+- Emulator (300 tests; the last full run had one failure, which was a test that football had made impossible and which passes now): the weekly money from real blocks, frozen weeks, earnings, football placed once, resets stored with every conversion, turn-back, short sleep, the migration, the money and block screens, earned access and the night cutoff on the real blocker, and the free-slot alarm sounding.
+
+**Not built or not proven:**
+- None of it has run in a real week on your phone (checklist E1 to E9).
+- Your plan has six work blocks that run straight into another with no reset (Q-G68). Football and the protected hours leave under 2 hours a week for the margin rule to convert (Q-G69).
+- The squeeze order (section 10) has no ledger IDs and is not built (Q-G73). Calibration (R10, layer 7) corrects estimates later.

@@ -194,3 +194,17 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | B4 | Take the night-before photo at 21:30 after scrolling in bed from 19:00 to 21:00. Next day look at the Sleep log. | Sleep starts at the last screen-off after the photo, not at 19:00. |
 | B5 | Forget the night-before photo. | The Sleep log still gives a night from the sensors. |
 | B6 | Try an override within 6 hours of your wake. | It is refused. |
+
+## Rewards and free slots (layer 6)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E1 | After the first 14 days and the next Monday, look at the home screen. | "Free to spend this week" shows pounds and "14.0 of 60.0 hours done". Before that it says Recording and when money starts. |
+| E2 | Tap the free-to-spend card. | The working: food 40 pounds, each confirmed block with its weight, the sum, the payout and what moved to savings. |
+| E3 | Prove a study block. | The block screen says what it kept out of the Buffer, how many minutes of open phone it earned, and what is next. |
+| E4 | After a proven block, during a walk or a planning block, open a blocked app. | It opens for the minutes earned, then closes again. |
+| E5 | Try the same in a work block, while getting ready, after the night cutoff and in the morning block. | It stays closed in all four. |
+| E6 | When a free slot ends. | A notification with the alarm sound says what is next. |
+| E7 | Check the plan for personal football. | 3 hours a week in sessions of 1 to 2 hours, in free time, with a photo window. |
+| E8 | Make the Buffer tight. Look at a block that was free time. | It says why, ends with a 10 minute reset, and offers "Make it a break" with the 75 characters. |
+| E9 | After a night under 6.5 hours. | Remaining hard work counts x1.5 in the Buffer working. |

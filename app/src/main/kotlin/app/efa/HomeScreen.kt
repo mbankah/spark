@@ -49,13 +49,16 @@ data class HomeState(
     val period: String? = null,          // "Assignment week, until Fri 6 Nov" (PW3)
     val moved: List<String> = emptyList(), // what Spark moved for you in the last day and a half, with the reason (RS8)
     val morning: String? = null,         // M6, M8: social is blocked until the ready photo
+    val progress: String? = null,        // R4: "14.0 of 60.0 hours done"
+    val moneyNote: String? = null,       // G6: when the money starts, while it is only being recorded
+    val earnedOn: Boolean = false,       // R2: earned phone access is open right now
 )
 
 /** The home screen follows the drawing (design/ColdDark.dc.html): date and phone state, a big clock, the Buffer dial, now, next, money. */
 @Composable
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
-    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {},
+    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -67,7 +70,7 @@ fun HomeScreen(
                 Label(s.date)
                 if (s.phone != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(Modifier.size(9.dp).background(if (s.phoneOpen) c.accent else c.muted, CircleShape))
-                    Label(s.phone)
+                    Label(s.phone + if (s.earnedOn) ", earned" else "")
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -85,11 +88,14 @@ fun HomeScreen(
             s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
             if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Held while your apps were blocked. Open the digest.")
             NextCard(s.next)
-            Row(Modifier.fillMaxWidth().card().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().card().clip(CardShape).clickable(role = Role.Button, onClick = onMoney).padding(horizontal = 16.dp, vertical = 12.dp)
+                .semantics { contentDescription = "Free to spend this week. " + (s.freeToSpendPence?.let { pounds(it) } ?: "Recording") + ". Tap for the working." },
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Label("Free to spend this week")
                 BasicText(s.freeToSpendPence?.let { pounds(it) } ?: "Recording", style = Ts(c.text, 24.sp, FontWeight.Bold, letterSpacing = (-0.5).sp))
             }
-            if (s.freeToSpendPence == null) BasicText("Money starts after the first 14 days. Until then it is only recorded.", style = Ts(c.muted, 12.sp))
+            s.progress?.let { BasicText(it, style = Ts(c.muted, 13.sp, fontFamily = Mono)) }
+            if (s.freeToSpendPence == null) BasicText(s.moneyNote ?: "Money starts after the first 14 days. Until then it is only recorded.", style = Ts(c.muted, 12.sp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf("Phone" to "phone", "Msgs" to "messages", "Maps" to "maps").forEach { (label, key) ->
                     Box(

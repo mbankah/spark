@@ -177,7 +177,7 @@ class FreePlannerTest {
 
     @Test fun `X4 the planner works across the clock change on 25 October 2026`() {
         val plan = planConversions(slots, listOf(work(60.0, t(11, 6, 12))), t(10, 24, 12))
-        assertTrue(plan.conversions.all { Duration.between(it.window.start, it.window.end).toMinutes() == (it.slot.endMin - it.slot.startMin).toLong() })
+        assertTrue(plan.conversions.all { Duration.between(it.window.start, it.window.end).toMinutes() == (it.slot.endMin - it.slot.startMin + RESET_MIN).toLong() })
     }
 }
 

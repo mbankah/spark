@@ -17,7 +17,7 @@ data class AutoResult(val catchUps: List<TaskRow>, val conversions: List<Overlay
  * failure leaves everything as it was (IM11, X7).
  */
 class PlanRepo(private val db: EfaDb) {
-    suspend fun slots(): List<PatternSlot> = db.pattern().all().map { it.toSlot() } + db.overlay().all().map { it.toSlot() }
+    suspend fun slots(): List<PatternSlot> = db.pattern().all().map { it.toSlot() } + db.overlay().all().filter { it.kind != "declined" }.map { it.toSlot() }
 
     suspend fun periods(): List<PlannedPeriodRow> = db.periods().all()
 
@@ -68,13 +68,30 @@ class PlanRepo(private val db: EfaDb) {
                 createdMs = nowMs, source = "missed", sourceKey = c.key, reason = c.reason)
             if (db.tasks().insertOnce(row) > 0) added += row
         }
-        val work = studyCycles(slots, now) + db.tasks().open().map { it.toDue() }
+        // F7, Y5: personal football for this week and next, from tomorrow, before free time is turned into work.
+        val tomorrow = now.toLocalDate().plusDays(1).atStartOfDay(now.zone)
+        var withFootball = slots
+        for (w in 0..1) {
+            val monday = weekStart(now.toLocalDate()).plusWeeks(w.toLong())
+            for (g in placeFootball(withFootball, monday, if (w == 0) tomorrow else monday.atStartOfDay(now.zone))) {
+                val row = OverlayRow(date = g.date.toString(), startMin = g.startMin, endMin = g.endMin, title = g.title, type = g.type, venue = "", notes = g.notes, hardAlarm = false,
+                    cancelled = false, kind = "football", rowHash = "football|${g.date}|${g.startMin}", importId = null, reason = "3 hours of personal football a week", createdMs = nowMs)
+                db.overlay().insert(row); withFootball = withFootball + g
+            }
+        }
+        val work = studyCycles(withFootball, now) + db.tasks().open().map { it.toDue() }
+        val declined = db.overlay().declined().map { java.time.LocalDate.parse(it.date) to it.startMin }.toSet()
         val conv = ArrayList<OverlayRow>()
-        for (c in planConversions(slots, work, now).conversions) {
+        for (c in planConversions(withFootball, work, now, declined = declined).conversions) {
             val s = c.slot
             val row = OverlayRow(date = s.date.toString(), startMin = s.startMin, endMin = s.endMin, title = s.title, type = s.type, venue = s.venue, notes = s.notes,
                 hardAlarm = false, cancelled = false, kind = "convert", rowHash = "convert|${s.date}|${s.startMin}", importId = null, reason = c.reason, createdMs = nowMs)
-            if (db.overlay().insert(row) > 0) conv += row
+            if (db.overlay().insert(row) > 0) {
+                conv += row                                                    // W4: its last 10 minutes are the reset
+                val r = c.reset
+                db.overlay().insert(OverlayRow(date = r.date.toString(), startMin = r.startMin, endMin = r.endMin, title = r.title, type = r.type, venue = "", notes = r.notes,
+                    hardAlarm = false, cancelled = false, kind = "reset", rowHash = "reset|${r.date}|${r.startMin}", importId = null, reason = "Reset after work", createdMs = nowMs))
+            }
         }
         AutoResult(added, conv)
     }
@@ -104,3 +121,13 @@ fun TaskRow.toOpen(period: PlannedPeriodRow?) = OpenTask(id, title, dueAt(), rem
 /** PW3: the period running on [today], if any. */
 fun activePeriod(periods: List<PlannedPeriodRow>, today: LocalDate): PlannedPeriodRow? =
     periods.firstOrNull { !LocalDate.parse(it.startDate).isAfter(today) && !LocalDate.parse(it.endDate).isBefore(today) }
+
+/**
+ * F4: the person turns a converted free slot back into a break. It needs the typed wall in the UI. The window is remembered so the planner does not
+ * convert it again, and the conversion and its reset are removed.
+ */
+suspend fun PlanRepo.turnBack(db: EfaDb, date: LocalDate, windowStartMin: Int, windowEndMin: Int, nowMs: Long) = db.withTransaction {
+    db.overlay().deleteConversion(date.toString(), windowStartMin, windowEndMin)
+    db.overlay().insert(OverlayRow(date = date.toString(), startMin = windowStartMin, endMin = windowEndMin, title = "Turned back to free time", type = "free", venue = "", notes = "",
+        hardAlarm = false, cancelled = false, kind = "declined", rowHash = "declined|$date|$windowStartMin", importId = null, reason = "You turned this back into a break", createdMs = nowMs))
+}

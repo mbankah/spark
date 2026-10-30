@@ -40,7 +40,7 @@ object BufferNotifier {
     /** Builds the notice from the blocking snapshot. Pure apart from reading the clock. */
     fun text(now: ZonedDateTime = BlockingState.now()): NoticeText? {
         val s = BlockingState.snapshot ?: return null
-        val buffer = bufferNow(now, studyCycles(s.pattern, now) + s.tasks, s.pattern, shortSleep = false)
+        val buffer = bufferNow(now, studyCycles(s.pattern, now) + s.tasks, s.pattern, shortSleep = s.shortSleep)
         val nn = nowAndNext(s.pattern, now)
         val hm = DateTimeFormatter.ofPattern("HH:mm")
         return bufferNotice(

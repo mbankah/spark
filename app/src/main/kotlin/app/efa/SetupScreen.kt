@@ -39,7 +39,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
+    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -56,6 +56,14 @@ fun SetupScreen(
             BasicText("Plan a day off or a weekend, or say you are ill.", style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText("The cost to the Buffer is shown before you confirm. It takes a typed string that gets longer with each use in 30 days.", style = Ts(c.muted, 14.sp))
             Btn("Plan a day off", onDaysOff, modifier = Modifier.fillMaxWidth())
+        }
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("BROWSERS")
+            BasicText("Websites of blocked apps", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("In work blocks Spark reads the address bar of a browser it knows and closes the sites of the apps you blocked, private tabs included. A browser it does not know, a web page inside another app, or a mirror site can slip through.", style = Ts(c.muted, 14.sp))
+            if (browsers.isEmpty()) BasicText("No browser found on this phone.", style = Ts(c.muted, 14.sp))
+            browsers.forEach { b -> BasicText("${b.name}: " + if (b.covered) "covered" else "NOT covered, so its sites are not blocked", style = Ts(c.text, 15.sp, if (b.covered) FontWeight.Normal else FontWeight.Bold)) }
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

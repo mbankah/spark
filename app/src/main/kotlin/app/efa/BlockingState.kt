@@ -63,6 +63,16 @@ object BlockingState {
         return decide(pkg, now, s.pattern, s.list, s.allow, s.verified, s.morning, s.lateness, earnedAccess = earnedAccessActive(now, s.earnings, s.pattern))
     }
 
+    /**
+     * K10: the website in a browser's address bar. Returns the app the site belongs to and the block, or null when the site is not listed or not blocked right now.
+     * It uses the app's own decision, so the same work blocks, night rule and wall allowance apply to the website as to the app.
+     */
+    fun decideHost(host: String?): Pair<String, Decision.Block>? {
+        val s = snapshot ?: return null
+        val owner = ownerOfHost(host, domainOwners(s.list)) ?: return null
+        return (decide(owner) as? Decision.Block)?.let { owner to it }
+    }
+
     /** N5: whether the day this night belongs to was fully verified, which makes an override 45 minutes and not 30. */
     fun fullyVerifiedTonight(): Boolean {
         val s = snapshot ?: return false

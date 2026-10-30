@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Spark</string>
-    <string name="accessibility_description">Spark checks which app is in front, only to close the apps you chose to block during work blocks and at night. It does not read what is on the screen, and it cannot be switched off without Spark noticing. Android lets you switch it off in these settings, and Spark will tell you it is off.</string>
+    <string name="accessibility_description">Spark checks which app is in front, only to close the apps you chose to block during work blocks and at night. The one other thing it reads is the web address in a browser’s address bar, to close the websites of the apps you chose to block. It reads nothing else on the screen, and it cannot be switched off without Spark noticing. Android lets you switch it off in these settings, and Spark will tell you it is off.</string>
     <string name="widget_buffer">Buffer</string>
     <string name="widget_now_next">Now and next</string>
     <string name="widget_free_to_spend">Free to spend</string>

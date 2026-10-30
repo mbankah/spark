@@ -364,3 +364,11 @@ You asked for the resets, so the six work blocks that ran straight into another 
 
 **Not built:** widgets from other apps (WG5, WG6, Q-G91). **Not yet proven on a real phone:** E28 to E35, in particular that your phone has a speech recogniser, and how the Android widgets look on your launcher.
 
+## Update: websites in phone browsers (K10, K7), 30 October 2026
+
+**Built:** each blocked app has its website domains. In a work block, or at night, Spark reads the address bar of a browser it knows and puts the plain blocked card in front of a listed site, private tabs included. A website opens when its app has been let through the wall. Setup lists installed browsers and says which are not covered. The same domain list makes the hosts file lines for the PC.
+
+**Tested:** 9 core tests, and 3 end-to-end tests on the emulator's real Chrome: a YouTube address is blocked in a work block, an unlisted site opens, and the listed site opens at lunch.
+
+**Not yet proven on a real phone:** E36 to E38, with the browsers you use. Only Chrome has run for real. The other eight are known by their address bar id from the unit-tested list and may need correcting on your phone.
+

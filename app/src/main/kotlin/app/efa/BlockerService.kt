@@ -5,6 +5,8 @@ import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import efa.Decision
+import efa.browserFor
+import efa.hostOf
 import kotlinx.coroutines.*
 
 /**
@@ -28,8 +30,34 @@ class BlockerService : AccessibilityService() {
         scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); delay(60_000) } }
     }
 
+    private val lastBrowserCheck = HashMap<String, Long>()
+
+    /**
+     * K10: in a browser, read the address bar and block the sites of blocked apps, private tabs included (a private tab still has an address bar). Only the
+     * address bar's text is read, and only in a browser Spark knows. An unknown browser, an in-app web view or a mirror site can slip through (K8, K10).
+     */
+    private fun checkBrowser(pkg: String) {
+        val browser = browserFor(pkg) ?: return
+        val now = System.currentTimeMillis()
+        if (now - (lastBrowserCheck[pkg] ?: 0L) < 250) return
+        lastBrowserCheck[pkg] = now
+        try {
+            val root = rootInActiveWindow ?: return
+            if (root.packageName?.toString() != pkg) { root.recycle(); return }
+            val bar = root.findAccessibilityNodeInfosByViewId(browser.urlBarId).firstOrNull()
+            val host = hostOf(bar?.text?.toString())
+            bar?.recycle(); root.recycle()
+            BlockingState.decideHost(host)?.let { (owner, _) -> show(owner) }
+        } catch (e: Exception) { /* a tab that vanishes while being read is not an error; X7: nothing is blocked on a failure */ }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED || event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+            event.packageName?.toString()?.let { checkBrowser(it) }
+            return
+        }
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
+        event.packageName?.toString()?.let { checkBrowser(it) }
         if (AlarmSession.ringing && event.packageName?.toString() != packageName && event.packageName?.toString() != "com.android.systemui") { showAlarm(); return }
         val packages = LinkedHashSet<String>()
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) event.packageName?.toString()?.let { packages += it }

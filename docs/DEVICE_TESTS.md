@@ -255,3 +255,11 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E34 | Say "I need a day off". | The day off screen opens. Nothing is planned until the typed string is done. |
 | E35 | Be in a lecture block. | The Say button is hidden. The plus button still works. |
 
+## Browser blocking (K10)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E36 | In a work block with YouTube on the list, open a YouTube address in each browser you use, in a normal tab and a private tab. | The plain blocked card appears in each. Setup, Browsers lists every browser on your phone and says plainly which are NOT covered. |
+| E37 | Open the same site from a link inside another app (an in-app web view). | It may open. This is a stated limit. |
+| E38 | Open a site that is not listed. | It opens normally. |
+

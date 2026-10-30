@@ -155,6 +155,14 @@ class MainActivity : ComponentActivity() {
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
+                var browsers by remember { mutableStateOf<List<BrowserCoverage>>(emptyList()) }
+                LaunchedEffect(screen) {
+                    if (screen == Screen.SETUP) browsers = withContext(Dispatchers.IO) {
+                        val pm = packageManager
+                        val web = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
+                        browserCoverage(pm.queryIntentActivities(web, 0).map { it.activityInfo.packageName to it.loadLabel(pm).toString() }.distinctBy { it.first }.filter { it.first != packageName })
+                    }
+                }
                 var voiceDraft by remember { mutableStateOf<Pair<NewTask, String>?>(null) }
                 var voiceQuietOff by remember { mutableStateOf(true) }
                 var widgetRows by remember { mutableStateOf<List<WidgetRowUi>>(emptyList()) }
@@ -481,6 +489,7 @@ class MainActivity : ComponentActivity() {
                         onDaysOff = { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF },
                         onLibrary = { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY },
                         onWidgets = { widgetMessage = null; screen = Screen.WIDGETS },
+                        browsers = browsers,
                         voiceQuietOff = voiceQuietOff,
                         onVoiceQuiet = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_VOICE_QUIET_OFF, if (v) "1" else "0")); reload++ } },
                         onShopping = { screen = Screen.SHOPPING },

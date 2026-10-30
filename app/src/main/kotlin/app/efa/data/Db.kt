@@ -222,6 +222,17 @@ interface ShoppingDao {
     @Query("UPDATE shopping_item SET ticked = 0 WHERE pantry = 0") suspend fun untickWeekly()
 }
 
+/** One placed widget (WG1 to WG4). `nextSize` and `nextFrom` hold an enlargement that has not started. */
+@Entity(tableName = "widget_placement")
+data class WidgetRow(@PrimaryKey val kind: String, val size: String, val position: Int, val activeFrom: String, val nextSize: String?, val nextFrom: String?)
+
+@Dao
+interface WidgetDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insert(row: WidgetRow)
+    @Query("SELECT * FROM widget_placement ORDER BY position") suspend fun all(): List<WidgetRow>
+    @Query("DELETE FROM widget_placement") suspend fun clear()
+}
+
 @Dao
 interface OverlayDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: OverlayRow): Long
@@ -404,7 +415,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class, CalibrationRow::class, ShoppingRow::class], version = 13, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class, CalibrationRow::class, ShoppingRow::class, WidgetRow::class], version = 14, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -427,11 +438,12 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun daysOff(): DayOffDao
     abstract fun calibration(): CalibrationDao
     abstract fun shopping(): ShoppingDao
+    abstract fun widgets(): WidgetDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14).build().also { inst = it }
         }
     }
 }
@@ -529,7 +541,14 @@ val MIGRATION_12_13 = object : androidx.room.migration.Migration(12, 13) {
     }
 }
 
+val MIGRATION_13_14 = object : androidx.room.migration.Migration(13, 14) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `widget_placement` (`kind` TEXT PRIMARY KEY NOT NULL, `size` TEXT NOT NULL, `position` INTEGER NOT NULL, `activeFrom` TEXT NOT NULL, `nextSize` TEXT, `nextFrom` TEXT)")
+    }
+}
+
 const val META_LIBRARY_HOURS = "library_hours"
+const val META_VOICE_QUIET_OFF = "voice_quiet_off"
 const val META_BLOCKLIST = "blocklist"
 const val META_GITHUB_USER = "github_user"
 const val META_GITHUB_REPOS = "github_repos"

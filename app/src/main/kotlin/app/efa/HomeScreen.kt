@@ -50,6 +50,10 @@ data class HomeState(
     val moved: List<String> = emptyList(), // what Spark moved for you in the last day and a half, with the reason (RS8)
     val morning: String? = null,         // M6, M8: social is blocked until the ready photo
     val progress: String? = null,        // R4: "14.0 of 60.0 hours done"
+    val widgets: Set<efa.WidgetKind> = efa.WidgetKind.entries.filter { it.byDefault }.toSet(),   // WG3: the widgets in use; a removed one is not drawn
+    val voiceNote: String? = null,      // V2: what voice could not do, said plainly
+    val voice: Boolean = false,         // V1, G7: voice is offered, and hidden in lectures and the library when the setting says so
+    val week: List<String> = emptyList(),   // the week glance widget
     val shoppingDay: Boolean = false,   // SH1: the shopping list is one tap away on shopping day
     val review: String? = null,          // B5: a finished task waiting to be asked about
     val moneyNote: String? = null,       // G6: when the money starts, while it is only being recorded
@@ -60,7 +64,7 @@ data class HomeState(
 @Composable
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
-    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {},
+    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -85,13 +89,16 @@ fun HomeScreen(
             BufferCard(s.buffer, onBuffer)
             if (s.moved.isNotEmpty()) InfoCard("MOVED FOR YOU", s.moved.first(), null, (s.moved.drop(1).take(2) + listOfNotNull(s.moved.size.minus(3).takeIf { it > 0 }?.let { "And $it more." })).joinToString(" ").ifBlank { null })
             if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read. Nothing is shown rather than something wrong.")
+            else if (efa.WidgetKind.NOW_NEXT !in s.widgets) {}
             else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null)
             else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() })
             s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
-            if (s.shoppingDay) InfoCard("SHOPPING", "Shopping list", onShopping, "Tick items off in the shop.")
+            if (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets) InfoCard("SHOPPING", "Shopping list", onShopping, "Tick items off in the shop.")
+            s.voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
             s.review?.let { InfoCard("HELP THE ESTIMATES", it, onReview, "Takes one tap.") }
             if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Held while your apps were blocked. Open the digest.")
-            NextCard(s.next)
+            if (efa.WidgetKind.DAY_PLAN in s.widgets) NextCard(s.next)
+            if (efa.WidgetKind.WEEK_GLANCE in s.widgets && s.week.isNotEmpty()) InfoCard("WEEK", s.week.first(), null, s.week.drop(1).joinToString("\n"))
             Row(Modifier.fillMaxWidth().card().clip(CardShape).clickable(role = Role.Button, onClick = onMoney).padding(horizontal = 16.dp, vertical = 12.dp)
                 .semantics { contentDescription = "Free to spend this week. " + (s.freeToSpendPence?.let { pounds(it) } ?: "Recording") + ". Tap for the working." },
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -118,6 +125,10 @@ fun HomeScreen(
             Box(Modifier.weight(1f).heightIn(min = 54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSearch).padding(horizontal = 16.dp).semantics { contentDescription = "Type to open an app" }, contentAlignment = Alignment.CenterStart) {
                 BasicText("Type to open", style = Ts(c.muted, 16.sp))
             }
+            if (s.voice) Box(
+                Modifier.size(54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onVoice).semantics { contentDescription = "Voice quick add" },
+                contentAlignment = Alignment.Center,
+            ) { BasicText("Say", style = Ts(c.text, 14.sp, FontWeight.Bold)) }
             Box(
                 Modifier.size(54.dp).background(c.accent, CardShape).clickable(role = Role.Button, onClick = onQuickAdd).semantics { contentDescription = "Quick add" },
                 contentAlignment = Alignment.Center,

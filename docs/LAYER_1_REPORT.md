@@ -356,3 +356,11 @@ You asked for the resets, so the six work blocks that ran straight into another 
 
 **Not yet proven on a real phone:** E23 to E27. The way I get the real time is a question, because proven blocks cannot see it (Q-G86). The 14 day shadow period for the estimate is replaced by waiting for 3 finished tasks per band (Q-G88).
 
+## Update: shopping list, widgets and voice (SH1 to SH5, WG1 to WG4 and WG7 to WG10, B2, V1 to V4, G7), 30 October 2026
+
+**Built:** the shopping list from the Master Plan (weekly basket 36.42, pantry 25.76, estimates marked, ticks, receipt prices). Seven text-only built-in widgets as Android widgets for a stock launcher and an Edit widgets screen (add, remove, reorder, resize, the next-midnight rule, the Buffer cannot be removed, stale data says so). Voice quick add through the phone's own recogniser, with a check card, screen opening, and day off and block list requests that stop at the typed wall. Database v13 and v14.
+
+**Tested:** 18 core and 25 device tests for these.
+
+**Not built:** widgets from other apps (WG5, WG6, Q-G91). **Not yet proven on a real phone:** E28 to E35, in particular that your phone has a speech recogniser, and how the Android widgets look on your launcher.
+

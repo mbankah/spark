@@ -2,4 +2,11 @@
 <resources>
     <string name="app_name">Spark</string>
     <string name="accessibility_description">Spark checks which app is in front, only to close the apps you chose to block during work blocks and at night. It does not read what is on the screen, and it cannot be switched off without Spark noticing. Android lets you switch it off in these settings, and Spark will tell you it is off.</string>
+    <string name="widget_buffer">Buffer</string>
+    <string name="widget_now_next">Now and next</string>
+    <string name="widget_free_to_spend">Free to spend</string>
+    <string name="widget_day_plan">Day plan</string>
+    <string name="widget_shopping">Shopping list</string>
+    <string name="widget_quick_add">Quick-add</string>
+    <string name="widget_week_glance">Week glance</string>
 </resources>

@@ -43,12 +43,14 @@ fun QuickAddScreen(
     onCheckCanvas: () -> Unit,
     onSave: (NewTask) -> Unit,
     onCancel: () -> Unit,
+    prefill: NewTask? = null,
+    heard: String? = null,
 ) {
     val c = LocalColors.current
-    var title by remember { mutableStateOf("") }
-    var day by remember { mutableStateOf(now.toLocalDate().plusDays(1)) }
-    var time by remember { mutableStateOf(LocalTime.of(17, 0)) }
-    var heaviness by remember { mutableIntStateOf(QUICK_ADD_DEFAULT_HEAVINESS) }
+    var title by remember { mutableStateOf(prefill?.title.orEmpty()) }
+    var day by remember { mutableStateOf(prefill?.due?.toLocalDate() ?: now.toLocalDate().plusDays(1)) }
+    var time by remember { mutableStateOf(prefill?.due?.toLocalTime() ?: LocalTime.of(17, 0)) }
+    var heaviness by remember { mutableIntStateOf(prefill?.heaviness ?: QUICK_ADD_DEFAULT_HEAVINESS) }
     var message by remember { mutableStateOf<String?>(null) }
     val due = ZonedDateTime.of(day, time, now.zone)
     val draft = NewTask(title.trim(), due, heaviness)
@@ -58,6 +60,12 @@ fun QuickAddScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         BasicText("Quick add", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
+        // V2: what was heard, shown so a mistake is seen before anything is saved.
+        heard?.let { Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Label("I HEARD")
+            BasicText("\u201c$it\u201d", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("Check the title, day and heaviness below before you save. Speech is never perfect.", style = Ts(c.muted, 13.sp))
+        } }
         Label("TITLE")
         BasicTextField(
             value = title, onValueChange = { title = it; message = null }, singleLine = true,

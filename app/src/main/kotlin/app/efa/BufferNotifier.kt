@@ -52,6 +52,7 @@ object BufferNotifier {
     }
 
     fun update(ctx: Context) {
+        try { SparkWidget.updateAll(ctx) } catch (e: Exception) { /* widgets are never allowed to break the notice */ }
         try {
             if (!allowed(ctx)) return
             val n = text() ?: return

@@ -91,6 +91,34 @@
             android:excludeFromRecents="true"
             android:taskAffinity="app.efa.blocked"
             android:theme="@android:style/Theme.Material.NoActionBar" />
+        <receiver android:name=".BufferWidget" android:exported="true" android:label="Spark Buffer">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_buffer" />
+        </receiver>
+        <receiver android:name=".NowNextWidget" android:exported="true" android:label="Spark Now and next">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_now_next" />
+        </receiver>
+        <receiver android:name=".FreeToSpendWidget" android:exported="true" android:label="Spark Free to spend">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_free_to_spend" />
+        </receiver>
+        <receiver android:name=".DayPlanWidget" android:exported="true" android:label="Spark Day plan">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_day_plan" />
+        </receiver>
+        <receiver android:name=".ShoppingWidget" android:exported="true" android:label="Spark Shopping list">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_shopping" />
+        </receiver>
+        <receiver android:name=".QuickAddWidget" android:exported="true" android:label="Spark Quick-add">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_quick_add" />
+        </receiver>
+        <receiver android:name=".WeekGlanceWidget" android:exported="true" android:label="Spark Week glance">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_week_glance" />
+        </receiver>
         <receiver android:name=".AlarmReceiver" android:exported="false" />
         <receiver android:name=".FreeSlotReceiver" android:exported="false" />
         <service android:name=".AlarmService" android:exported="false" android:foregroundServiceType="mediaPlayback" />

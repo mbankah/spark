@@ -242,3 +242,16 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E26 | Choose "took 50%". | It asks for the 75 character typed wall first. |
 | E27 | After three finished tasks of one size. | The quick-add note says "corrected x... from 3 finished ... tasks". |
 
+## Shopping, widgets and voice (layer 8: SH1 to SH5, WG1 to WG10, V1 to V4, G7)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E28 | On a Monday, look at home. | A Shopping card opens the list. Tick two items, close the app, open it: they are still ticked. |
+| E29 | Change a price with the +10p button. | The ESTIMATE label goes. "Start a new shop" unticks the weekly basket only. |
+| E30 | Long-press the home screen of a stock launcher, add the Spark Buffer widget. | It shows the Buffer and goes "stale since HH:MM" if the service has been stopped for ten minutes. Tapping it opens Spark. |
+| E31 | Setup, Edit widgets. Add Shopping list. | It says it starts tomorrow, and appears on home after midnight. Remove Day plan: its card goes at once. The Buffer has no Remove button. |
+| E32 | Reboot the phone. | The widget placements are unchanged. |
+| E33 | Tap Say on home and say "GT assignment due Wednesday at 5pm, heavy". | A card shows what was heard and the title, day and heaviness read from it. Nothing is saved until you press save. |
+| E34 | Say "I need a day off". | The day off screen opens. Nothing is planned until the typed string is done. |
+| E35 | Be in a lecture block. | The Say button is hidden. The plus button still works. |
+

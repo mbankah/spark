@@ -45,6 +45,7 @@ import app.efa.data.addLibraryPeriod
 import app.efa.data.removeLibraryPeriod
 import app.efa.data.addDaysOff
 import java.time.LocalDate
+import java.time.LocalTime
 import app.efa.data.MoneyView
 import app.efa.data.turnBack
 import app.efa.data.MorningRow
@@ -68,7 +69,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -79,6 +80,24 @@ private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, 
 class MainActivity : ComponentActivity() {
     /** An action asked for by the Buffer notification (LA11), consumed by the screen state once. */
     private val pendingAction = mutableStateOf<String?>(null)
+
+    /** V1: the text the phone's speech recogniser heard, read once by the screen state. */
+    private val voiceHeard = mutableStateOf<String?>(null)
+    private val voiceLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { r ->
+        voiceHeard.value = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+    }
+    private val voiceMessage = mutableStateOf<String?>(null)
+
+    /** V1, V2: opens the phone's own speech recogniser, on the device where it can. If there is none, say so: typed quick-add is always there (G7). */
+    private fun startVoice(vocabulary: List<String>) {
+        val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "en-GB")
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Say it, like: assignment due Friday, heavy")
+        if (android.os.Build.VERSION.SDK_INT >= 33) intent.putStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(vocabulary.take(100)))
+        try { voiceLauncher.launch(intent) } catch (e: Exception) { voiceMessage.value = "This phone has no speech recogniser. Use the plus button to type it." }
+    }
 
     /** IM10: a timetable file that arrived by Open with or Share, read once and then only previewed (IM5). */
     private val incomingIntent = mutableStateOf<Intent?>(null)
@@ -136,8 +155,22 @@ class MainActivity : ComponentActivity() {
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
+                var voiceDraft by remember { mutableStateOf<Pair<NewTask, String>?>(null) }
+                var voiceQuietOff by remember { mutableStateOf(true) }
+                var widgetRows by remember { mutableStateOf<List<WidgetRowUi>>(emptyList()) }
+                var widgetMessage by remember { mutableStateOf<String?>(null) }
+                var shownWidgets by remember { mutableStateOf<Set<WidgetKind>>(WidgetKind.entries.filter { it.byDefault }.toSet()) }
+                LaunchedEffect(screen, reload) {
+                    withContext(Dispatchers.IO) {
+                        val repo = WidgetRepo(db); val today = ZonedDateTime.now(LONDON).toLocalDate()
+                        widgetRows = repo.rows(today)
+                        shownWidgets = repo.placements(today).filter { shownOn(it, today).shown }.map { it.kind }.toSet()
+                    }
+                }
                 var shopping by remember { mutableStateOf<List<app.efa.data.ShoppingRow>>(emptyList()) }
                 LaunchedEffect(screen, reload) { if (screen == Screen.SHOPPING) shopping = withContext(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).items() } }
+                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" } }
+                /** V1, V3, V4: what was heard becomes a card to check, or opens a screen. A loosening only opens its request screen, where the typed wall is. */
                 var reviewRow by remember { mutableStateOf<app.efa.data.TaskRow?>(null) }
                 /** B5, E9: the estimates are corrected from finished tasks, and the newest finished task not yet asked about is offered on home. */
                 LaunchedEffect(screen, reload) {
@@ -230,6 +263,11 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(pendingAction.value) {
                     if (pendingAction.value == BufferNotifier.ACTION_QUICK_ADD) { screen = Screen.QUICK_ADD; pendingAction.value = null }
                     if (pendingAction.value == BufferNotifier.ACTION_READY) { screen = Screen.READY; pendingAction.value = null }
+                    when (pendingAction.value) {                                   // WG8: tapping a widget opens its full screen
+                        "widget_shopping" -> { screen = Screen.SHOPPING; pendingAction.value = null }
+                        "widget_money" -> { screen = Screen.MONEY; pendingAction.value = null }
+                        "widget_working", "widget_day", "widget_week" -> { screen = Screen.HOME; pendingAction.value = null }
+                    }
                 }
 
                 LaunchedEffect(reload) {
@@ -313,6 +351,33 @@ class MainActivity : ComponentActivity() {
                 val l = loaded
                 val repo = remember(l) { l?.pattern?.let { BlockRepo(applicationContext, db, it) } }
                 val buffer = l?.let { bufferOf(it, clock) } ?: BufferState.NoDeadline
+                LaunchedEffect(voiceHeard.value) {
+                    val heard = voiceHeard.value ?: return@LaunchedEffect
+                    voiceHeard.value = null
+                    val now = ZonedDateTime.now(LONDON)
+                    val vocab = withContext(Dispatchers.IO) { voiceVocabulary(PlanRepo(db).slots()) }
+                    when (val intent = parseVoice(heard, now.toLocalDate(), vocab)) {
+                        is VoiceIntent.AddTask -> {
+                            val due = ZonedDateTime.of(intent.day ?: now.toLocalDate().plusDays(1), intent.time ?: LocalTime.of(17, 0), now.zone)
+                            voiceDraft = NewTask(intent.title, due, intent.heaviness ?: QUICK_ADD_DEFAULT_HEAVINESS) to intent.heard
+                            screen = Screen.QUICK_ADD
+                        }
+                        is VoiceIntent.Go -> when (intent.target) {
+                            VoiceTarget.BUFFER -> screen = Screen.HOME
+                            VoiceTarget.MONEY -> screen = Screen.MONEY
+                            VoiceTarget.SHOPPING -> screen = Screen.SHOPPING
+                            VoiceTarget.SETUP -> screen = Screen.SETUP
+                            VoiceTarget.WIDGETS -> { widgetMessage = null; screen = Screen.WIDGETS }
+                            VoiceTarget.LIBRARY -> { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY }
+                            VoiceTarget.IMPORT -> screen = Screen.IMPORT
+                            VoiceTarget.HOME -> screen = Screen.HOME
+                            VoiceTarget.QUICK_ADD -> { voiceDraft = null; screen = Screen.QUICK_ADD }
+                            VoiceTarget.DAY_OFF -> { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF }      // V4: this only opens the request
+                            VoiceTarget.BLOCKLIST -> screen = Screen.LIST_GATE                                             // V4: the wall comes before any edit
+                        }
+                        is VoiceIntent.Unknown -> voiceMessage.value = "I heard \u201c${intent.heard}\u201d but did not understand it. Use the plus button to type it."
+                    }
+                }
                 BackHandler(enabled = screen != Screen.HOME) { screen = Screen.HOME }
                 BackHandler(enabled = screen == Screen.HOME) { /* a home screen has nowhere to go back to */ }
 
@@ -353,6 +418,10 @@ class MainActivity : ComponentActivity() {
                                     MorningPhase.RINGING -> "The alarm is ringing."
                                     else -> null
                                 },
+                                widgets = shownWidgets,
+                                voiceNote = voiceMessage.value,
+                                voice = voiceAllowed(l?.pattern?.let { p -> slotsFor(p, clock.toLocalDate(), clock.zone).firstOrNull { !it.start.isAfter(clock) && it.end.isAfter(clock) }?.slot }, voiceQuietOff),
+                                week = l?.pattern?.let { weekGlance(it, clock.toLocalDate(), clock.zone) }.orEmpty(),
                                 shoppingDay = l?.pattern?.let { p -> slotsFor(p, clock.toLocalDate()).any { it.slot.title.contains("Aldi", ignoreCase = true) } } == true,
                                 review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
@@ -365,6 +434,7 @@ class MainActivity : ComponentActivity() {
                             onReady = { screen = Screen.READY },
                             onReview = { screen = Screen.REVIEW },
                             onShopping = { screen = Screen.SHOPPING },
+                            onVoice = { voiceDraft = null; startVoice(emptyList()) },
                             onMoney = { screen = Screen.MONEY },
                             onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
@@ -410,6 +480,9 @@ class MainActivity : ComponentActivity() {
                         onMorning = { morningMessage = null; screen = Screen.MORNING },
                         onDaysOff = { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF },
                         onLibrary = { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY },
+                        onWidgets = { widgetMessage = null; screen = Screen.WIDGETS },
+                        voiceQuietOff = voiceQuietOff,
+                        onVoiceQuiet = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_VOICE_QUIET_OFF, if (v) "1" else "0")); reload++ } },
                         onShopping = { screen = Screen.SHOPPING },
                         morningText = when { morningUi.night != null && morningUi.ready != null -> "Set up: tonight's photo and the ready spot."; morningUi.ready != null -> "Ready spot set. Take tonight's setup photo."; morningUi.night != null -> "Tonight's photo set. Take the ready spot photo."; else -> "" },
                         sleep = l?.sleep ?: SleepStatus(),
@@ -460,6 +533,20 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.WIDGETS -> {
+                        val edit: (((List<Placement>, LocalDate) -> List<Placement>), String?) -> Unit = { f, msg ->
+                            scope.launch(Dispatchers.IO) {
+                                val repo = WidgetRepo(db); val today = ZonedDateTime.now(LONDON).toLocalDate()
+                                repo.save(f(repo.placements(today), today)); widgetMessage = msg; reload++
+                            }
+                        }
+                        EditWidgetsScreen(widgetRows, WidgetKind.entries.filter { k -> widgetRows.none { it.kind == k } }, widgetMessage,
+                            onAdd = { k -> edit({ l, d -> addWidget(l, k, WidgetSize.TWO_BY_ONE, d) }, "${k.label} starts tomorrow.") },
+                            onRemove = { k -> edit({ l, _ -> removeWidget(l, k) }, "${k.label} removed.") },
+                            onMove = { k, by -> edit({ l, _ -> moveWidget(l, k, by) }, null) },
+                            onSize = { k, sz -> edit({ l, d -> resizeWidget(l, k, sz, d) }, null) },
+                            onBack = { screen = Screen.SETUP })
+                    }
                     Screen.SHOPPING -> ShoppingScreen(shopping,
                         onTick = { r -> scope.launch(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).tick(r); reload++ } },
                         onPrice = { r, p -> scope.launch(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).price(r, p); reload++ } },
@@ -578,7 +665,9 @@ class MainActivity : ComponentActivity() {
                         bufferIfAdded = { t -> l?.let { bufferWith(it, clock, t).let { s -> if (s is BufferState.Value) s.result.label() + " to " + s.result.deadlineLabel else "No deadline" } } ?: "Schedule unavailable" },
                         canvasInstalled = packageManager.getLaunchIntentForPackage(CANVAS_PACKAGE) != null,
                         onCheckCanvas = { packageManager.getLaunchIntentForPackage(CANVAS_PACKAGE)?.let { startActivity(it) } },   // D3: opens the app, reads nothing
+                        prefill = voiceDraft?.first, heard = voiceDraft?.second,
                         onSave = { t ->
+                            voiceDraft = null
                             scope.launch(Dispatchers.IO) {
                                 db.tasks().insert(TaskRow(title = t.title, dueMs = t.due.toInstant().toEpochMilli(), dueZone = t.due.zone.id,
                                     heaviness = t.heaviness, hoursEstimate = CalibrationState.cal.hours(t.heaviness), createdMs = System.currentTimeMillis()))
@@ -586,7 +675,7 @@ class MainActivity : ComponentActivity() {
                                 screen = Screen.HOME
                             }
                         },
-                        onCancel = { screen = Screen.HOME },
+                        onCancel = { voiceDraft = null; screen = Screen.HOME },
                     )
                 }
             }

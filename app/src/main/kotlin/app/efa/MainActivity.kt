@@ -36,6 +36,10 @@ import app.efa.data.MorningRepo
 import app.efa.data.META_FIRST_USE
 import app.efa.data.RewardsRepo
 import app.efa.data.uses
+import app.efa.data.libraryHours
+import app.efa.data.saveLibraryHours
+import app.efa.data.addLibraryPeriod
+import app.efa.data.removeLibraryPeriod
 import app.efa.data.addDaysOff
 import java.time.LocalDate
 import app.efa.data.MoneyView
@@ -61,7 +65,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -127,6 +131,16 @@ class MainActivity : ComponentActivity() {
                 var wallBack by remember { mutableStateOf(Screen.HOME) }
                 var wallLength by remember { mutableIntStateOf(efa.WallLength.IMPORT_LOOSEN) }
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
+                var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
+                /** C1, C2, O11: reads the calendar, the hours and the periods, and works out what a library period would do before it is planned. */
+                val refreshLibrary: (LocalDate?, Int, String?, Boolean, Int, Int) -> Unit = { start, days, message, editing, dOpen, dClose ->
+                    scope.launch(Dispatchers.IO) {
+                        val plan = PlanRepo(db); val now = ZonedDateTime.now(LONDON); val hours = plan.libraryHours(db)
+                        val preview = if (hours != null && start != null) libraryPreview(plan.slots(), db.tasks().open().map { t -> t.toDue() }, now, start, start.plusDays(days - 1L), hours) else null
+                        val planned = db.periods().all().filter { it.kind == LIBRARY_KIND }.map { r -> r.id to "${DateTimeFormatter.ofPattern("EEE d MMM").format(LocalDate.parse(r.startDate))} to ${DateTimeFormatter.ofPattern("EEE d MMM").format(LocalDate.parse(r.endDate))}" }
+                        libraryUi = LibraryUi(now.toLocalDate(), hours, editing, hours?.openMin ?: dOpen, hours?.closeMin ?: dClose, start, days, preview, planned, message)
+                    }
+                }
                 var dayOffSource by remember { mutableStateOf("planned") }
                 /** C4, H2: reads the calendar and the work due, and works out the cost of the days picked, before anything is typed. */
                 val refreshDayOff: (List<LocalDate>, String?, Boolean) -> Unit = { picked, message, claiming ->
@@ -374,6 +388,7 @@ class MainActivity : ComponentActivity() {
                         onImport = { importUi = ImportUi.Idle; screen = Screen.IMPORT },
                         onMorning = { morningMessage = null; screen = Screen.MORNING },
                         onDaysOff = { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF },
+                        onLibrary = { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY },
                         morningText = when { morningUi.night != null && morningUi.ready != null -> "Set up: tonight's photo and the ready spot."; morningUi.ready != null -> "Ready spot set. Take tonight's setup photo."; morningUi.night != null -> "Tonight's photo set. Take the ready spot photo."; else -> "" },
                         sleep = l?.sleep ?: SleepStatus(),
                         onChooseList = {
@@ -423,6 +438,23 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.LIBRARY -> libraryUi?.let { u ->
+                        LibraryScreen(u,
+                            onHours = { o, c2 -> scope.launch(Dispatchers.IO) { PlanRepo(db).saveLibraryHours(db, LibraryHours(o, c2)); refreshLibrary(u.start, u.days, "Hours saved: ${LibraryHours(o, c2).text()}", false, o, c2) } },
+                            onEditHours = { refreshLibrary(u.start, u.days, null, true, u.hours?.openMin ?: 8 * 60, u.hours?.closeMin ?: 22 * 60) },
+                            onDraft = { o, c2 -> libraryUi = u.copy(draftOpen = o, draftClose = c2) },
+                            onPick = { d, n -> refreshLibrary(d, n, null, false, u.draftOpen, u.draftClose) },
+                            onPlan = {
+                                val st = u.start
+                                if (st != null) scope.launch(Dispatchers.IO) {
+                                    val err = PlanRepo(db).addLibraryPeriod(db, st, st.plusDays(u.days - 1L), ZonedDateTime.now(LONDON))
+                                    BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++
+                                    refreshLibrary(null, u.days, err ?: "Planned.", false, u.draftOpen, u.draftClose)
+                                }
+                            },
+                            onRemove = { id -> scope.launch(Dispatchers.IO) { PlanRepo(db).removeLibraryPeriod(db, id); BlockingState.refresh(applicationContext); reload++; refreshLibrary(null, u.days, "Removed.", false, u.draftOpen, u.draftClose) } },
+                            onBack = { screen = Screen.SETUP })
+                    } ?: run { screen = Screen.SETUP }
                     Screen.DAYOFF -> dayOffUi?.let { u ->
                         DayOffScreen(u,
                             onPick = { dates -> refreshDayOff(dates, null, false) },

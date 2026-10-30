@@ -340,3 +340,11 @@ You asked for the resets, so the six work blocks that ran straight into another 
 
 **Not built:** the library period (C2, C3, O11, O13) is not part of this request and is still to do.
 
+## Update: library periods (C1, C2, C3, O11, O13, PW1, Y9), 30 October 2026
+
+**Built:** Setup, Library. The opening hours are asked for once and kept. A period is 1 to 14 days from today or later, with a preview before it is planned. Work blocks inside the hours move to the library (venue University Library), a 15 minute walk is added at the start and end of each stretch of work, the walk minutes come back as catch-up work after the period, and meals, football, lectures and routines do not move. A day off planned later removes the library work and the walks. Removing a period removes its unstarted catch-up work. No database change: a library period is a planned period of kind library.
+
+**Tested:** 13 core tests and 11 device tests (storage, the screen).
+
+**Not yet proven on a real phone:** E18 to E22 in DEVICE_TESTS. The 15 minute walk is a fixed number until measured times exist (Q-G81).
+

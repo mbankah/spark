@@ -18,8 +18,13 @@ data class AutoResult(val catchUps: List<TaskRow>, val conversions: List<Overlay
  */
 class PlanRepo(private val db: EfaDb) {
     internal val dbForAuto: EfaDb get() = db
-    suspend fun slots(): List<PatternSlot> = db.pattern().all().map { it.toSlot() } + db.overlay().all().filter { it.kind != "declined" }.map { it.toSlot() } +
-        db.daysOff().effective().map { dayOffMarker(LocalDate.parse(it.date)) }          // C5: a day off is a marker the calendar reads
+    suspend fun slots(): List<PatternSlot> {
+        val base = db.pattern().all().map { it.toSlot() } + db.overlay().all().filter { it.kind != "declined" }.map { it.toSlot() } +
+            db.daysOff().effective().map { dayOffMarker(LocalDate.parse(it.date)) }          // C5: a day off is a marker the calendar reads
+        val hours = parseLibraryHours(db.meta().get(META_LIBRARY_HOURS)) ?: return base
+        // C2: a library period is worked out from the calendar each time, so it always agrees with imports and days off.
+        return base + db.periods().all().filter { it.kind == LIBRARY_KIND }.flatMap { libraryItems(base, LocalDate.parse(it.startDate), LocalDate.parse(it.endDate), hours) }
+    }
 
     suspend fun periods(): List<PlannedPeriodRow> = db.periods().all()
 
@@ -124,7 +129,7 @@ fun TaskRow.toOpen(period: PlannedPeriodRow?) = OpenTask(id, title, dueAt(), rem
 
 /** PW3: the period running on [today], if any. */
 fun activePeriod(periods: List<PlannedPeriodRow>, today: LocalDate): PlannedPeriodRow? =
-    periods.firstOrNull { !LocalDate.parse(it.startDate).isAfter(today) && !LocalDate.parse(it.endDate).isBefore(today) }
+    periods.filter { it.kind != LIBRARY_KIND }.firstOrNull { !LocalDate.parse(it.startDate).isAfter(today) && !LocalDate.parse(it.endDate).isBefore(today) }
 
 /**
  * F4: the person turns a converted free slot back into a break. It needs the typed wall in the UI. The window is remembered so the planner does not
@@ -177,4 +182,36 @@ suspend fun PlanRepo.resolveClaims(nowMs: Long) {
             ClaimState.PENDING -> {}
         }
     }
+}
+
+
+/** O11: the library's hours, asked for once and kept. */
+suspend fun PlanRepo.libraryHours(db: EfaDb): LibraryHours? = parseLibraryHours(db.meta().get(META_LIBRARY_HOURS))
+suspend fun PlanRepo.saveLibraryHours(db: EfaDb, hours: LibraryHours) = db.meta().put(MetaRow(META_LIBRARY_HOURS, hours.text()))
+
+/**
+ * C1, C2: plans a library period. The walks take work minutes, so they come back as catch-up work after the period (like a day off), one piece a day. Returns
+ * the reason it was refused, or null. The hours must have been given first.
+ */
+suspend fun PlanRepo.addLibraryPeriod(db: EfaDb, start: LocalDate, end: LocalDate, now: ZonedDateTime): String? = db.withTransaction {
+    val hours = libraryHours(db) ?: return@withTransaction "Tell Spark the library's opening hours first."
+    checkLibraryPeriod(start, end, now.toLocalDate())?.let { return@withTransaction it }
+    val hash = "$LIBRARY_KIND|$start|$end"
+    if (db.periods().hashes().contains(hash)) return@withTransaction "That library period is already planned."
+    val base = slots()
+    val nowMs = now.toInstant().toEpochMilli()
+    db.periods().insert(PlannedPeriodRow(startDate = start.toString(), endDate = end.toString(), kind = LIBRARY_KIND, title = "Library", rowHash = hash, importId = null))
+    for (w in libraryDemand(base, start, end, hours, now)) {
+        db.tasks().insertOnce(TaskRow(title = w.title, dueMs = w.due.toInstant().toEpochMilli(), dueZone = w.due.zone.id, heaviness = w.heaviness, hoursEstimate = w.hours,
+            createdMs = nowMs, source = "library", sourceKey = w.key, reason = w.reason))
+    }
+    null
+}
+
+/** Removes a library period and the catch-up work it made that has not been started. Work already done on it stays. */
+suspend fun PlanRepo.removeLibraryPeriod(db: EfaDb, id: Long) = db.withTransaction {
+    val row = db.periods().all().firstOrNull { it.id == id && it.kind == LIBRARY_KIND } ?: return@withTransaction
+    var d = LocalDate.parse(row.startDate); val end = LocalDate.parse(row.endDate)
+    while (!d.isAfter(end)) { db.tasks().deleteOpenByKey("library:$d"); d = d.plusDays(1) }
+    db.periods().deleteById(id)
 }

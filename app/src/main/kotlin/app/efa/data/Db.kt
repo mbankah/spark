@@ -214,6 +214,7 @@ interface PeriodDao {
     @Query("SELECT * FROM period ORDER BY startDate") suspend fun all(): List<PlannedPeriodRow>
     @Query("SELECT rowHash FROM period") suspend fun hashes(): List<String>
     @Query("DELETE FROM period WHERE importId = :importId") suspend fun deleteByImport(importId: Long): Int
+    @Query("DELETE FROM period WHERE id = :id") suspend fun deleteById(id: Long): Int
 }
 
 @Dao
@@ -355,6 +356,7 @@ interface TaskDao {
     @Query("UPDATE task SET doneAtMs = :nowMs WHERE id = :id") suspend fun close(id: Long, nowMs: Long)
     @Query("SELECT * FROM task WHERE id = :id") suspend fun get(id: Long): TaskRow?
     @Query("DELETE FROM task WHERE importId = :importId AND doneMin = 0") suspend fun deleteByImport(importId: Long): Int
+    @Query("DELETE FROM task WHERE sourceKey = :key AND doneMin = 0 AND doneAtMs IS NULL") suspend fun deleteOpenByKey(key: String): Int
 }
 
 @Dao
@@ -482,6 +484,7 @@ val MIGRATION_10_11 = object : androidx.room.migration.Migration(10, 11) {
     }
 }
 
+const val META_LIBRARY_HOURS = "library_hours"
 const val META_BLOCKLIST = "blocklist"
 const val META_GITHUB_USER = "github_user"
 const val META_GITHUB_REPOS = "github_repos"

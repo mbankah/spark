@@ -222,3 +222,13 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E16 | Claim a day from the last week. | Pending until its catch-up work is done by its due times, then held. The week is not frozen for money until then. |
 | E17 | The evening before a day off. | No alarm is set for the day off. |
 
+## Library periods (layer 8: C1, C2, C3, O11, O13, PW1)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E18 | Setup, Library, with no hours saved. | It asks for the opening and closing times once. After saving it shows them and the date pickers. |
+| E19 | Pick tomorrow for 5 days. | A preview says how many work blocks move, how many hours of work the walks take, how many blocks stay home, and the Buffer before and after. |
+| E20 | Plan it. Open tomorrow's plan. | Work blocks say University Library, with "Walk to the library" and "Walk home from the library" of 15 minutes at the ends of each stretch. Meals and football have not moved. |
+| E21 | Start a work block at the library. | Blocking and the timer work exactly as at home. |
+| E22 | Remove the period. | The library, the walks and the unstarted catch-up work go. |
+

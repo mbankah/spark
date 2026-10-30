@@ -22,7 +22,7 @@ fun isDayOff(slots: List<PatternSlot>, date: LocalDate): Boolean = slots.any { i
 /** What a day off takes away: work blocks, lectures, tutorials, planning blocks and the resets that follow them. Everything else stays (C5, Q-G75). */
 val DAY_OFF_REMOVES = setOf("study", "code", "study-standard", "study-light", "lecture", "tutorial", "planning")
 
-fun removedByDayOff(s: PatternSlot): Boolean = s.type in DAY_OFF_REMOVES || (s.type == "travel" && (s.title == RESET_TITLE))
+fun removedByDayOff(s: PatternSlot): Boolean = s.type in DAY_OFF_REMOVES || (s.type == "travel" && (s.title == RESET_TITLE || s.title == WALK_TO_LIBRARY || s.title == WALK_FROM_LIBRARY))
 
 /** H1, H5: the number of walls spent in the last 30 days. A weekend is one wall, so its rows share a [DayOffUse.group]. */
 data class DayOffUse(val group: Long, val atMs: Long)

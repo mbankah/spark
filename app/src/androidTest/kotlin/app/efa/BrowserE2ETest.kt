@@ -84,7 +84,7 @@ class BrowserE2ETest {
     }
 
     @Test fun K10_outside_a_work_block_the_listed_site_opens() {
-        clockAt(t(19, 12, 40))                         // Monday 12:40: lunch, the phone is open (K3)
+        clockAt(t(19, 12, 20))                         // Monday 12:20: lunch (12:15 to 12:40), the phone is open (K3)
         view("https://m.youtube.com/"); passFirstRun()
         assertTrue(screen.waitFor(30_000) { screen.foreground == "com.android.chrome" })
         Thread.sleep(6_000)

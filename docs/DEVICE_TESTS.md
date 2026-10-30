@@ -208,3 +208,4 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E7 | Check the plan for personal football. | 3 hours a week in sessions of 1 to 2 hours, in free time, with a photo window. |
 | E8 | Make the Buffer tight. Look at a block that was free time. | It says why, ends with a 10 minute reset, and offers "Make it a break" with the 75 characters. |
 | E9 | After a night under 6.5 hours. | Remaining hard work counts x1.5 in the Buffer working. |
+| E10 | Look at Tuesday 19:10, Thursday 11:10 and 15:50, Friday 17:50 and 20:25 and Sunday 10:00. | Each block ends 10 minutes earlier and a "Reset (stand, water, no phone)" follows it before the next block starts. |

@@ -329,3 +329,44 @@ class RewardsE2ETest {
         assertFalse(FreeSlotAlarm.schedule(ctx, System.currentTimeMillis() - 1000, "x"))
     }
 }
+
+/** W4 on a phone that was seeded before the resets existed. */
+@RunWith(AndroidJUnit4::class)
+class ResetMigrationTest {
+    private lateinit var db: EfaDb
+
+    @Before fun open() { db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), EfaDb::class.java).build() }
+    @After fun close() = db.close()
+
+    private fun oldRows(edited: Set<String> = emptySet()): List<PatternSlotRow> {
+        val resets = WeekB.slots.filter { it.title == RESET_TITLE }
+        return WeekB.slots.filter { it !in resets }.map { s ->
+            val extra = if (resets.any { r -> r.day == s.day && r.startMin == s.endMin && s.type in setOf("study", "code", "study-standard", "study-light") }) 10 else 0
+            PatternSlotRow(day = s.day.value, startMin = s.startMin, endMin = s.endMin + extra, title = s.title, type = s.type, venue = s.venue, hardAlarm = s.hardAlarm, notes = s.notes, edited = "${s.day}|${s.startMin}" in edited)
+        }
+    }
+
+    @Test fun W4_a_phone_seeded_before_the_resets_gets_exactly_the_six_resets_the_seed_now_has() = runBlocking {
+        db.pattern().insertAll(oldRows())
+        assertEquals(179, db.pattern().count())
+        db.applyResets()
+        assertEquals(WeekB.slots.sortedWith(compareBy({ it.day }, { it.startMin })), db.pattern().all().map { it.toSlot() }.sortedWith(compareBy({ it.day }, { it.startMin })))
+    }
+
+    @Test fun W4_it_is_done_once_and_a_second_look_changes_nothing() = runBlocking {
+        db.pattern().insertAll(oldRows()); db.applyResets(); val first = db.pattern().all()
+        db.applyResets(); assertEquals(first, db.pattern().all()); assertEquals("1", db.meta().get(META_W4))
+    }
+
+    @Test fun W4_a_fresh_phone_is_seeded_with_the_resets_and_nothing_more_is_added() = runBlocking {
+        db.seedIfEmpty(1L, LONDON.id)
+        assertEquals(185, db.pattern().count())
+    }
+
+    @Test fun W4_a_block_the_person_edited_is_left_alone() = runBlocking {
+        val edited = setOf("${DayOfWeek.SUNDAY}|600")
+        db.pattern().insertAll(oldRows(edited)); db.applyResets()
+        assertEquals(185 - 1, db.pattern().count(), "five resets, the edited Sunday block untouched")
+        assertTrue(db.pattern().all().any { it.day == 7 && it.startMin == 600 && it.endMin == 690 })
+    }
+}

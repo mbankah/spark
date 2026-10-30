@@ -341,6 +341,7 @@ interface PatternDao {
     @Query("SELECT COUNT(*) FROM pattern_slot") suspend fun count(): Int
     @Query("SELECT * FROM pattern_slot ORDER BY day, startMin") suspend fun all(): List<PatternSlotRow>
     @Insert suspend fun insertAll(rows: List<PatternSlotRow>)
+    @Query("UPDATE pattern_slot SET endMin = :endMin WHERE id = :id") suspend fun updateEnd(id: Long, endMin: Int)
 }
 
 @Dao
@@ -459,6 +460,7 @@ const val META_HOME_LAT = "home_lat"
 const val META_HOME_LON = "home_lon"
 const val META_FIRST_USE = "first_use_epoch_ms"
 const val META_ZONE = "zone_id"
+const val META_W4 = "w4_resets_applied"
 
 /**
  * First run: seed week type B (section 3 changes already applied) and record the first-use time, which starts the
@@ -476,5 +478,27 @@ suspend fun EfaDb.seedIfEmpty(nowEpochMs: Long, zoneId: String) {
         }
         meta().putIfAbsent(MetaRow(META_FIRST_USE, nowEpochMs.toString()))
         meta().putIfAbsent(MetaRow(META_ZONE, zoneId))
+        applyResets()
     }
+}
+
+/**
+ * W4: a reset follows every work block. A phone seeded before this rule has work blocks that run straight into another, so once the first of each
+ * pair gives its last 10 minutes to a reset, the same change the seed now carries (Q-G68). A block the person edited is left alone. Done once.
+ */
+suspend fun EfaDb.applyResets() = withTransaction {
+    if (meta().get(META_W4) != null) return@withTransaction
+    val work = setOf("study", "code", "study-standard", "study-light")
+    val rows = pattern().all()
+    for (day in 1..7) {
+        val l = rows.filter { it.day == day }.sortedBy { it.startMin }
+        for (i in 0 until l.size - 1) {
+            val a = l[i]; val b = l[i + 1]
+            if (a.type in work && b.type in work && a.endMin == b.startMin && !a.edited) {
+                pattern().updateEnd(a.id, a.endMin - 10)
+                pattern().insertAll(listOf(PatternSlotRow(day = day, startMin = a.endMin - 10, endMin = a.endMin, title = "Reset (stand, water, no phone)", type = "travel", venue = "", hardAlarm = false, notes = "A reset follows every work block (W4).")))
+            }
+        }
+    }
+    meta().put(MetaRow(META_W4, "1"))
 }

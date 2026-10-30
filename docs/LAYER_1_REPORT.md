@@ -319,9 +319,13 @@ Most of the night rule was already built with blocking in layer 1: the cutoff, t
 
 **Tested:**
 - `:core:test`: 443 tests, 0 failed, including the ledger's money table row by row, the 14-day boundary across the clock change, every rule earned access must not lift, the football arithmetic and the reset on every conversion.
-- Emulator (300 tests; the last full run had one failure, which was a test that football had made impossible and which passes now): the weekly money from real blocks, frozen weeks, earnings, football placed once, resets stored with every conversion, turn-back, short sleep, the migration, the money and block screens, earned access and the night cutoff on the real blocker, and the free-slot alarm sounding.
+- Emulator (304 tests, 0 failed in the last full run): the weekly money from real blocks, frozen weeks, earnings, football placed once, resets stored with every conversion, turn-back, short sleep, the migration, the money and block screens, earned access and the night cutoff on the real blocker, and the free-slot alarm sounding.
 
 **Not built or not proven:**
 - None of it has run in a real week on your phone (checklist E1 to E9).
-- Your plan has six work blocks that run straight into another with no reset (Q-G68). Football and the protected hours leave under 2 hours a week for the margin rule to convert (Q-G69).
+- Football and the protected hours leave under 2 hours a week for the margin rule to convert (Q-G69).
 - The squeeze order (section 10) has no ledger IDs and is not built (Q-G73). Calibration (R10, layer 7) corrects estimates later.
+
+## Update: the six resets (W4, Q-G68), 30 October 2026
+
+You asked for the resets, so the six work blocks that ran straight into another now give their last 10 minutes to a reset (Tuesday 19:10, Thursday 11:10 and 15:50, Friday 17:50 and 20:25, Sunday 10:00). The seed generator does it, the week has 185 blocks instead of 179, and a phone seeded earlier is changed once on its next start (a block you edited is skipped). The week has 1 hour less work time, which the Buffer and the money weights follow. Tests: every work block in the plan is now followed by a break (core), the six resets are 10 minutes and close the phone as transitions (core), and the change on an already-seeded phone, once only, on a fresh phone and around an edited block (emulator).

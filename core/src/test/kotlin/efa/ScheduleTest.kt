@@ -14,7 +14,7 @@ class ScheduleTest {
 
     @Test fun `D1 O9 week B has every day`() {
         DayOfWeek.entries.forEach { assertTrue(day(it).isNotEmpty(), "$it") }
-        assertEquals(179, p.size)
+        assertEquals(185, p.size)       // 179 from the Master Plan and 6 resets added so a reset follows every work block (W4)
     }
 
     @Test fun `W3 every hour belongs to a block with no gaps or overlaps`() {

@@ -293,7 +293,7 @@ class ResetAndFootballTest {
         }
     }
 
-    @Test fun `W4 the weekly plan from the Master Plan has six work blocks that run straight into another, listed here so a new one shows up`() {
+    @Test fun `W4 every work block in the weekly plan is followed by a break, never straight by another work block`() {
         val work = setOf("study", "code", "study-standard", "study-light")
         val bad = ArrayList<String>()
         for (day in DayOfWeek.entries) {
@@ -303,7 +303,17 @@ class ResetAndFootballTest {
                 if (nx == null || nx.startMin != s.endMin || nx.type in work) bad += "${day.name} ${s.startMin} ${s.title.take(24)}"
             }
         }
-        assertEquals(6, bad.size, bad.toString())
+        assertEquals(emptyList(), bad)
+    }
+
+    @Test fun `W4 the six resets that were added are ten minutes, close the phone as a transition, and took ten minutes from the block before`() {
+        val resets = slots.filter { it.title == RESET_TITLE && it.date == null }
+        assertEquals(6, resets.size)
+        for (r in resets) {
+            assertEquals(RESET_MIN, r.endMin - r.startMin); assertEquals(BlockReason.TRANSITION, firmReasonFor(r.type))
+            val before = slots.single { it.day == r.day && it.endMin == r.startMin }
+            assertTrue(before.type in setOf("study", "code", "study-standard", "study-light") && before.endMin - before.startMin >= 30, "${r.day} ${before.title}")
+        }
     }
 
     private val monday = LocalDate.of(2026, 11, 2)

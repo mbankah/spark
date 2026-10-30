@@ -49,7 +49,7 @@ freeAfterRemoval('Saturday', '16:15', '19:10');
 
 // ---- naming (W5, W7) --------------------------------------------------------
 const place = n => (n.match(/^([^.]*?)\./)?.[1] ?? '').replace(/EDUC-/, '').replace(/[()]/g, '').replace(/,\s*/g, ' ').replace(/\s+/g, ' ').trim();
-const out = slots.map(x => {
+let out = slots.map(x => {
   let title = x.what, type = x.kind.split(',')[0].trim(), venue = '', hard = false;
   let m;
   if ((m = x.what.match(/^LECTURE: (.*)$/))) { title = `${m[1]} lecture - ${place(x.notes)}`; type = 'lecture'; venue = place(x.notes); }
@@ -81,6 +81,22 @@ const out = slots.map(x => {
   if (title === 'Language lesson') type = 'code';
   return { ...x, title, type, venue, hard };
 });
+
+// W4: a reset (stand, water, no phone) follows every work block. Where the Master Plan runs one work block straight into another, the first
+// gives its last 10 minutes to a reset (decided 30 October 2026, Q-G68). The app applies the same change to a phone that was already seeded.
+{
+  const WORK = new Set(['study', 'code', 'study-standard', 'study-light']);
+  const next = [];
+  for (let i = 0; i < out.length; i++) {
+    const a = out[i], b = out[i + 1];
+    next.push(a);
+    if (b && a.day === b.day && WORK.has(a.type) && WORK.has(b.type) && a.e === b.s) {
+      a.e -= 10;
+      next.push({ day: a.day, s: a.e, e: a.e + 10, what: 'reset', title: 'Reset (stand, water, no phone)', type: 'travel', venue: '', hard: false, notes: 'A reset follows every work block (W4).' });
+    }
+  }
+  out = next;
+}
 
 const k = s => JSON.stringify(s).replace(/\$/g, '\\$');
 let kt = `package efa

@@ -32,8 +32,10 @@ fun slotsFor(pattern: List<PatternSlot>, date: LocalDate, zone: ZoneId = LONDON)
     val weekly = pattern.filter { it.date == null && it.day == date.dayOfWeek }
         .filter { w -> cancels.none { it.startMin == w.startMin && it.type == w.type } }
     val kept = weekly.flatMap { w -> if (added.isEmpty()) listOf(w) else cutBy(w, added) }
+    // C5: a day off takes the day's work, lectures and planning away and keeps everything else. The marker itself is never a block.
+    val off = added.any { it.type == DAY_OFF_TYPE }
     val midnight = LocalDateTime.of(date, LocalTime.MIDNIGHT)
-    return (kept + added).sortedBy { it.startMin }.map {
+    return (kept + added).filter { it.type != DAY_OFF_TYPE && !(off && removedByDayOff(it)) }.sortedBy { it.startMin }.map {
         DatedSlot(it, date, ZonedDateTime.of(midnight.plusMinutes(it.startMin.toLong()), zone), ZonedDateTime.of(midnight.plusMinutes(it.endMin.toLong()), zone))
     }
 }

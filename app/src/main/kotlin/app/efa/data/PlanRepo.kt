@@ -17,7 +17,9 @@ data class AutoResult(val catchUps: List<TaskRow>, val conversions: List<Overlay
  * failure leaves everything as it was (IM11, X7).
  */
 class PlanRepo(private val db: EfaDb) {
-    suspend fun slots(): List<PatternSlot> = db.pattern().all().map { it.toSlot() } + db.overlay().all().filter { it.kind != "declined" }.map { it.toSlot() }
+    internal val dbForAuto: EfaDb get() = db
+    suspend fun slots(): List<PatternSlot> = db.pattern().all().map { it.toSlot() } + db.overlay().all().filter { it.kind != "declined" }.map { it.toSlot() } +
+        db.daysOff().effective().map { dayOffMarker(LocalDate.parse(it.date)) }          // C5: a day off is a marker the calendar reads
 
     suspend fun periods(): List<PlannedPeriodRow> = db.periods().all()
 
@@ -93,6 +95,8 @@ class PlanRepo(private val db: EfaDb) {
                     hardAlarm = false, cancelled = false, kind = "reset", rowHash = "reset|${r.date}|${r.startMin}", importId = null, reason = "Reset after work", createdMs = nowMs))
             }
         }
+        autoDayOff(now)
+        resolveClaims(nowMs)
         AutoResult(added, conv)
     }
 
@@ -130,4 +134,47 @@ suspend fun PlanRepo.turnBack(db: EfaDb, date: LocalDate, windowStartMin: Int, w
     db.overlay().deleteConversion(date.toString(), windowStartMin, windowEndMin)
     db.overlay().insert(OverlayRow(date = date.toString(), startMin = windowStartMin, endMin = windowEndMin, title = "Turned back to free time", type = "free", venue = "", notes = "",
         hardAlarm = false, cancelled = false, kind = "declined", rowHash = "declined|$date|$windowStartMin", importId = null, reason = "You turned this back into a break", createdMs = nowMs))
+}
+
+/** C1, H1 to H5, X3: the walls spent so far, from every day off including the automatic ones (H4). */
+suspend fun PlanRepo.uses(db: EfaDb): List<DayOffUse> = db.daysOff().all().filter { it.state != "failed" || it.source == "claim" }.map { DayOffUse(it.groupId, it.usedAtMs) }
+
+/**
+ * Plans [dates] as days off after the wall of [wallLength] was typed (H1). Weekend days share a group, so they are one use (H5). The work and the
+ * lectures a day takes away come back as work due by the end of the next working day, so a day off cannot make work disappear (C4). Days that already
+ * are days off are skipped. A claim (H6) adds no work: the work already came back when the day was missed, and the claim waits on it.
+ */
+suspend fun PlanRepo.addDaysOff(db: EfaDb, dates: List<LocalDate>, source: String, wallLength: Int, now: ZonedDateTime, sameDay: Boolean): Int = db.withTransaction {
+    val nowMs = now.toInstant().toEpochMilli()
+    val fresh = dates.filter { db.daysOff().get(it.toString()) == null }
+    if (fresh.isEmpty()) return@withTransaction 0
+    val slots = slots()
+    val claim = source == "claim"
+    for (d in fresh) db.daysOff().insert(DayOffRow(date = d.toString(), groupId = nowMs, usedAtMs = nowMs, sameDay = sameDay, source = source, wallLength = wallLength, state = if (claim) "pending" else "active"))
+    if (!claim) for (w in dayOffDemand(slots, fresh, now)) {
+        db.tasks().insertOnce(TaskRow(title = w.title, dueMs = w.due.toInstant().toEpochMilli(), dueZone = w.due.zone.id, heaviness = w.heaviness, hoursEstimate = w.hours,
+            createdMs = nowMs, source = "dayoff", sourceKey = w.key, reason = w.reason))
+    }
+    fresh.size
+}
+
+/** H4, X3: a night of 3 hours of sleep or less, with the logger alive, makes today a day off with no typing. It counts toward the same 30-day tally. */
+suspend fun PlanRepo.autoDayOff(now: ZonedDateTime) {
+    val db = this.dbForAuto
+    val n = db.nights().latest() ?: return
+    val endedToday = java.time.Instant.ofEpochMilli(n.endMs).atZone(now.zone).toLocalDate() == now.toLocalDate()
+    if (endedToday && autoDayOff(n.sleepMin, n.gapCount)) addDaysOff(db, listOf(now.toLocalDate()), "auto_sleep", 0, now, sameDay = true)
+}
+
+/** H6: a claim holds when the work that came back from that day is done by its due times, and fails when one is overdue or done late. */
+suspend fun PlanRepo.resolveClaims(nowMs: Long) {
+    val db = this.dbForAuto
+    for (c in db.daysOff().pending()) {
+        val tasks = db.tasks().byKeyPrefix("missed:${c.date}|%").map { ClaimTask(it.dueMs, it.doneAtMs) }
+        when (resolveClaim(tasks, nowMs)) {
+            ClaimState.HELD -> db.daysOff().setState(c.id, "held")
+            ClaimState.FAILED -> db.daysOff().setState(c.id, "failed")
+            ClaimState.PENDING -> {}
+        }
+    }
 }

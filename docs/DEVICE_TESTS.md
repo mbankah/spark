@@ -209,3 +209,16 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E8 | Make the Buffer tight. Look at a block that was free time. | It says why, ends with a 10 minute reset, and offers "Make it a break" with the 75 characters. |
 | E9 | After a night under 6.5 hours. | Remaining hard work counts x1.5 in the Buffer working. |
 | E10 | Look at Tuesday 19:10, Thursday 11:10 and 15:50, Friday 17:50 and 20:25 and Sunday 10:00. | Each block ends 10 minutes earlier and a "Reset (stand, water, no phone)" follows it before the next block starts. |
+
+## Planned days off (layer 8: C1, C4, C5, H1 to H6, X3, G2)
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E11 | Setup, Days off, pick Tomorrow. | A card shows "Day off Wed: Buffer -X.Xh" (or says the Buffer does not change and why) and the length of the string before you type anything. |
+| E12 | Type the string. | Tomorrow has no study, lectures or resets. Sleep, meals and free time stay. Home says "Day off today" on the day. |
+| E13 | Pick the Saturday weekend. | One use, one string. The next request is longer. |
+| E14 | Press "I am ill today". | The same string with 40 extra. |
+| E15 | After a night of 3 hours of sleep or less with the logger running. | Today is a day off with no typing. |
+| E16 | Claim a day from the last week. | Pending until its catch-up work is done by its due times, then held. The week is not frozen for money until then. |
+| E17 | The evening before a day off. | No alarm is set for the day off. |
+

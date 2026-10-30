@@ -43,7 +43,8 @@ class RewardsRepo(private val db: EfaDb) {
         var n = 0
         var m = first
         while (m.isBefore(thisMonday)) {
-            if (db.weekMoney().all().none { it.monday == m.toString() }) {
+            val pendingClaim = db.daysOff().pending().any { val d = LocalDate.parse(it.date); !d.isBefore(m) && d.isBefore(m.plusDays(7)) }
+            if (!pendingClaim && db.weekMoney().all().none { it.monday == m.toString() }) {      // H6: a week waits for its claims
                 val r = week(slots, m, zone)
                 db.weekMoney().insert(WeekMoneyRow(m.toString(), r.plannedWeight, r.verifiedWeight, r.money.freeToSpendPence, r.money.savingsPence, !m.isBefore(liveFrom), now.toInstant().toEpochMilli()))
                 n++

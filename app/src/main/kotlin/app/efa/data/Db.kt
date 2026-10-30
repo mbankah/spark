@@ -176,6 +176,26 @@ interface WeekMoneyDao {
     @Query("SELECT MAX(monday) FROM week_money") suspend fun lastMonday(): String?
 }
 
+/**
+ * A day off (C1, C4, C5, H1 to H6, X3). `groupId` ties the days of one request together, so a weekend is one use of the wall (H5). `source` is planned,
+ * illness (X3), auto_sleep (H4) or claim (H6). `state` is active, or for a claim pending, held or failed; only active and held days change the calendar.
+ */
+@Entity(tableName = "day_off", indices = [Index(value = ["date"], unique = true)])
+data class DayOffRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val date: String, val groupId: Long, val usedAtMs: Long, val sameDay: Boolean, val source: String, val wallLength: Int, val state: String,
+)
+
+@Dao
+interface DayOffDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: DayOffRow): Long
+    @Query("SELECT * FROM day_off ORDER BY date") suspend fun all(): List<DayOffRow>
+    @Query("SELECT * FROM day_off WHERE state IN ('active', 'held') ORDER BY date") suspend fun effective(): List<DayOffRow>
+    @Query("SELECT * FROM day_off WHERE state = 'pending'") suspend fun pending(): List<DayOffRow>
+    @Query("SELECT * FROM day_off WHERE date = :date") suspend fun get(date: String): DayOffRow?
+    @Query("UPDATE day_off SET state = :state WHERE id = :id") suspend fun setState(id: Long, state: String)
+}
+
 @Dao
 interface OverlayDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: OverlayRow): Long
@@ -330,6 +350,7 @@ interface TaskDao {
     @Query("SELECT * FROM task WHERE doneAtMs IS NULL ORDER BY dueMs") suspend fun open(): List<TaskRow>
     @Query("SELECT * FROM task WHERE source = 'missed' AND createdMs >= :sinceMs ORDER BY createdMs") suspend fun missedSince(sinceMs: Long): List<TaskRow>
     @Query("SELECT sourceKey FROM task WHERE sourceKey IS NOT NULL") suspend fun sourceKeys(): List<String>
+    @Query("SELECT * FROM task WHERE sourceKey LIKE :prefix") suspend fun byKeyPrefix(prefix: String): List<TaskRow>
     @Query("UPDATE task SET doneMin = doneMin + :min WHERE id = :id") suspend fun addDone(id: Long, min: Int)
     @Query("UPDATE task SET doneAtMs = :nowMs WHERE id = :id") suspend fun close(id: Long, nowMs: Long)
     @Query("SELECT * FROM task WHERE id = :id") suspend fun get(id: Long): TaskRow?
@@ -351,7 +372,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class], version = 10, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class], version = 11, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -371,11 +392,12 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun references(): ReferenceDao
     abstract fun mornings(): MorningDao
     abstract fun weekMoney(): WeekMoneyDao
+    abstract fun daysOff(): DayOffDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11).build().also { inst = it }
         }
     }
 }
@@ -450,6 +472,13 @@ val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
 val MIGRATION_9_10 = object : androidx.room.migration.Migration(9, 10) {
     override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
         connection.execSQL("CREATE TABLE IF NOT EXISTS `week_money` (`monday` TEXT NOT NULL, `plannedWeight` REAL NOT NULL, `verifiedWeight` REAL NOT NULL, `freeToSpendPence` INTEGER NOT NULL, `savingsPence` INTEGER NOT NULL, `live` INTEGER NOT NULL, `closedAtMs` INTEGER NOT NULL, PRIMARY KEY(`monday`))")
+    }
+}
+
+val MIGRATION_10_11 = object : androidx.room.migration.Migration(10, 11) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `day_off` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` TEXT NOT NULL, `groupId` INTEGER NOT NULL, `usedAtMs` INTEGER NOT NULL, `sameDay` INTEGER NOT NULL, `source` TEXT NOT NULL, `wallLength` INTEGER NOT NULL, `state` TEXT NOT NULL)")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_day_off_date` ON `day_off` (`date`)")
     }
 }
 

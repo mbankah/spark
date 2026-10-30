@@ -110,9 +110,9 @@ private fun Issue(i: ImportIssue) {
 
 /** The typed wall for a file that loosens, or for removing an import (IM6, IM12). */
 @Composable
-fun ImportWallGate(title: String, why: String, onPassed: () -> Unit, onCancel: () -> Unit) {
+fun ImportWallGate(title: String, why: String, onPassed: () -> Unit, onCancel: () -> Unit, length: Int = efa.WallLength.IMPORT_LOOSEN) {
     val c = LocalColors.current
-    val target = androidx.compose.runtime.remember { efa.newWallString(efa.WallLength.IMPORT_LOOSEN) }
+    val target = androidx.compose.runtime.remember { efa.newWallString(length) }
     Column(Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).imePadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         BasicText(title, style = Ts(c.text, 28.sp, FontWeight.SemiBold))
         BasicText(why, style = Ts(c.text, 16.sp))

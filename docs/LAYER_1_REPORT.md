@@ -329,3 +329,14 @@ Most of the night rule was already built with blocking in layer 1: the cutoff, t
 ## Update: the six resets (W4, Q-G68), 30 October 2026
 
 You asked for the resets, so the six work blocks that ran straight into another now give their last 10 minutes to a reset (Tuesday 19:10, Thursday 11:10 and 15:50, Friday 17:50 and 20:25, Sunday 10:00). The seed generator does it, the week has 185 blocks instead of 179, and a phone seeded earlier is changed once on its next start (a block you edited is skipped). The week has 1 hour less work time, which the Buffer and the money weights follow. Tests: every work block in the plan is now followed by a break (core), the six resets are 10 minutes and close the phone as transitions (core), and the change on an already-seeded phone, once only, on a fresh phone and around an edited block (emulator).
+
+## Update: planned days off (C1, C4, C5, H1 to H6, X3, G2), 30 October 2026
+
+**Built:** a days off screen (Setup, Days off) with the next 14 days, whole weekends as one use, an "I am ill today" button, the cost shown before anything is typed ("Day off Sat: Buffer -6.0h", with the working if it goes negative), the typed string that gets longer with each use in 30 days, and claims for the last 7 days. A day off removes work blocks, lectures, planning and resets and keeps sleep, meals and free time. Its lectures and cycles come back as work due the next working day. A night of 3 hours or less with the logger running makes today a day off without typing. No alarm rings on a day off. Database v11.
+
+**Tested:** 474 core tests and 16 new device tests (storage, migration 10 to 11, the screen) pass on the emulator. See Q-G75 to Q-G80 for the choices I made.
+
+**Not yet proven on a real phone:** E11 to E17 in DEVICE_TESTS.
+
+**Not built:** the library period (C2, C3, O11, O13) is not part of this request and is still to do.
+

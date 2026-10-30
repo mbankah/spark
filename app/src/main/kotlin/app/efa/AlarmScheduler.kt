@@ -40,7 +40,7 @@ object AlarmScheduler {
 
     suspend fun planNow(ctx: Context, now: ZonedDateTime): AlarmPlan? {
         val db = EfaDb.get(ctx)
-        return planAlarm(now, liveOnset(SleepRepo(db), now), PlanRepo(db).slots())
+        return planAlarmWithDaysOff(now, liveOnset(SleepRepo(db), now), PlanRepo(db).slots())
     }
 
     /** Sets the alarm for [plan] if it differs from what is set by a minute or more. Returns whether it changed anything. */

@@ -35,6 +35,9 @@ import app.efa.data.SleepRepo
 import app.efa.data.MorningRepo
 import app.efa.data.META_FIRST_USE
 import app.efa.data.RewardsRepo
+import app.efa.data.uses
+import app.efa.data.addDaysOff
+import java.time.LocalDate
 import app.efa.data.MoneyView
 import app.efa.data.turnBack
 import app.efa.data.MorningRow
@@ -58,7 +61,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -122,6 +125,19 @@ class MainActivity : ComponentActivity() {
                 var imports by remember { mutableStateOf<List<ImportLogRow>>(emptyList()) }
                 var wall by remember { mutableStateOf<Triple<String, String, () -> Unit>?>(null) }
                 var wallBack by remember { mutableStateOf(Screen.HOME) }
+                var wallLength by remember { mutableIntStateOf(efa.WallLength.IMPORT_LOOSEN) }
+                var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
+                var dayOffSource by remember { mutableStateOf("planned") }
+                /** C4, H2: reads the calendar and the work due, and works out the cost of the days picked, before anything is typed. */
+                val refreshDayOff: (List<LocalDate>, String?, Boolean) -> Unit = { picked, message, claiming ->
+                    scope.launch(Dispatchers.IO) {
+                        val plan = PlanRepo(db); val now = ZonedDateTime.now(LONDON); val slots = plan.slots(); val uses = plan.uses(db)
+                        val preview = picked.takeIf { it.isNotEmpty() && !claiming }?.let { dayOffPreview(slots, db.tasks().open().map { t -> t.toDue() }, now, it, uses, sameDay = it.first() == now.toLocalDate(), shortSleep = false) }
+                        val claimable = (1L..7L).map { now.toLocalDate().minusDays(it) }.filter { d -> claimable(d, now.toLocalDate()) && db.daysOff().get(d.toString()) == null }
+                        val upcoming = db.daysOff().all().filter { LocalDate.parse(it.date) >= now.toLocalDate() }.map { r -> "${DateTimeFormatter.ofPattern("EEE d MMM").format(LocalDate.parse(r.date))}: ${r.source.replace('_', ' ')}${if (r.state == "pending") ", claim waiting" else ""}" }
+                        dayOffUi = DayOffUi(now.toLocalDate(), picked, preview, usesInLast30Days(uses, now), claimable, upcoming, message, claiming)
+                    }
+                }
                 var morningUi by remember { mutableStateOf(MorningSetupStatus()) }
                 var morningMessage by remember { mutableStateOf<String?>(null) }
                 var cameraKind by remember { mutableStateOf(RefKind.NIGHT) }
@@ -306,7 +322,7 @@ class MainActivity : ComponentActivity() {
                                     MorningPhase.RINGING -> "The alarm is ringing."
                                     else -> null
                                 },
-                                period = period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
+                                period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
                             ),
                             onEssential = { key -> launchEssential(key) },
@@ -339,7 +355,7 @@ class MainActivity : ComponentActivity() {
                             override suspend fun currentFix(): Fix? = LocationFix.current(applicationContext)
                             override fun hasLocationPermission() = LocationFix.hasPermission(applicationContext)
                         }, onBack = { reload++; screen = Screen.HOME }, onTurnBack = { slot ->
-                            wallBack = Screen.HOME
+                            wallBack = Screen.HOME; wallLength = efa.WallLength.FREE_SLOT_CHANGE
                             wall = Triple("Make it a break", "This was free time that the Buffer turned into work. Type the characters below by hand to turn it back. It will not be turned into work again.", {
                                 scope.launch(Dispatchers.IO) { PlanRepo(db).turnBack(db, slot.plannedDay, slot.slot.startMin, slot.slot.endMin + RESET_MIN, System.currentTimeMillis()); BlockingState.refresh(applicationContext); reload++ }
                             }); screen = Screen.GATE
@@ -357,6 +373,7 @@ class MainActivity : ComponentActivity() {
                         onOpenAccessibility = { openAccessibilitySettings(applicationContext) },
                         onImport = { importUi = ImportUi.Idle; screen = Screen.IMPORT },
                         onMorning = { morningMessage = null; screen = Screen.MORNING },
+                        onDaysOff = { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF },
                         morningText = when { morningUi.night != null && morningUi.ready != null -> "Set up: tonight's photo and the ready spot."; morningUi.ready != null -> "Ready spot set. Take tonight's setup photo."; morningUi.night != null -> "Tonight's photo set. Take the ready spot photo."; else -> "" },
                         sleep = l?.sleep ?: SleepStatus(),
                         onChooseList = {
@@ -406,8 +423,37 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.DAYOFF -> dayOffUi?.let { u ->
+                        DayOffScreen(u,
+                            onPick = { dates -> refreshDayOff(dates, null, false) },
+                            onIll = { dayOffSource = "illness"; refreshDayOff(listOf(LocalDate.now(LONDON)), null, false) },
+                            onClaim = { d ->
+                                scope.launch(Dispatchers.IO) {
+                                    val plan = PlanRepo(db); val now = ZonedDateTime.now(LONDON)
+                                    val len = dayOffWall(plan.uses(db), now, sameDay = true)               // H6: the same string plus the same-day surcharge
+                                    withContext(Dispatchers.Main) {
+                                        wallBack = Screen.DAYOFF; wallLength = len
+                                        wall = Triple("Claim ${DateTimeFormatter.ofPattern("EEE d MMM").format(d)} as a day off", "You forgot to ask, so that day counts as lost until the work that came back from it is done by its due times. Type the characters below by hand to claim it. It costs the same string plus 40.", {
+                                            scope.launch(Dispatchers.IO) { plan.addDaysOff(db, listOf(d), "claim", len, ZonedDateTime.now(LONDON), sameDay = true); BlockingState.refresh(applicationContext); reload++; refreshDayOff(emptyList(), "Claimed. It holds when the work that came back from that day is done by its due times.", false) }
+                                        }); screen = Screen.GATE
+                                    }
+                                }
+                            },
+                            onPlan = {
+                                val p = u.preview
+                                if (p != null) {
+                                    val source = if (dayOffSource == "illness") "illness" else if (p.dates.size == 2) "weekend" else "planned"
+                                    val sameDay = p.dates.first() == u.today
+                                    wallBack = Screen.DAYOFF; wallLength = p.wall
+                                    wall = Triple("Plan a day off", p.lines.first() + ". Type the characters below by hand to plan it.", {
+                                        scope.launch(Dispatchers.IO) { PlanRepo(db).addDaysOff(db, p.dates, source, p.wall, ZonedDateTime.now(LONDON), sameDay); dayOffSource = "planned"; BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++; refreshDayOff(emptyList(), "Planned.", false) }
+                                    }); screen = Screen.GATE
+                                }
+                            },
+                            onBack = { screen = Screen.SETUP })
+                    } ?: run { screen = Screen.SETUP }
                     Screen.MONEY -> l?.money?.let { MoneyScreen(it) { screen = Screen.HOME } } ?: run { screen = Screen.HOME }
-                    Screen.GATE -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { w.third(); screen = wallBack }, onCancel = { screen = wallBack }) } ?: run { screen = Screen.HOME }
+                    Screen.GATE -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { w.third(); screen = wallBack }, onCancel = { screen = wallBack }, length = wallLength) } ?: run { screen = Screen.HOME }
                     Screen.READY -> {
                         // Read the morning fresh on every entry: it may have changed since the last tick, and an old copy would send you home.
                         var fresh by remember { mutableStateOf(false) }

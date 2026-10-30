@@ -50,6 +50,7 @@ data class HomeState(
     val moved: List<String> = emptyList(), // what Spark moved for you in the last day and a half, with the reason (RS8)
     val morning: String? = null,         // M6, M8: social is blocked until the ready photo
     val progress: String? = null,        // R4: "14.0 of 60.0 hours done"
+    val shoppingDay: Boolean = false,   // SH1: the shopping list is one tap away on shopping day
     val review: String? = null,          // B5: a finished task waiting to be asked about
     val moneyNote: String? = null,       // G6: when the money starts, while it is only being recorded
     val earnedOn: Boolean = false,       // R2: earned phone access is open right now
@@ -59,7 +60,7 @@ data class HomeState(
 @Composable
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
-    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {},
+    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -87,6 +88,7 @@ fun HomeScreen(
             else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null)
             else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() })
             s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
+            if (s.shoppingDay) InfoCard("SHOPPING", "Shopping list", onShopping, "Tick items off in the shop.")
             s.review?.let { InfoCard("HELP THE ESTIMATES", it, onReview, "Takes one tap.") }
             if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Held while your apps were blocked. Open the digest.")
             NextCard(s.next)

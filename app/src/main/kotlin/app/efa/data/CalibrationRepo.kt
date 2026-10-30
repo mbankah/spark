@@ -27,3 +27,14 @@ class CalibrationRepo(private val db: EfaDb) {
 }
 
 data class ReviewCandidate(val task: TaskRow, val note: String)
+
+/** The shopping list lives in the database so ticks and receipt prices survive (SH1, SH3). It is filled from the Master Plan the first time it is opened. */
+class ShoppingRepo(private val db: EfaDb) {
+    suspend fun items(): List<ShoppingRow> {
+        if (db.shopping().all().isEmpty()) Shopping.all.forEach { db.shopping().insert(ShoppingRow(name = it.name, pricePence = it.pence, estimate = it.estimate, pantry = it.pantry)) }
+        return db.shopping().all()
+    }
+    suspend fun tick(row: ShoppingRow) = db.shopping().setTicked(row.id, !row.ticked)
+    suspend fun price(row: ShoppingRow, pence: Int) { if (pence in 1..99_999) db.shopping().setPrice(row.id, pence) }
+    suspend fun newShop() = db.shopping().untickWeekly()
+}

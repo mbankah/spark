@@ -39,7 +39,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {},
+    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -56,6 +56,13 @@ fun SetupScreen(
             BasicText("Plan a day off or a weekend, or say you are ill.", style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText("The cost to the Buffer is shown before you confirm. It takes a typed string that gets longer with each use in 30 days.", style = Ts(c.muted, 14.sp))
             Btn("Plan a day off", onDaysOff, modifier = Modifier.fillMaxWidth())
+        }
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("SHOPPING")
+            BasicText("Shopping list", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("The weekly basket and the pantry, with prices you can correct from a receipt.", style = Ts(c.muted, 14.sp))
+            Btn("Open the shopping list", onShopping, modifier = Modifier.fillMaxWidth())
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

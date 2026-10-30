@@ -207,6 +207,21 @@ interface CalibrationDao {
     @Query("SELECT * FROM calibration_sample WHERE taskId = :taskId") suspend fun get(taskId: Long): CalibrationRow?
 }
 
+/** One line of the shopping list (SH1 to SH5). A price changed from a receipt is no longer an estimate (SH3). */
+@Entity(tableName = "shopping_item", indices = [Index(value = ["name"], unique = true)])
+data class ShoppingRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0, val name: String, val pricePence: Int, val estimate: Boolean, val pantry: Boolean, val ticked: Boolean = false,
+)
+
+@Dao
+interface ShoppingDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: ShoppingRow): Long
+    @Query("SELECT * FROM shopping_item ORDER BY pantry, id") suspend fun all(): List<ShoppingRow>
+    @Query("UPDATE shopping_item SET ticked = :ticked WHERE id = :id") suspend fun setTicked(id: Long, ticked: Boolean)
+    @Query("UPDATE shopping_item SET pricePence = :pence, estimate = 0 WHERE id = :id") suspend fun setPrice(id: Long, pence: Int)
+    @Query("UPDATE shopping_item SET ticked = 0 WHERE pantry = 0") suspend fun untickWeekly()
+}
+
 @Dao
 interface OverlayDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(row: OverlayRow): Long
@@ -389,7 +404,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class, CalibrationRow::class], version = 12, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class, CalibrationRow::class, ShoppingRow::class], version = 13, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -411,11 +426,12 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun weekMoney(): WeekMoneyDao
     abstract fun daysOff(): DayOffDao
     abstract fun calibration(): CalibrationDao
+    abstract fun shopping(): ShoppingDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13).build().also { inst = it }
         }
     }
 }
@@ -503,6 +519,13 @@ val MIGRATION_10_11 = object : androidx.room.migration.Migration(10, 11) {
 val MIGRATION_11_12 = object : androidx.room.migration.Migration(11, 12) {
     override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
         connection.execSQL("CREATE TABLE IF NOT EXISTS `calibration_sample` (`taskId` INTEGER PRIMARY KEY NOT NULL, `heaviness` INTEGER NOT NULL, `estimatedHours` REAL NOT NULL, `actualHours` REAL NOT NULL, `atMs` INTEGER NOT NULL, `kind` TEXT NOT NULL)")
+    }
+}
+
+val MIGRATION_12_13 = object : androidx.room.migration.Migration(12, 13) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `shopping_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `pricePence` INTEGER NOT NULL, `estimate` INTEGER NOT NULL, `pantry` INTEGER NOT NULL, `ticked` INTEGER NOT NULL)")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_shopping_item_name` ON `shopping_item` (`name`)")
     }
 }
 

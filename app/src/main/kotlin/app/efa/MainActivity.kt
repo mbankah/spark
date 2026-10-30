@@ -68,7 +68,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -136,6 +136,8 @@ class MainActivity : ComponentActivity() {
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
+                var shopping by remember { mutableStateOf<List<app.efa.data.ShoppingRow>>(emptyList()) }
+                LaunchedEffect(screen, reload) { if (screen == Screen.SHOPPING) shopping = withContext(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).items() } }
                 var reviewRow by remember { mutableStateOf<app.efa.data.TaskRow?>(null) }
                 /** B5, E9: the estimates are corrected from finished tasks, and the newest finished task not yet asked about is offered on home. */
                 LaunchedEffect(screen, reload) {
@@ -351,6 +353,7 @@ class MainActivity : ComponentActivity() {
                                     MorningPhase.RINGING -> "The alarm is ringing."
                                     else -> null
                                 },
+                                shoppingDay = l?.pattern?.let { p -> slotsFor(p, clock.toLocalDate()).any { it.slot.title.contains("Aldi", ignoreCase = true) } } == true,
                                 review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
@@ -361,6 +364,7 @@ class MainActivity : ComponentActivity() {
                             onHeld = { screen = Screen.DIGEST },
                             onReady = { screen = Screen.READY },
                             onReview = { screen = Screen.REVIEW },
+                            onShopping = { screen = Screen.SHOPPING },
                             onMoney = { screen = Screen.MONEY },
                             onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
@@ -406,6 +410,7 @@ class MainActivity : ComponentActivity() {
                         onMorning = { morningMessage = null; screen = Screen.MORNING },
                         onDaysOff = { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF },
                         onLibrary = { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY },
+                        onShopping = { screen = Screen.SHOPPING },
                         morningText = when { morningUi.night != null && morningUi.ready != null -> "Set up: tonight's photo and the ready spot."; morningUi.ready != null -> "Ready spot set. Take tonight's setup photo."; morningUi.night != null -> "Tonight's photo set. Take the ready spot photo."; else -> "" },
                         sleep = l?.sleep ?: SleepStatus(),
                         onChooseList = {
@@ -455,6 +460,11 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.SHOPPING -> ShoppingScreen(shopping,
+                        onTick = { r -> scope.launch(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).tick(r); reload++ } },
+                        onPrice = { r, p -> scope.launch(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).price(r, p); reload++ } },
+                        onNewShop = { scope.launch(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).newShop(); reload++ } },
+                        onBack = { screen = Screen.HOME })
                     Screen.REVIEW -> review?.let { r ->
                         ReviewScreen(r,
                             onReport = { rep ->

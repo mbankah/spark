@@ -91,6 +91,10 @@ class MainActivity : ComponentActivity() {
     }
     private val voiceMessage = mutableStateOf<String?>(null)
 
+    /** S6: the person allows Spark to read sleep from Health Connect. Nothing is asked unless they press the button. */
+    private val healthChanged = mutableStateOf(0)
+    private val healthPermission = registerForActivityResult(androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()) { healthChanged.value++ }
+
     /** V1, V2: opens the phone's own speech recogniser, on the device where it can. If there is none, say so: typed quick-add is always there (G7). */
     private fun startVoice(vocabulary: List<String>) {
         val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -183,6 +187,20 @@ class MainActivity : ComponentActivity() {
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
                 var look by remember { mutableStateOf(LauncherLook()) }
                 LaunchedEffect(screen, reload) { look = LauncherLook.decode(withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LOOK) }) }
+                var healthText by remember { mutableStateOf("") }
+                LaunchedEffect(screen, healthChanged.value) {
+                    if (screen == Screen.SETUP) healthText = withContext(Dispatchers.IO) {
+                        when (HealthLink.status(applicationContext)) {
+                            HealthLink.Status.UNAVAILABLE, HealthLink.Status.NEEDS_INSTALL -> "Health Connect is not available on this phone. Spark works the same without it."
+                            else -> if (!HealthLink.granted(applicationContext)) "Not allowed yet. Spark reads sleep sessions only, and only if you press the button."
+                            else {
+                                val night = app.efa.data.SleepRepo(db).latestNight()
+                                val watch = night?.let { n -> efa.sessionForNight(HealthLink.sessions(applicationContext, Instant.ofEpochMilli(n.startMs).minusSeconds(6 * 3600), Instant.ofEpochMilli(n.endMs).plusSeconds(6 * 3600)), Instant.ofEpochMilli(n.startMs), Instant.ofEpochMilli(n.endMs)) }
+                                (night?.let { efa.healthLine(it.sleepMin, watch) }) ?: "Allowed. No sleep from a watch for the last night."
+                            }
+                        }
+                    }
+                }
                 var myUoBNote by remember { mutableStateOf<String?>(null) }
                 var pcAddress by remember { mutableStateOf("") }
                 var pcCode by remember { mutableStateOf("") }
@@ -537,6 +555,8 @@ class MainActivity : ComponentActivity() {
                         appearance = appearance,
                         onAppearance = { m -> appearance = m; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_APPEARANCE, m.name)) } },
                         myUoBNote = myUoBNote,
+                        healthText = healthText,
+                        onHealth = { try { healthPermission.launch(HealthLink.READ_SLEEP) } catch (e: Exception) { healthText = "Health Connect could not be opened on this phone." } },
                         onMyUoB = {                                                                // L7: opens the app, reads nothing, gates nothing
                             val pm = packageManager
                             val web = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug builds only: lets the tests write a sleep session to Health Connect so reading it can be proved. The release app can only read (S6). -->
+    <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+</manifest>

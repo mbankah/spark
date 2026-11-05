@@ -41,7 +41,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
+    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, healthText: String = "", onHealth: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -88,6 +88,14 @@ fun SetupScreen(
             androidx.compose.foundation.layout.Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppearanceMode.entries.forEach { m -> Chip(m.label, m == appearance, { onAppearance(m) }, "Appearance ${m.label}") }
             }
+        }
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("WATCH SLEEP, OPTIONAL")
+            BasicText("Health Connect", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("If a watch or band writes sleep to Health Connect, Spark shows its night beside the phone's. It never changes what the phone worked out.", style = Ts(c.muted, 14.sp))
+            Btn("Allow reading sleep", onHealth, modifier = Modifier.fillMaxWidth())
+            if (healthText.isNotEmpty()) BasicText(healthText, style = Ts(c.text, 14.sp, FontWeight.Bold))
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

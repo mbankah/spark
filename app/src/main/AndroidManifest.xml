@@ -25,7 +25,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
-    <queries><package android:name="com.instructure.candroid" /></queries>
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <queries><package android:name="com.instructure.candroid" /><package android:name="com.google.android.apps.healthdata" /></queries>
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
@@ -92,6 +93,13 @@
             android:excludeFromRecents="true"
             android:taskAffinity="app.efa.blocked"
             android:theme="@android:style/Theme.Material.NoActionBar" />
+        <!-- Health Connect asks why Spark wants to read sleep (S6). -->
+        <activity android:name=".HealthRationaleActivity" android:exported="true" android:theme="@android:style/Theme.Material.NoActionBar">
+            <intent-filter><action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" /></intent-filter>
+        </activity>
+        <activity-alias android:name="ViewPermissionUsageActivity" android:exported="true" android:targetActivity=".HealthRationaleActivity" android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter><action android:name="android.intent.action.VIEW_PERMISSION_USAGE" /><category android:name="android.intent.category.HEALTH_PERMISSIONS" /></intent-filter>
+        </activity-alias>
         <!-- The wall in front of Spark's own settings pages (LA6). Not in recents, so back and home cannot loop. -->
         <activity
             android:name=".SettingsGateActivity"

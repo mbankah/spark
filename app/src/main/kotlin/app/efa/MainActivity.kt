@@ -37,6 +37,9 @@ import app.efa.data.META_FIRST_USE
 import app.efa.data.RewardsRepo
 import app.efa.data.uses
 import app.efa.data.CalibrationRepo
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import efa.LauncherLook
 import efa.TookReport
 import efa.WallLength
 import app.efa.data.libraryHours
@@ -173,6 +176,8 @@ class MainActivity : ComponentActivity() {
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
+                var look by remember { mutableStateOf(LauncherLook()) }
+                LaunchedEffect(screen, reload) { look = LauncherLook.decode(withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LOOK) }) }
                 var myUoBNote by remember { mutableStateOf<String?>(null) }
                 var pcAddress by remember { mutableStateOf("") }
                 var pcCode by remember { mutableStateOf("") }
@@ -520,6 +525,8 @@ class MainActivity : ComponentActivity() {
                         onWidgets = { widgetMessage = null; screen = Screen.WIDGETS },
                         browsers = browsers,
                         onPc = { screen = Screen.PC },
+                        look = look,
+                        onLook = { icons, grid -> val next = look.change(clock.toLocalDate(), icons, grid); look = next; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_LOOK, next.encode())) } },
                         appearance = appearance,
                         onAppearance = { m -> appearance = m; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_APPEARANCE, m.name)) } },
                         myUoBNote = myUoBNote,
@@ -541,6 +548,8 @@ class MainActivity : ComponentActivity() {
                             scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = if (blockList == null) Screen.BLOCKLIST else Screen.LIST_GATE } }
                         })
                     Screen.SEARCH -> SearchScreen(apps,
+                        icons = look.effective(clock.toLocalDate()).icons, grid = look.effective(clock.toLocalDate()).grid,
+                        iconFor = { pkg -> runCatching { packageManager.getApplicationIcon(pkg).toBitmap(96, 96).asImageBitmap() }.getOrNull() },
                         blockedReason = { pkg -> (BlockingState.decide(pkg) as? Decision.Block)?.let { "${it.label}, until ${DateTimeFormatter.ofPattern("HH:mm").format(it.until)}" } },
                         onOpen = { a -> packageManager.getLaunchIntentForPackage(a.pkg)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
                         onBack = { screen = Screen.HOME })

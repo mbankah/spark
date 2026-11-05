@@ -41,7 +41,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
+    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -66,6 +66,19 @@ fun SetupScreen(
             BasicText("In work blocks Spark reads the address bar of a browser it knows and closes the sites of the apps you blocked, private tabs included. A browser it does not know, a web page inside another app, or a mirror site can slip through.", style = Ts(c.muted, 14.sp))
             if (browsers.isEmpty()) BasicText("No browser found on this phone.", style = Ts(c.muted, 14.sp))
             browsers.forEach { b -> BasicText("${b.name}: " + if (b.covered) "covered" else "NOT covered, so its sites are not blocked", style = Ts(c.text, 15.sp, if (b.covered) FontWeight.Normal else FontWeight.Bold)) }
+        }
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("TYPE TO OPEN")
+            BasicText("App icons and a grid", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("Both are off. The home screen stays text only. A change, on or off, starts tomorrow, so it is decided in advance.", style = Ts(c.muted, 14.sp))
+            val today = java.time.ZonedDateTime.now(efa.LONDON).toLocalDate(); val e = look.effective(today)
+            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val icons = e.pendingIcons ?: e.icons; val grid = e.pendingGrid ?: e.grid
+                Chip(if (icons) "Icons: on" else "Icons: off", icons, { onLook(!icons, null) }, if (icons) "Turn icons off from tomorrow" else "Turn icons on from tomorrow")
+                Chip(if (grid) "Grid: on" else "Grid: off", grid, { onLook(null, !grid) }, if (grid) "Turn the grid off from tomorrow" else "Turn the grid on from tomorrow")
+            }
+            look.note(today)?.let { BasicText("Pending: $it.", style = Ts(c.text, 14.sp, FontWeight.Bold)) }
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

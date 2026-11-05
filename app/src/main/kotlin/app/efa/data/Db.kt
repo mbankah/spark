@@ -548,6 +548,7 @@ val MIGRATION_13_14 = object : androidx.room.migration.Migration(13, 14) {
 }
 
 const val META_LIBRARY_HOURS = "library_hours"
+const val META_APPEARANCE = "appearance_mode"
 const val META_PC_ADDRESS = "pc_address"
 const val META_PC_CODE = "pc_code"
 const val META_PC_LAST = "pc_last"

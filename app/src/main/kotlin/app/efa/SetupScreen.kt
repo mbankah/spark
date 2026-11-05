@@ -2,6 +2,7 @@ package app.efa
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
@@ -13,6 +14,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import efa.GitConfig
+import efa.AppearanceMode
 import efa.parseGitConfig
 import efa.MAX_GIT_REPOS
 import androidx.compose.ui.Modifier
@@ -39,7 +41,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
+    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -64,6 +66,15 @@ fun SetupScreen(
             BasicText("In work blocks Spark reads the address bar of a browser it knows and closes the sites of the apps you blocked, private tabs included. A browser it does not know, a web page inside another app, or a mirror site can slip through.", style = Ts(c.muted, 14.sp))
             if (browsers.isEmpty()) BasicText("No browser found on this phone.", style = Ts(c.muted, 14.sp))
             browsers.forEach { b -> BasicText("${b.name}: " + if (b.covered) "covered" else "NOT covered, so its sites are not blocked", style = Ts(c.text, 15.sp, if (b.covered) FontWeight.Normal else FontWeight.Bold)) }
+        }
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("APPEARANCE")
+            BasicText("Light, Dark, Night, Colourful or Auto", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("Only the colours change. Nothing moves and no rule changes. Night is warm and dim. Auto uses Night from the evening cutoff until the alarm is stopped, otherwise Light by day and Dark in the evening.", style = Ts(c.muted, 14.sp))
+            androidx.compose.foundation.layout.Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppearanceMode.entries.forEach { m -> Chip(m.label, m == appearance, { onAppearance(m) }, "Appearance ${m.label}") }
+            }
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

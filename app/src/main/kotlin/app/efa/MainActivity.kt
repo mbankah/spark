@@ -127,7 +127,25 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null && ImportSource.isImportIntent(intent)) incomingIntent.value = intent
         val db = EfaDb.get(this)
         setContent {
-            EfaTheme {
+            // AP2 to AP5, AP7: the mode applies at once and moves nothing. Auto is Night from the cutoff to the stopped alarm, otherwise Light by day and Dark in the evening.
+            var appearance by remember { mutableStateOf(AppearanceMode.AUTO) }
+            var inNight by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    withContext(Dispatchers.IO) {
+                        appearance = runCatching { AppearanceMode.valueOf(db.meta().get(app.efa.data.META_APPEARANCE).orEmpty()) }.getOrDefault(AppearanceMode.AUTO)
+                        val s = BlockingState.snapshot; val now = BlockingState.now()
+                        inNight = if (s == null) false else inNightMode(now, nightWindow(s.pattern, now, lateness = s.lateness),
+                            app.efa.data.ReferenceRepo(applicationContext, db).status()[app.efa.data.RefKind.NIGHT]?.takenAtMs, s.morning?.stoppedMs)
+                    }
+                    kotlinx.coroutines.delay(30_000)
+                }
+            }
+            val effective = if (appearance == AppearanceMode.AUTO) autoMode(ZonedDateTime.now(LONDON), inNight) else appearance
+            LaunchedEffect(effective) {                                                      // AP3: Night is dim
+                val lp = window.attributes; lp.screenBrightness = if (effective == AppearanceMode.NIGHT) NIGHT_BRIGHTNESS_CAP else android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE; window.attributes = lp
+            }
+            EfaTheme(when (effective) { AppearanceMode.LIGHT -> Mode.LIGHT; AppearanceMode.DARK -> Mode.DARK; AppearanceMode.NIGHT -> Mode.NIGHT; AppearanceMode.COLOURFUL -> Mode.COLOURFUL; AppearanceMode.AUTO -> Mode.AUTO }) {
                 var screen by remember { mutableStateOf(Screen.HOME) }
                 var reload by remember { mutableIntStateOf(0) }
                 var loaded by remember { mutableStateOf<Loaded?>(null) }
@@ -502,6 +520,8 @@ class MainActivity : ComponentActivity() {
                         onWidgets = { widgetMessage = null; screen = Screen.WIDGETS },
                         browsers = browsers,
                         onPc = { screen = Screen.PC },
+                        appearance = appearance,
+                        onAppearance = { m -> appearance = m; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_APPEARANCE, m.name)) } },
                         myUoBNote = myUoBNote,
                         onMyUoB = {                                                                // L7: opens the app, reads nothing, gates nothing
                             val pm = packageManager

@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
@@ -31,11 +32,12 @@ val CardShape = RoundedCornerShape(14.dp)   // AP1
  * The industrial card (AP1): rounded, with a thin light edge along the top inside and a solid darker edge 2 dp below, like a
  * key on a device. Flat colours only, no blur and no gradient.
  */
-fun Modifier.card(): Modifier = composed {
+fun Modifier.card(kind: efa.CardKind? = null): Modifier = composed {
     val c = LocalColors.current
     this
         .drawBehind { drawRoundRect(c.edge, topLeft = Offset(0f, 2.dp.toPx()), size = size, cornerRadius = CornerRadius(14.dp.toPx())) }
-        .background(c.card, CardShape)
+        .background(c.tint(kind), CardShape)
+        .then(if (c.colourful) Modifier.border(2.dp, Color.Black, CardShape) else Modifier)
         .drawWithContent {
             drawContent()
             clipRect(bottom = 14.dp.toPx()) { drawRoundRect(c.hi, cornerRadius = CornerRadius(14.dp.toPx()), size = Size(size.width, size.height), style = Stroke(1.dp.toPx())) }

@@ -90,8 +90,8 @@ fun HomeScreen(
             if (s.moved.isNotEmpty()) InfoCard("MOVED FOR YOU", s.moved.first(), null, (s.moved.drop(1).take(2) + listOfNotNull(s.moved.size.minus(3).takeIf { it > 0 }?.let { "And $it more." })).joinToString(" ").ifBlank { null })
             if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read. Nothing is shown rather than something wrong.")
             else if (efa.WidgetKind.NOW_NEXT !in s.widgets) {}
-            else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null)
-            else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() })
+            else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null, efa.CardKind.NOW)
+            else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() }, efa.CardKind.NOW)
             s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
             if (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets) InfoCard("SHOPPING", "Shopping list", onShopping, "Tick items off in the shop.")
             s.voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
@@ -99,7 +99,7 @@ fun HomeScreen(
             if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Held while your apps were blocked. Open the digest.")
             if (efa.WidgetKind.DAY_PLAN in s.widgets) NextCard(s.next)
             if (efa.WidgetKind.WEEK_GLANCE in s.widgets && s.week.isNotEmpty()) InfoCard("WEEK", s.week.first(), null, s.week.drop(1).joinToString("\n"))
-            Row(Modifier.fillMaxWidth().card().clip(CardShape).clickable(role = Role.Button, onClick = onMoney).padding(horizontal = 16.dp, vertical = 12.dp)
+            Row(Modifier.fillMaxWidth().card(efa.CardKind.SPEND).clip(CardShape).clickable(role = Role.Button, onClick = onMoney).padding(horizontal = 16.dp, vertical = 12.dp)
                 .semantics { contentDescription = "Free to spend this week. " + (s.freeToSpendPence?.let { pounds(it) } ?: "Recording") + ". Tap for the working." },
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Label("Free to spend this week")
@@ -154,7 +154,7 @@ private fun BufferCard(b: BufferState, onClick: () -> Unit) {
         }
     }
     Row(
-        Modifier.fillMaxWidth().card().clip(CardShape).clickable(enabled = b is BufferState.Value, role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp)
+        Modifier.fillMaxWidth().card(efa.CardKind.BUFFER).clip(CardShape).clickable(enabled = b is BufferState.Value, role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp)
             .semantics { contentDescription = "Buffer. $big. $small. ${lines.joinToString(". ")}." + if (b is BufferState.Value) " Tap for the working." else "" },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp),
     ) {
@@ -183,11 +183,11 @@ private fun Dial(size: Dp, fillDegrees: Float, big: String, small: String) {
 }
 
 @Composable
-private fun InfoCard(label: String, value: String, onClick: (() -> Unit)?, detail: String?) {
+private fun InfoCard(label: String, value: String, onClick: (() -> Unit)?, detail: String?, kind: efa.CardKind? = null) {
     val c = LocalColors.current
     val tap = if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier
     Column(
-        Modifier.fillMaxWidth().card().then(tap).padding(horizontal = 16.dp, vertical = 14.dp)
+        Modifier.fillMaxWidth().card(kind).then(tap).padding(horizontal = 16.dp, vertical = 14.dp)
             .semantics { contentDescription = "$label. $value." + (detail?.let { " $it" } ?: "") + if (onClick != null) " Tap to open." else "" },
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -200,7 +200,7 @@ private fun InfoCard(label: String, value: String, onClick: (() -> Unit)?, detai
 @Composable
 private fun NextCard(rows: List<NextRow>) {
     val c = LocalColors.current
-    Column(Modifier.fillMaxWidth().card().padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.fillMaxWidth().card(efa.CardKind.NEXT).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Label("Next")
         if (rows.isEmpty()) BasicText("Nothing scheduled", style = Ts(c.text, 15.sp, FontWeight.Medium))
         rows.forEachIndexed { i, r ->

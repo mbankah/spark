@@ -157,6 +157,11 @@ class MainActivity : ComponentActivity() {
                 var serviceOn by remember { mutableStateOf(isBlockerEnabled(applicationContext)) }
                 var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
                 var mapVenue by remember { mutableStateOf<VenueStatus?>(null) }
+                var newRoom by remember { mutableStateOf<VenueStatus?>(null) }
+                var venueBack by remember { mutableStateOf(Screen.SETUP) }
+                LaunchedEffect(screen, reload) {                                                   // L6: asks for the location of a room that changed
+                    newRoom = withContext(Dispatchers.IO) { runCatching { PlaceRepo(db).unplaced(PlanRepo(db).slots(), ZonedDateTime.now(LONDON).toLocalDate()) }.getOrNull() }
+                }
                 var selected by remember { mutableStateOf<DatedSlot?>(null) }
                 var clock by remember { mutableStateOf(ZonedDateTime.now(LONDON)) }
                 var heldWaiting by remember { mutableStateOf(false) }
@@ -462,6 +467,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 widgets = shownWidgets,
                                 voiceNote = voiceMessage.value,
+                                newRoom = newRoom?.venueText,
                                 voice = voiceAllowed(l?.pattern?.let { p -> slotsFor(p, clock.toLocalDate(), clock.zone).firstOrNull { !it.start.isAfter(clock) && it.end.isAfter(clock) }?.slot }, voiceQuietOff),
                                 week = l?.pattern?.let { weekGlance(it, clock.toLocalDate(), clock.zone) }.orEmpty(),
                                 shoppingDay = l?.pattern?.let { p -> slotsFor(p, clock.toLocalDate()).any { it.slot.title.contains("Aldi", ignoreCase = true) } } == true,
@@ -477,6 +483,7 @@ class MainActivity : ComponentActivity() {
                             onReview = { screen = Screen.REVIEW },
                             onShopping = { screen = Screen.SHOPPING },
                             onVoice = { voiceDraft = null; startVoice(emptyList()) },
+                            onNewRoom = { mapVenue = newRoom; venueBack = Screen.HOME; screen = Screen.MAP_VENUE },
                             onMoney = { screen = Screen.MONEY },
                             onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
@@ -510,7 +517,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Screen.SETUP -> SetupScreen(places,
                         onHome = { screen = Screen.MAP_HOME },
-                        onVenue = { mapVenue = it; screen = Screen.MAP_VENUE },
+                        onVenue = { mapVenue = it; venueBack = Screen.SETUP; screen = Screen.MAP_VENUE },
                         onBack = { screen = Screen.HOME },
                         onGit = { cfg -> scope.launch(Dispatchers.IO) { GitConfigRepo(db).save(cfg); reload++ } },
                         blocking = BlockingStatus(serviceOn, blockList?.size),
@@ -722,8 +729,8 @@ class MainActivity : ComponentActivity() {
                         onCancel = { screen = Screen.SETUP })
                     Screen.MAP_VENUE -> mapVenue?.let { v -> MapPicker("Place ${v.venueText}", "Move the map until the cross is on the building.",
                         v.point ?: CAMPUS_CENTRE, maxZoom = 19.0,
-                        onPick = { lat, lon -> scope.launch(Dispatchers.IO) { PlaceRepo(db).setVenuePoint(v.venueText, lat, lon, System.currentTimeMillis()); reload++; screen = Screen.SETUP } },
-                        onCancel = { screen = Screen.SETUP }) } ?: run { screen = Screen.SETUP }
+                        onPick = { lat, lon -> scope.launch(Dispatchers.IO) { PlaceRepo(db).setVenuePoint(v.venueText, lat, lon, System.currentTimeMillis()); reload++; screen = venueBack; venueBack = Screen.SETUP } },
+                        onCancel = { screen = venueBack; venueBack = Screen.SETUP }) } ?: run { screen = Screen.SETUP }
                     Screen.QUICK_ADD -> QuickAddScreen(
                         now = clock,
                         bufferIfAdded = { t -> l?.let { bufferWith(it, clock, t).let { s -> if (s is BufferState.Value) s.result.label() + " to " + s.result.deadlineLabel else "No deadline" } } ?: "Schedule unavailable" },

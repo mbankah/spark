@@ -53,4 +53,15 @@ class PlaceRepo(private val db: EfaDb) {
             }
         }
     }
+
+    /**
+     * L6, L5: a lecture, tutorial or named place in the next [days] days whose venue Spark cannot place. A room that changed in an import is the usual case: the new
+     * text is not in the directory, so the app asks where it is. Returns the first one, or null when every venue is placed.
+     */
+    suspend fun unplaced(slots: List<efa.PatternSlot>, from: java.time.LocalDate, days: Int = 14, zone: java.time.ZoneId = efa.LONDON): VenueStatus? {
+        val named = setOf("lecture", "tutorial", "training", "match", "gym", "church")
+        val venues = (0 until days).flatMap { efa.slotsFor(slots, from.plusDays(it.toLong()), zone) }
+            .filter { it.slot.type in named && it.slot.venue.isNotBlank() }.map { it.slot.venue }
+        return statuses(venues).firstOrNull { it.point == null }
+    }
 }

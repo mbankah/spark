@@ -51,6 +51,7 @@ data class HomeState(
     val morning: String? = null,         // M6, M8: social is blocked until the ready photo
     val progress: String? = null,        // R4: "14.0 of 60.0 hours done"
     val widgets: Set<efa.WidgetKind> = efa.WidgetKind.entries.filter { it.byDefault }.toSet(),   // WG3: the widgets in use; a removed one is not drawn
+    val newRoom: String? = null,        // L6: a venue Spark cannot place, usually a room that changed
     val voiceNote: String? = null,      // V2: what voice could not do, said plainly
     val voice: Boolean = false,         // V1, G7: voice is offered, and hidden in lectures and the library when the setting says so
     val week: List<String> = emptyList(),   // the week glance widget
@@ -64,7 +65,7 @@ data class HomeState(
 @Composable
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
-    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {},
+    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {}, onNewRoom: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -94,6 +95,7 @@ fun HomeScreen(
             else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() }, efa.CardKind.NOW)
             s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
             if (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets) InfoCard("SHOPPING", "Shopping list", onShopping, "Tick items off in the shop.")
+            s.newRoom?.let { InfoCard("WHERE IS IT?", "Where is $it?", onNewRoom, "A room or place is new. Put it on the map so the attendance check can work.") }
             s.voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
             s.review?.let { InfoCard("HELP THE ESTIMATES", it, onReview, "Takes one tap.") }
             if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Held while your apps were blocked. Open the digest.")

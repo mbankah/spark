@@ -31,13 +31,14 @@ class SettingsGateE2ETest {
         runBlocking { EfaDb.get(ctx).openHelper.writableDatabase.execSQL("DELETE FROM tamper") }
         screen.shell("settings put secure enabled_accessibility_services app.efa/app.efa.BlockerService")
         screen.shell("settings put secure accessibility_enabled 1")
+        screen.shell("am force-stop com.android.settings")                                  // each test starts from a closed Settings
         screen.home(); Thread.sleep(2_000)
     }
 
     @After fun tearDown() {
         SettingsGate.allowance = SettingsAllowance(null)
         screen.shell("settings put secure enabled_accessibility_services \"\"")
-        screen.home()
+        screen.shell("am force-stop com.android.settings"); screen.home()
     }
 
     @Test fun LA6_spark_s_own_app_info_page_meets_the_wall_and_is_logged() {

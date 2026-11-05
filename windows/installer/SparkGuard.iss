@@ -36,9 +36,15 @@ Source: "..\extension\manifest.json"; DestDir: "{app}\extension"; Flags: ignorev
 Source: "..\extension\background.js"; DestDir: "{app}\extension"; Flags: ignoreversion
 Source: "..\extension\rules.js"; DestDir: "{app}\extension"; Flags: ignoreversion
 Source: "..\extension\blocked.html"; DestDir: "{app}\extension"; Flags: ignoreversion
+Source: "..\..\web\csv-prompt.html"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 
+[INI]
+Filename: "{app}\Spark dashboard.url"; Section: "InternetShortcut"; Key: "URL"; String: "http://127.0.0.1:{#Port}/"
+
 [Icons]
+Name: "{autoprograms}\Spark Guard\Open the Spark dashboard"; Filename: "{app}\Spark dashboard.url"
+Name: "{autoprograms}\Spark Guard\Get the CSV prompt for an AI"; Filename: "{app}\csv-prompt.html"
 Name: "{autoprograms}\Spark Guard\Install the Spark browser extension"; Filename: "notepad.exe"; Parameters: """{app}\README.txt"""
 Name: "{autoprograms}\Spark Guard\Show the pairing code"; Filename: "{cmd}"; Parameters: "/k ""{app}\SparkGuard.Service.exe"" --show-pairing"; Flags: runminimized
 

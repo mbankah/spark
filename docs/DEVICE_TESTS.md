@@ -276,3 +276,18 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E45 | Uninstall from Settings, Apps. | The Spark lines are gone from the hosts file and its permissions are back to normal. |
 | E46 | Check your antivirus. | It does not flag the service. If it does, that is E7 and needs an exclusion. |
 
+## The last pieces
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E47 | Open `web/csv-prompt.html` on your phone and on your PC. Copy the prompt, give it and your timetable to an AI, paste the answer back, press Check it, save. | Mistakes name a line and a column. The saved file opens in Spark and shows a preview. |
+| E48 | Link the PC. Open the Spark dashboard on the PC (Start menu). | Buffer, now and next, the week and the money match the phone. Stop the phone's service for ten minutes: the page says "Stale since" and shows no numbers. |
+| E49 | Change the phone's clock by hand by an hour. | A tamper entry "clock changed" appears and nothing else moves. |
+| E50 | In a work block, open Settings, App info for Spark, and the accessibility page for Spark. | The wall appears each time. Other Settings pages open freely. |
+| E51 | Setup, Check MyUoB. | MyUoB opens. |
+| E52 | Setup, Appearance: try each mode. Let Auto run through an evening. | Same layout in all. Night is warm, dim and starts at the cutoff. A negative Buffer is the only red and says NEGATIVE. |
+| E53 | Setup, turn icons and the grid on. | Nothing changes today. Tomorrow type-to-open shows icons, and an empty box lists every app. |
+| E54 | Import a timetable with a room that is not in the directory. | Home asks "Where is ...?" and the map opens. |
+| E55 | Wear a watch that writes sleep to Health Connect. Setup, Allow reading sleep. | The card says "Your watch says ... The phone says ...". |
+| E56 | Have YouTube open in Chrome when a work block begins. Put Chrome in split screen. | The card appears within a minute, and straight away in split screen. |
+

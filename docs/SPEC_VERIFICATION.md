@@ -29,18 +29,14 @@ Nothing to build or test as a single behaviour; features elsewhere carry them ou
 
 | ID | What is missing |
 | --- | --- |
-| A1, A5, A6, G8, G9, E12, ST6 | The **web app and the phone to web sync**. No backend exists. The PC link (below) is phone to PC only, on the local network. |
-| T2 | Transition times from OpenStreetMap routing, corrected from measured times. Walks are fixed numbers. |
-| S6 | Health Connect input for sleep. |
-| G10, E14 | A trusted time source against clock tampering. |
-| L6 | Asking for a new location when a lecture's room changes. |
-| L7 | The "Check MyUoB" button. (The Canvas one, D3, is built.) |
-| U9 | App icons and a grid layout as settings, with the next-day delay. |
-| LA6 | The wall on Android's own accessibility, app-info, uninstall and default-home pages. |
-| LA7 | Tests for split screen, floating windows and picture-in-picture. The service looks at every window, but no test proves it. |
-| LA12 | An optional light theme, and a TalkBack audit. |
-| AP1, AP2, AP4, AP5 | The four appearance modes (Light, Dark, Night, Colourful) and Auto. The app has one palette (Cold), chosen earlier. AP1's warm-grey industrial look was replaced by that decision. |
-| WG5, WG6 | Widgets from other apps. |
+| A1, G8, G9, E12 | A web app and sync that work away from the PC. What exists is the read-only dashboard on the PC (A5, A6, B2, ST6, Q-G101). There is no backend. |
+| T2 | Transition times from OpenStreetMap routing, corrected from measured times. Walks are fixed numbers (Q-G110). |
+| WG5, WG6 | Widgets from other apps (Q-G111). |
+| AP1 | The warm-grey industrial look. The Cold palette chosen earlier stays (Q-G105). |
+| LA7 | Floating-window and picture-in-picture tests. Split screen and an app already open are tested. |
+| LA12 | A TalkBack audit. The light theme exists as a mode. |
+
+Built since the last version of this page: G10, L6, L7, LA6, U9, S6, AP2 to AP8, and the CSV prompt for every platform.
 
 ## 4. Built this session and linked
 

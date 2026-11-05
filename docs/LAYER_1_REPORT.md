@@ -380,3 +380,11 @@ You asked for the resets, so the six work blocks that ran straight into another 
 
 **Specification check:** `SPEC_VERIFICATION.md`. 199 of 277 ledger rows have a test. 38 are not code, 6 are built but not linked by name, and the rest are **not built**: the web app and sync, OpenStreetMap routing, Health Connect, a trusted time source, the room change prompt, Check MyUoB, icon and grid settings, the settings-page wall, split-screen tests, appearance modes, a light theme, and widgets from other apps.
 
+## Update: the last pieces, 5 November 2026
+
+**Built:** the CSV prompt page for any browser (and in the Windows Start menu); the read-only dashboard on the PC fed by the phone; a trusted time source; the wall in front of Spark's own settings pages; Check MyUoB; Light, Dark, Night, Colourful and Auto; icons and a grid with the next-day rule; asking where a changed room is; Health Connect as an optional sleep input; and a fix for apps already open when a block begins.
+
+**Tested:** 596 core tests, 46 Windows tests, 20 JavaScript tests, and on the emulator the real Settings app (LA6), the real Chrome (K10, split screen, already-open), the real Health Connect (S6), and the phone against the real service including the dashboard (`tools/pc-link-e2e.sh`).
+
+**Not built, plainly:** cloud sync and a web app that works away from the PC (A1, G8, G9, E12, ST6 only as the local dashboard); OpenStreetMap routing for walks (T2); widgets from other apps (WG5, WG6); AP1's industrial look; the floating-window and picture-in-picture tests in LA7. **Not proven on a real phone:** everything in E1 to E56.
+

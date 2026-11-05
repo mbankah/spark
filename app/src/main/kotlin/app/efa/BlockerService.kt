@@ -28,7 +28,7 @@ class BlockerService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         SleepCollector.start(applicationContext)          // layer 2: passive sleep logging lives as long as this service
-        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); PcLink.tick(applicationContext); TimeTrust.tick(applicationContext); delay(60_000) } }
+        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); PcLink.tick(applicationContext); TimeTrust.tick(applicationContext); checkWindows(); delay(60_000) } }
     }
 
     private val lastBrowserCheck = HashMap<String, Long>()
@@ -92,8 +92,17 @@ class BlockerService : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
         event.packageName?.toString()?.let { checkBrowser(it); checkSettings(it) }
         if (AlarmSession.ringing && event.packageName?.toString() != packageName && event.packageName?.toString() != "com.android.systemui") { showAlarm(); return }
+        checkWindows(event.packageName?.toString().takeIf { event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED })
+    }
+
+    /**
+     * Looks at every visible application window and puts the blocked card in front of a blocked one (K1 to K3, LA7: split screen, floating windows and picture-in-picture
+     * are all windows here). Called on window events, and every minute, so an app that was already open when a block began is closed within a minute and not only the
+     * next time its window changes.
+     */
+    fun checkWindows(eventPackage: String? = null) {
         val packages = LinkedHashSet<String>()
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) event.packageName?.toString()?.let { packages += it }
+        eventPackage?.let { packages += it }
         try {
             for (w in windows) {
                 if (w.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue

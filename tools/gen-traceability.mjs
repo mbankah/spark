@@ -114,7 +114,7 @@ for (const f of fs.existsSync('core/src/test') ? walk('core/src/test').filter(f 
 for (const f of fs.existsSync('windows') ? walk('windows').filter(f => f.endsWith('.cs') && f.includes('Tests') && !f.includes('/obj/') && !f.includes('/bin/')) : []) {
   for (const m of fs.readFileSync(f, 'utf8').matchAll(/public (?:async Task|void) ((?:[A-Z]{1,2}\d+_)+)([A-Za-z0-9_]*)\(/g)) for (const id of m[1].split('_').filter(Boolean)) add(id, f, (m[1] + m[2]).replace(/_/g, ' ') + ' (windows)');
 }
-for (const f of fs.existsSync('windows/extension/test') ? walk('windows/extension/test').filter(f => f.endsWith('.mjs')) : []) {
+for (const f of [...(fs.existsSync('windows/extension/test') ? walk('windows/extension/test') : []), ...(fs.existsSync('web/test') ? walk('web/test') : [])].filter(f => f.endsWith('.mjs'))) {
   for (const m of fs.readFileSync(f, 'utf8').matchAll(/test\('((?:[A-Z]{1,2}\d+(?:, )?)+): ([^']*)'/g)) for (const id of m[1].split(', ')) add(id, f, id + ': ' + m[2] + ' (extension)');
 }
 const withTests = [...rows.keys()].filter(k => found.has(k)).length;

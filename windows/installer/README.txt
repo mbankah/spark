@@ -11,6 +11,14 @@ Link your phone
   3. Phone and PC must be on the same home network. The phone sends the plan for the next 36 hours every minute. If the phone is away, the PC keeps blocking
      by the last plan it was given.
 
+The dashboard
+  Start menu, Spark Guard, "Open the Spark dashboard" (http://127.0.0.1:47831/). It shows the Buffer, now and next, the week and the money exactly as your phone sent
+  them. It is read-only and only opens on this PC. If your phone has not sent for ten minutes it says "stale" and shows no numbers.
+
+Timetable file from an AI
+  Start menu, Spark Guard, "Get the CSV prompt for an AI". Copy the prompt, paste it into any AI with your timetable, paste the answer back to check it, save the
+  .csv, and send it to your phone to open with Spark. The PC does not import files: your phone is the source of truth.
+
 Second layer: the browser extension (Chrome, Edge, Brave)
   Some browsers use encrypted DNS and skip the hosts file. The extension blocks the same sites inside the browser.
   1. Open chrome://extensions (or edge://extensions) and switch on Developer mode.

@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="dashboard.html" LogicalName="dashboard.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SparkGuard.Core\SparkGuard.Core.csproj" />
   </ItemGroup>
 </Project>

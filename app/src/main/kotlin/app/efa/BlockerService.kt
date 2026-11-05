@@ -6,6 +6,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import efa.Decision
 import efa.browserFor
+import efa.guardedPage
 import efa.hostOf
 import kotlinx.coroutines.*
 
@@ -27,10 +28,42 @@ class BlockerService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         SleepCollector.start(applicationContext)          // layer 2: passive sleep logging lives as long as this service
-        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); PcLink.tick(applicationContext); delay(60_000) } }
+        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); PcLink.tick(applicationContext); TimeTrust.tick(applicationContext); delay(60_000) } }
     }
 
     private val lastBrowserCheck = HashMap<String, Long>()
+    private var lastSettingsCheck = 0L
+
+    /** All the text a window shows, to a limit, so a page can be recognised. */
+    private fun textsOf(root: android.view.accessibility.AccessibilityNodeInfo): List<String> {
+        val out = ArrayList<String>(); var seen = 0
+        fun walk(n: android.view.accessibility.AccessibilityNodeInfo, depth: Int) {
+            if (seen++ > 400 || depth > 25) return
+            n.text?.toString()?.takeIf { it.isNotBlank() }?.let { out += it }
+            n.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { out += it }
+            for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it, depth + 1) }
+        }
+        walk(root, 0); return out
+    }
+
+    /** LA6: Spark's own settings pages go through the wall. Best effort, logged each time one is seen. */
+    private fun checkSettings(pkg: String) {
+        if (pkg == packageName) return
+        val now = System.currentTimeMillis()
+        if (now - lastSettingsCheck < 400) return
+        lastSettingsCheck = now
+        try {
+            val root = rootInActiveWindow ?: return
+            if (root.packageName?.toString() != pkg) { root.recycle(); return }
+            val label = try { packageManager.getApplicationLabel(applicationInfo).toString() } catch (e: Exception) { "Spark" }
+            val page = guardedPage(pkg, textsOf(root), label)
+            root.recycle()
+            if (page != null && !SettingsGate.open()) {
+                scope.launch { try { app.efa.data.EfaDb.get(applicationContext).tamper().insert(app.efa.data.TamperRow(atMs = now, kind = "settings_page", detail = page.name)) } catch (e: Exception) { } }
+                startActivity(Intent(this, SettingsGateActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION).putExtra(SettingsGateActivity.EXTRA_PAGE, page.name))
+            }
+        } catch (e: Exception) { /* X7: a page that vanishes while being read is not an error */ }
+    }
 
     /**
      * K10: in a browser, read the address bar and block the sites of blocked apps, private tabs included (a private tab still has an address bar). Only the
@@ -53,11 +86,11 @@ class BlockerService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED || event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
-            event.packageName?.toString()?.let { checkBrowser(it) }
+            event.packageName?.toString()?.let { checkBrowser(it); checkSettings(it) }
             return
         }
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
-        event.packageName?.toString()?.let { checkBrowser(it) }
+        event.packageName?.toString()?.let { checkBrowser(it); checkSettings(it) }
         if (AlarmSession.ringing && event.packageName?.toString() != packageName && event.packageName?.toString() != "com.android.systemui") { showAlarm(); return }
         val packages = LinkedHashSet<String>()
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) event.packageName?.toString()?.let { packages += it }

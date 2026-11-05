@@ -54,6 +54,27 @@ public static class StateVerifier
         return (Verdict.Accepted, state);
     }
 
+    /// <summary>The dashboard snapshot is signed the same way. It only needs to be well formed JSON with a time, newer than the last one, and not from the future.</summary>
+    public static Verdict VerifySnapshot(byte[] key, byte[] body, string? signatureHex, DateTime nowUtc, DateTime? lastIssuedUtc, out DateTime issued)
+    {
+        issued = default;
+        if (string.IsNullOrWhiteSpace(signatureHex)) return Verdict.BadSignature;
+        byte[] given;
+        try { given = Convert.FromHexString(signatureHex.Trim()); } catch (FormatException) { return Verdict.BadSignature; }
+        if (!CryptographicOperations.FixedTimeEquals(HMACSHA256.HashData(key, body), given)) return Verdict.BadSignature;
+        try
+        {
+            using var d = JsonDocument.Parse(body);
+            var root = d.RootElement;
+            if (root.GetProperty("v").GetInt32() != 1) return Verdict.Unsupported;
+            issued = root.GetProperty("issuedAtUtc").GetDateTime().ToUniversalTime();
+        }
+        catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException or FormatException) { return Verdict.Malformed; }
+        if (issued > nowUtc + MaxFuture) return Verdict.FromTheFuture;
+        if (lastIssuedUtc is { } last && issued <= last) return Verdict.Stale;
+        return Verdict.Accepted;
+    }
+
     /// <summary>The pairing key is shown to the person as base64url and typed into the phone once.</summary>
     public static string NewPairingCode() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     public static byte[] KeyFromCode(string code) => Encoding.UTF8.GetBytes(code.Trim());

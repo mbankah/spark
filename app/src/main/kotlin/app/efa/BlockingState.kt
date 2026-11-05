@@ -29,7 +29,7 @@ object BlockingState {
     /** Tests move the clock here; the real service never sets it. */
     @Volatile var clockOverride: (() -> ZonedDateTime)? = null
 
-    fun now(): ZonedDateTime = clockOverride?.invoke() ?: ZonedDateTime.now(LONDON)
+    fun now(): ZonedDateTime = clockOverride?.invoke() ?: ZonedDateTime.now(LONDON).plus(java.time.Duration.ofMillis(TimeTrust.correction()))      // G10
 
     suspend fun refresh(ctx: Context) {
         try {

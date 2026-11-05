@@ -19,4 +19,7 @@ python tools/device-results.py | tail -3
 sleep 3
 echo "--- the temporary hosts file after the phone sent its state ---"
 cat "$TMP/hosts"
+echo "--- the dashboard the PC serves ---"
+curl -s "http://127.0.0.1:$PORT/snapshot.json" | head -c 400; echo
+curl -s "http://127.0.0.1:$PORT/snapshot.json" | grep -q '"buffer"' && echo "RESULT: the dashboard has the phone's Buffer" || { echo "RESULT: NO SNAPSHOT"; exit 1; }
 grep -q "0.0.0.0 youtube.com" "$TMP/hosts" && echo "RESULT: the service wrote the block the phone asked for" || { echo "RESULT: NO BLOCK WRITTEN"; exit 1; }

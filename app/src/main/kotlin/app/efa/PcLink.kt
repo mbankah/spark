@@ -42,12 +42,20 @@ object PcLink {
         val windows = if (owner == null) emptyList() else pcWindows(now, now.plusHours(PC_HOURS_AHEAD)) { t -> decide(owner, t, s.pattern, s.list, Allowances(), s.verified, s.morning, s.lateness) }
         val body = pcStateJson(Instant.now(), pcDomains(s.list), windows)
         val result = send(addr, code, body)
+        // A1, A6: the read-only dashboard on the PC. A failure here never makes the blocking state look failed.
+        if (result.ok) try {
+            val data = buildWidgetData(ctx, now)
+            if (data != null) {
+                val working = (data.buffer as? BufferState.Value)?.result?.working()?.lines().orEmpty().filter { it.isNotBlank() }
+                send(addr, code, pcSnapshotJson(Instant.now(), data, working), "/snapshot")
+            }
+        } catch (e: Exception) { /* the dashboard is optional */ }
         db.meta().put(MetaRow(META_PC_LAST, "${System.currentTimeMillis()}|${if (result.ok) "" else result.message}"))
         result
     }
 
-    fun send(addr: PcAddress, code: String, body: String): Result {
-        val c = URL("http://${addr.host}:${addr.port}/state").openConnection() as HttpURLConnection
+    fun send(addr: PcAddress, code: String, body: String, path: String = "/state"): Result {
+        val c = URL("http://${addr.host}:${addr.port}$path").openConnection() as HttpURLConnection
         return try {
             c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 4_000; c.readTimeout = 4_000
             c.setRequestProperty("X-Spark-Signature", pcSignature(code, body)); c.setRequestProperty("Content-Type", "application/json")

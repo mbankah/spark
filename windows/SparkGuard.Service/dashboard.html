@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spark Dashboard</title>
+<style>
+  :root { --bg: #f4f6f8; --text: #0b0f14; --muted: #4a5560; --card: #ffffff; --line: #0b0f14; --warn: #b00020; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0b0f14; --text: #f4f6f8; --muted: #a8b3bd; --card: #151b22; --line: #f4f6f8; --warn: #ff6b81; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-monospace, Consolas, Menlo, monospace; line-height: 1.5; }
+  main { max-width: 48rem; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1rem; letter-spacing: .08em; text-transform: uppercase; margin: 6px 0 12px; }
+  .card { background: var(--card); border: 3px solid var(--line); padding: 14px; margin: 12px 0; }
+  .label { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .big { font-size: 2.4rem; font-weight: 700; line-height: 1.1; } .neg { color: var(--warn); }
+  ul { margin: 6px 0 0; padding-left: 1.2rem; } li { margin: 2px 0; }
+  .stale { font-weight: 700; } .muted { color: var(--muted); font-size: .85rem; }
+  details summary { cursor: pointer; font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Spark, read from your phone</h1>
+  <div id="stale" class="card stale" hidden></div>
+  <div class="card"><div class="label">Buffer</div><div id="buffer" class="big">...</div><div id="until" class="muted"></div>
+    <details><summary>Show the working</summary><ul id="working"></ul></details></div>
+  <div class="card"><div class="label">Now</div><div id="now">...</div><div class="label" style="margin-top:10px">Next</div><ul id="next"></ul></div>
+  <div class="card"><div class="label">Free to spend this week</div><div id="money" class="big">...</div></div>
+  <div class="card"><div class="label">Week</div><ul id="week"></ul></div>
+  <div class="card"><div class="label">Shopping</div><div id="shopping">...</div></div>
+  <p class="muted">This page only shows what your phone sent. It cannot change anything, and it shows no photos, places or sleep data. If your phone has not sent for ten minutes it says so and shows no numbers.</p>
+</main>
+<script>
+const STALE_AFTER_MS = 10 * 60 * 1000;
+
+/** What the page should say for a snapshot at a time. Never a number from old data (WG9). */
+function view(s, nowMs) {
+  if (!s) return { stale: 'Nothing has arrived from your phone yet. Link this PC in Spark: Setup, Link a Windows PC.', show: false };
+  const at = Date.parse(s.issuedAtUtc);
+  if (!Number.isFinite(at)) return { stale: 'The data from your phone could not be read.', show: false };
+  if (nowMs - at > STALE_AFTER_MS) {
+    const t = new Date(at); const hm = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+    return { stale: 'Stale since ' + hm + '. Your phone has not sent for more than ten minutes.', show: false };
+  }
+  return { stale: null, show: true };
+}
+
+function fill(el, items) { el.textContent = ''; (items || []).forEach((t) => { const li = document.createElement('li'); li.textContent = t; el.appendChild(li); }); }
+
+function render(s, nowMs) {
+  const v = view(s, nowMs); const stale = document.getElementById('stale');
+  stale.hidden = !v.stale; stale.textContent = v.stale || '';
+  const set = (id, t) => { document.getElementById(id).textContent = v.show ? t : '...'; };
+  const buf = document.getElementById('buffer'); buf.className = 'big' + (v.show && s.negative ? ' neg' : '');
+  set('buffer', v.show ? s.buffer : ''); set('until', v.show && s.until ? 'to ' + s.until : '');
+  set('now', v.show ? (s.now || 'Nothing now') : ''); set('money', v.show ? s.money : ''); set('shopping', v.show ? (s.shopping === null ? 'Open the list on your phone' : s.shopping + ' left to buy') : '');
+  fill(document.getElementById('working'), v.show ? s.working : []); fill(document.getElementById('next'), v.show ? s.next : []); fill(document.getElementById('week'), v.show ? s.week : []);
+}
+
+async function tick() {
+  let s = null;
+  try { const r = await fetch('/snapshot.json', { cache: 'no-store' }); if (r.ok) s = await r.json(); } catch (e) { /* the service is not running: the page says nothing arrived */ }
+  render(s, Date.now());
+}
+tick(); setInterval(tick, 15000);
+</script>
+</body>
+</html>

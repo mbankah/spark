@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spark CSV Prompt</title>
+<style>
+  :root { --bg: #f4f6f8; --text: #0b0f14; --muted: #4a5560; --card: #ffffff; --line: #0b0f14; --warn: #b00020; --ok: #0a6b2d; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0b0f14; --text: #f4f6f8; --muted: #a8b3bd; --card: #151b22; --line: #f4f6f8; --warn: #ff6b81; --ok: #5fd68a; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: ui-monospace, Consolas, Menlo, monospace; line-height: 1.5; }
+  main { max-width: 46rem; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.8rem; margin: 8px 0; } h2 { font-size: 1.05rem; margin: 0 0 8px; letter-spacing: .04em; text-transform: uppercase; }
+  section { background: var(--card); border: 3px solid var(--line); padding: 14px; margin: 14px 0; }
+  p, li { margin: 6px 0; } .muted { color: var(--muted); font-size: .9rem; }
+  textarea { width: 100%; min-height: 12rem; background: var(--bg); color: var(--text); border: 2px solid var(--line); padding: 8px; font: inherit; font-size: .85rem; }
+  button { font: inherit; font-weight: 700; color: var(--bg); background: var(--text); border: 0; padding: 12px 16px; margin: 6px 8px 0 0; min-height: 48px; cursor: pointer; }
+  button.plain { color: var(--text); background: transparent; border: 2px solid var(--line); }
+  #result { margin-top: 10px; font-weight: 700; } .bad { color: var(--warn); } .good { color: var(--ok); }
+  ul.errors { padding-left: 1.2rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Spark CSV prompt</h1>
+  <p class="muted">Get an AI to turn your timetable or deadlines into a file Spark can import. Works in any browser, on any phone or computer. Nothing here is sent anywhere: the check runs on this page.</p>
+
+  <section>
+    <h2>1. Copy this prompt</h2>
+    <textarea id="prompt" readonly>Build a CSV file for the Spark app from the timetable or dates I give you below. Reply with the CSV only.
+
+Rules
+- The first line is exactly: kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
+- One row per line, with every cell present. Leave a cell empty if it is not used. Put a cell in double quotes if it has a comma in it.
+- Dates are year-month-day, like 2026-11-02. Times are 24-hour, like 09:00. All times are UK time.
+- kind is event, deadline or period.
+
+event: a fixed commitment on one date
+- Needs: date, start, end, title, type. Optional: venue, study, action, notes.
+- type is one of: lecture, tutorial, mytutor, training, match, gym, church, errand, travel.
+- action is empty or add to add it, or cancel to remove the commitment of that type that starts at that time on that date.
+- A moved lecture is two rows: cancel at the old time, add at the new time. Moving a lecture also moves its walk, so cancel and add the travel rows too.
+- study is standard, light or none. Empty means standard for a lecture or tutorial that is added, and none for everything else. Use none when the lecture only replaces one that was already there.
+
+deadline: work that is due
+- Needs: date, start (the time it is due), title. Optional: heaviness, a whole number from 1 (tiny) to 10 (huge). Empty means 5.
+
+period: an assignment week or a catch-up week, 1 to 14 days
+- Needs: date (first day), end_date (last day), type (assignment_week or catch_up_week). Optional: title.
+
+Do not guess. If a date, time or type is not in what I give you, leave that row out.</textarea>
+    <button id="copy">Copy the prompt</button><span id="copied" class="muted"></span>
+    <p class="muted">Paste it into any AI app, then paste your timetable or dates underneath. Ask it to reply with the CSV only.</p>
+  </section>
+
+  <section>
+    <h2>2. Paste what the AI gave you</h2>
+    <textarea id="csv" placeholder="kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes"></textarea>
+    <button id="check">Check it</button><button id="sample" class="plain">Show an example</button>
+    <div id="result" role="status"></div>
+  </section>
+
+  <section>
+    <h2>3. Save it and give it to Spark</h2>
+    <button id="save">Save timetable.csv</button>
+    <ul>
+      <li><b>Android:</b> open the saved file with Spark (Open with), or share it to Spark, or Setup, Import a timetable file.</li>
+      <li><b>Windows, Mac, Linux:</b> send the file to your phone (email, a cloud drive, a USB cable, any messaging app) and open it with Spark there. The PC does not import files itself: your phone is the source of truth.</li>
+    </ul>
+    <p class="muted">Spark checks every line again against your calendar and shows a preview. Nothing changes until you press Apply. A file that cancels something needs the typed wall.</p>
+  </section>
+</main>
+<script>
+// A quick check of a timetable CSV in any browser, before it goes to Spark (IM1 to IM3, IM9). Spark always does the full check itself, against your calendar;
+// this one only catches the mistakes an AI often makes: a wrong header, a missing cell, a bad date or time, a type that does not exist.
+// The same rules as docs/TIMETABLE_CSV.md. Tested with: node --test web/test
+
+const COLUMNS = ['kind', 'date', 'end_date', 'start', 'end', 'title', 'type', 'venue', 'heaviness', 'study', 'action', 'notes'];
+const EVENT_TYPES = ['lecture', 'tutorial', 'mytutor', 'training', 'match', 'gym', 'church', 'errand', 'travel'];
+const PERIOD_TYPES = ['assignment_week', 'catch_up_week'];
+const MAX_BYTES = 1_000_000;
+const MAX_ROWS = 2000;
+
+/** Splits text into rows of cells. Commas, semicolons or tabs between cells; double quotes around a cell that contains one. */
+function parseCsv(text) {
+  const firstLine = text.split(/\r?\n/, 1)[0] || '';
+  const sep = [',', ';', '\t'].map((s) => [s, firstLine.split(s).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = []; let row = []; let cell = ''; let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') quoted = false; else cell += c;
+    } else if (c === '"') quoted = true;
+    else if (c === sep) { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((c) => c.trim() !== ''));
+}
+
+function date(s) {
+  const t = s.trim(); let y; let m; let d;
+  let r = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (r) { y = +r[1]; m = +r[2]; d = +r[3]; } else if ((r = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t))) { d = +r[1]; m = +r[2]; y = +r[3]; } else return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? dt : null;
+}
+
+function minutes(s) {
+  const r = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+  if (!r || +r[1] > 23 || +r[2] > 59) return null;
+  return +r[1] * 60 + +r[2];
+}
+
+/** Returns {errors, rows}. Each error is {line, column, text}. */
+function checkCsv(text) {
+  const errors = [];
+  const err = (line, column, t) => errors.push({ line, column, text: t });
+  if (new TextEncoder().encode(text).length > MAX_BYTES) return { errors: [{ line: 1, column: '', text: 'The file is over 1 MB.' }], rows: 0 };
+  const rows = parseCsv(text.replace(/^﻿/, ''));
+  if (rows.length === 0) return { errors: [{ line: 1, column: '', text: 'The file is empty.' }], rows: 0 };
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  for (const c of COLUMNS) if (!header.includes(c)) err(1, c, `The header has no "${c}" column. The first line must be: ${COLUMNS.join(',')}`);
+  if (errors.length) return { errors, rows: rows.length - 1 };
+  if (rows.length - 1 > MAX_ROWS) return { errors: [{ line: 1, column: '', text: `The file has more than ${MAX_ROWS} rows.` }], rows: rows.length - 1 };
+  const at = (r, name) => (r[header.indexOf(name)] ?? '').trim();
+  rows.slice(1).forEach((r, i) => {
+    const line = i + 2;
+    if (r.length !== header.length) { err(line, '', `This line has ${r.length} cells and the header has ${header.length}. Every cell must be present, even if empty.`); return; }
+    const kind = at(r, 'kind').toLowerCase();
+    if (!['event', 'deadline', 'period'].includes(kind)) { err(line, 'kind', 'kind must be event, deadline or period.'); return; }
+    const d = date(at(r, 'date'));
+    if (!d) err(line, 'date', 'The date must be like 2026-11-02 or 02/11/2026, and a real day.');
+    const action = at(r, 'action').toLowerCase();
+    if (!['', 'add', 'cancel'].includes(action)) err(line, 'action', 'action must be empty, add or cancel.');
+    const study = at(r, 'study').toLowerCase();
+    if (!['', 'standard', 'light', 'none'].includes(study)) err(line, 'study', 'study must be empty, standard, light or none.');
+    if (kind !== 'period' && at(r, 'title') === '') err(line, 'title', 'A title is needed.');
+    if (at(r, 'title').length > 120) err(line, 'title', 'The title is over 120 characters.');
+    if (kind === 'event') {
+      const s = minutes(at(r, 'start')); const e = minutes(at(r, 'end'));
+      if (s === null) err(line, 'start', 'The start must be a 24-hour time like 09:00.');
+      if (e === null) err(line, 'end', 'The end must be a 24-hour time like 10:00.');
+      if (s !== null && e !== null && e <= s) err(line, 'end', 'The end must be after the start, on the same day.');
+      if (!EVENT_TYPES.includes(at(r, 'type').toLowerCase())) err(line, 'type', `type must be one of: ${EVENT_TYPES.join(', ')}.`);
+    } else if (kind === 'deadline') {
+      if (minutes(at(r, 'start')) === null) err(line, 'start', 'The due time must be a 24-hour time like 17:00.');
+      const h = at(r, 'heaviness');
+      if (h !== '' && !(/^\d+$/.test(h) && +h >= 1 && +h <= 10)) err(line, 'heaviness', 'heaviness must be a whole number from 1 to 10, or empty.');
+    } else {
+      const e = date(at(r, 'end_date'));
+      if (!e) err(line, 'end_date', 'A period needs a last day.');
+      else if (d) {
+        const days = Math.round((e - d) / 86_400_000) + 1;
+        if (days < 1) err(line, 'end_date', 'The last day is before the first day.');
+        else if (days > 14) err(line, 'end_date', 'A period is 1 to 14 days.');
+      }
+      if (!PERIOD_TYPES.includes(at(r, 'type').toLowerCase())) err(line, 'type', `type must be ${PERIOD_TYPES.join(' or ')}. A day off or a library period is planned in the app.`);
+    }
+  });
+  return { errors, rows: rows.length - 1 };
+}
+
+
+const $ = (id) => document.getElementById(id);
+const EXAMPLE = "kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes\nevent,2026-11-03,,16:30,17:30,Cryptography lecture,lecture,Watson LT A,,standard,,\nevent,2026-11-02,,09:00,10:00,Randomness and Computation lecture,lecture,,,,cancel,Moved to Wednesday\nevent,2026-11-04,,09:00,10:00,Randomness and Computation lecture,lecture,Murray LC-UG05,,none,,\ndeadline,2026-11-06,,12:00,,CS Project report,,,8,,,\nperiod,2026-11-02,2026-11-06,,,Assignment week,assignment_week,,,,,";
+$('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('prompt').value); $('copied').textContent = ' Copied.'; }
+  catch (e) { $('prompt').select(); document.execCommand('copy'); $('copied').textContent = ' Copied (or select it and copy by hand).'; }
+};
+$('sample').onclick = () => { $('csv').value = EXAMPLE; $('result').textContent = ''; };
+$('check').onclick = () => {
+  const r = checkCsv($('csv').value);
+  const out = $('result'); out.textContent = ''; out.className = '';
+  if (r.errors.length === 0) { out.className = 'good'; out.textContent = r.rows + ' row' + (r.rows === 1 ? '' : 's') + ' look right. Spark will check them again.'; return; }
+  out.className = 'bad';
+  out.textContent = r.errors.length + ' problem' + (r.errors.length === 1 ? '' : 's') + '. Ask the AI to fix these lines:';
+  const ul = document.createElement('ul'); ul.className = 'errors';
+  r.errors.slice(0, 30).forEach((e) => { const li = document.createElement('li'); li.textContent = 'Line ' + e.line + (e.column ? ', ' + e.column : '') + ': ' + e.text; ul.appendChild(li); });
+  out.appendChild(ul);
+};
+$('save').onclick = () => {
+  const r = checkCsv($('csv').value);
+  if (r.errors.length && !confirm('There are problems in this file. Spark will refuse a file with errors. Save it anyway?')) return;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([$('csv').value], { type: 'text/csv;charset=utf-8' })); a.download = 'timetable.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+};
+</script>
+</body>
+</html>

@@ -92,6 +92,14 @@
             android:excludeFromRecents="true"
             android:taskAffinity="app.efa.blocked"
             android:theme="@android:style/Theme.Material.NoActionBar" />
+        <!-- The wall in front of Spark's own settings pages (LA6). Not in recents, so back and home cannot loop. -->
+        <activity
+            android:name=".SettingsGateActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:taskAffinity="app.efa.settingsgate"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
         <receiver android:name=".BufferWidget" android:exported="true" android:label="Spark Buffer">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_buffer" />

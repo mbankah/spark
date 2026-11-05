@@ -155,6 +155,7 @@ class MainActivity : ComponentActivity() {
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
+                var myUoBNote by remember { mutableStateOf<String?>(null) }
                 var pcAddress by remember { mutableStateOf("") }
                 var pcCode by remember { mutableStateOf("") }
                 var pcStatus by remember { mutableStateOf("Not sent yet.") }
@@ -501,6 +502,15 @@ class MainActivity : ComponentActivity() {
                         onWidgets = { widgetMessage = null; screen = Screen.WIDGETS },
                         browsers = browsers,
                         onPc = { screen = Screen.PC },
+                        myUoBNote = myUoBNote,
+                        onMyUoB = {                                                                // L7: opens the app, reads nothing, gates nothing
+                            val pm = packageManager
+                            val web = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                            val installed = pm.queryIntentActivities(web, 0).map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+                            val pkg = findMyUoB(installed)
+                            val launch = pkg?.let { pm.getLaunchIntentForPackage(it) }
+                            if (launch != null) { myUoBNote = null; startActivity(launch) } else myUoBNote = "MyUoB is not installed on this phone. Install it from the Play Store, then press this again."
+                        },
                         pcText = if (pcAddress.isBlank()) "" else "Linked to $pcAddress. $pcStatus",
                         voiceQuietOff = voiceQuietOff,
                         onVoiceQuiet = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_VOICE_QUIET_OFF, if (v) "1" else "0")); reload++ } },

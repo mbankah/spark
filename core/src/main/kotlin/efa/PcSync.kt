@@ -70,3 +70,20 @@ fun pcStatusText(lastOkMs: Long?, lastError: String?, nowMs: Long): String = whe
     lastError != null -> "Not reached: $lastError" + (lastOkMs?.let { " Last sent ${Duration.ofMillis(nowMs - it).toMinutes()} minutes ago." } ?: "")
     else -> "Not sent yet."
 }
+
+// ---- The read-only dashboard on the PC (A1, A5, A6, B2, G8) ----
+
+/**
+ * What the phone shows the PC's web dashboard: only text and numbers, never a photo, a location or a sensor reading (ST6). It is sent signed, like the state, and
+ * the dashboard is read-only: it reads what the phone sends and can change nothing (A5, A6). Data older than ten minutes is shown as stale, never as a number (WG9).
+ */
+fun pcSnapshotJson(issuedAt: Instant, d: WidgetData, working: List<String>): String {
+    fun arr(l: List<String>) = l.joinToString(",") { "\"${esc(it)}\"" }
+    val b = d.buffer
+    val bufferLine = when (b) { is BufferState.Value -> "Buffer ${if (b.result.hours >= 0) "+" else "-"}${fmt1(kotlin.math.abs(b.result.hours))}h"; BufferState.NoDeadline -> "Buffer: no deadline"; else -> "Buffer not available" }
+    val until = (b as? BufferState.Value)?.result?.deadlineLabel
+    val negative = (b as? BufferState.Value)?.result?.negative == true
+    return "{\"v\":1,\"issuedAtUtc\":\"${DateTimeFormatter.ISO_INSTANT.format(issuedAt)}\",\"buffer\":\"${esc(bufferLine)}\",\"until\":" + (until?.let { "\"${esc(it)}\"" } ?: "null") +
+        ",\"negative\":$negative,\"working\":[${arr(working)}],\"now\":" + (d.nowLine?.let { "\"${esc(it)}\"" } ?: "null") + ",\"next\":[${arr(d.nextLines)}],\"money\":\"" +
+        esc(d.freeToSpendPence?.let { pounds(it) } ?: "Recording") + "\",\"shopping\":" + (d.shoppingLeft?.toString() ?: "null") + ",\"week\":[${arr(d.week)}]}"
+}

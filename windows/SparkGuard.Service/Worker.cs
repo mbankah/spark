@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Text;
 using System.Text.Json;
 using SparkGuard;
 
@@ -16,6 +17,7 @@ public sealed record GuardPaths(string DataDir, string HostsFile, int Port = 478
 public sealed class Worker : BackgroundService
 {
     private readonly GuardPaths _paths; private readonly ILogger<Worker> _logger;
+    private DateTime? _lastSnapshot; private string? _snapshotJson;
     private GuardLog _log = null!; private Enforcer _enforcer = null!; private byte[] _key = null!;
 
     public Worker(GuardPaths paths, ILogger<Worker> logger) { _paths = paths; _logger = logger; }
@@ -32,6 +34,8 @@ public sealed class Worker : BackgroundService
         var heartbeat = Path.Combine(_paths.DataDir, "heartbeat.txt");
         if (File.Exists(heartbeat) && DateTime.TryParse(File.ReadAllText(heartbeat), null, System.Globalization.DateTimeStyles.RoundtripKind, out var last) && DateTime.UtcNow - last > TimeSpan.FromSeconds(15))
             _log.Write(DateTime.UtcNow, "stopped", $"Spark Guard was not running from {last:O} until now");        // K6: stopping it is noticed and logged
+        var snap = Path.Combine(_paths.DataDir, "snapshot.json");
+        if (File.Exists(snap)) { try { _snapshotJson = File.ReadAllText(snap); _lastSnapshot = SnapshotTime(_snapshotJson); } catch (IOException) { } }
         _log.Write(DateTime.UtcNow, "started", "service started");
         _log.Trim(DateTime.UtcNow);
         if (_paths.Lock) LockHosts();
@@ -106,6 +110,29 @@ public sealed class Worker : BackgroundService
                 if (verdict == Verdict.Accepted) { _enforcer.Accept(state!, body); Reply(c, 200, "ok"); }
                 else { _log.Write(DateTime.UtcNow, "refused", $"{verdict} from {c.Request.RemoteEndPoint?.Address}"); Reply(c, verdict == Verdict.Stale ? 409 : 400, verdict.ToString()); }
             }
+            else if (c.Request.HttpMethod == "POST" && path == "/snapshot")
+            {
+                using var ms = new MemoryStream(); c.Request.InputStream.CopyTo(ms);
+                var body = ms.ToArray();
+                if (body.Length > 64 * 1024) { Reply(c, 413, "too large"); return; }
+                var verdict = StateVerifier.VerifySnapshot(_key, body, c.Request.Headers["X-Spark-Signature"], DateTime.UtcNow, _lastSnapshot, out var issued);
+                if (verdict == Verdict.Accepted)
+                {
+                    var text = Encoding.UTF8.GetString(body); _snapshotJson = text; _lastSnapshot = issued;
+                    var tmp = Path.Combine(_paths.DataDir, "snapshot.json.tmp"); File.WriteAllText(tmp, text); File.Move(tmp, Path.Combine(_paths.DataDir, "snapshot.json"), overwrite: true);
+                    Reply(c, 200, "ok");
+                }
+                else { _log.Write(DateTime.UtcNow, "refused", $"snapshot {verdict} from {c.Request.RemoteEndPoint?.Address}"); Reply(c, verdict == Verdict.Stale ? 409 : 400, verdict.ToString()); }
+            }
+            else if (c.Request.HttpMethod == "GET" && (path == "/" || path == "/index.html") && IPAddress.IsLoopback(c.Request.RemoteEndPoint!.Address))
+            {
+                using var r = typeof(Worker).Assembly.GetManifestResourceStream("dashboard.html")!; using var sr = new StreamReader(r);
+                Reply(c, 200, sr.ReadToEnd(), "text/html; charset=utf-8");
+            }
+            else if (c.Request.HttpMethod == "GET" && path == "/snapshot.json" && IPAddress.IsLoopback(c.Request.RemoteEndPoint!.Address))
+            {
+                if (_snapshotJson is null) Reply(c, 404, "nothing yet"); else Reply(c, 200, _snapshotJson, "application/json");
+            }
             else if (c.Request.HttpMethod == "GET" && path == "/state" && IPAddress.IsLoopback(c.Request.RemoteEndPoint!.Address))
             {
                 // K8: the browser extension asks this PC only. It gets the domains and whether they are blocked right now, never the pairing key.
@@ -118,6 +145,8 @@ public sealed class Worker : BackgroundService
         }
         catch (Exception e) { _logger.LogWarning(e, "request failed"); try { c.Response.Abort(); } catch { } }
     }
+
+    private static DateTime? SnapshotTime(string json) { try { using var d = JsonDocument.Parse(json); return d.RootElement.GetProperty("issuedAtUtc").GetDateTime().ToUniversalTime(); } catch { return null; } }
 
     private static void Reply(HttpListenerContext c, int code, string text, string type = "text/plain")
     {

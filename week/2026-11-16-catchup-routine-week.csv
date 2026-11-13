@@ -1,0 +1,26 @@
+kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
+period,2026-11-16,2026-11-22,,,Catch-up and routine week,catch_up_week,,,,,
+event,2026-11-16,,07:25,07:30,Take modafinil (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+event,2026-11-16,,22:15,22:20,Take melatonin (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+deadline,2026-11-16,,22:00,,Game Theory: notes and problems,,,2,,,
+event,2026-11-17,,07:25,07:30,Take modafinil (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+event,2026-11-17,,21:15,21:20,Take melatonin (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+deadline,2026-11-17,,22:00,,Numerical Methods and NLA: notes and problems,,,2,,,
+event,2026-11-18,,07:25,07:30,Take modafinil (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+event,2026-11-18,,20:45,20:50,Take melatonin (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+deadline,2026-11-18,,22:00,,Randomness and Computation: notes and problems,,,2,,,
+deadline,2026-11-18,,22:00,,Game Theory: notes and problems,,,2,,,
+event,2026-11-19,,07:25,07:30,Take modafinil (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+event,2026-11-19,,20:55,21:00,Take melatonin (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+deadline,2026-11-19,,22:00,,Randomness and Computation: notes and problems,,,2,,,
+event,2026-11-20,,07:25,07:30,Take modafinil (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+event,2026-11-20,,22:05,22:10,Take melatonin (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+event,2026-11-21,,08:25,08:30,Take modafinil (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+event,2026-11-21,,22:15,22:20,Take melatonin (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+deadline,2026-11-21,,22:00,,Game Theory: notes and problems,,,2,,,
+deadline,2026-11-21,,22:00,,Randomness and Computation: notes and problems,,,2,,,
+deadline,2026-11-21,,22:00,,Numerical Methods and NLA: notes and problems,,,2,,,
+event,2026-11-22,,08:25,08:30,Take modafinil (as prescribed),errand,,,none,add,"Your own prescription. Move or delete this row if your timing is different."
+deadline,2026-11-22,,20:30,,Game Theory: notes and problems,,,2,,,
+deadline,2026-11-22,,20:30,,Randomness and Computation: notes and problems,,,2,,,
+deadline,2026-11-22,,20:30,,Numerical Methods and NLA: notes and problems,,,2,,,

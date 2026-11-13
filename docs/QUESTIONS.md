@@ -139,6 +139,7 @@ Written 23 Oct 2026 after reading the whole ledger and seed. Each item says what
 | Q-G109 | K1 says apps are blocked in work blocks, but the service only looked at window changes. | An app already open when a block begins is now closed within a minute (the service re-checks every window each minute). Found and fixed this session. | |
 | Q-G110 | T2 asks for OpenStreetMap routing for walks. | Not built. A public routing service needs a key or a server I cannot assume, and the walks stay the fixed numbers in the plan, corrected by nothing. | |
 | Q-G111 | WG5, WG6 ask for widgets from other apps. | Not built. Hosting them needs Android's widget host and a bind permission the person grants for each, and hiding them in blocks cannot be proved without a phone. | |
+| Q-G112 | You asked for week types that inject, transform and replace the schedule, each with its own settings. | Written as a proposed design in `docs/WEEK_TYPES_SPEC.md`: layers, operations, week types, settings and a version 2 CSV. Nothing in it is built. Questions at its end need your answers before it becomes ledger rows. | The file for 16 to 22 November uses today's format only. |
 
 ## Things I cannot do and will say so
 

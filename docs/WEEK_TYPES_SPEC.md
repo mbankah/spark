@@ -1,312 +1,311 @@
-# Week types and modifiers: a design spec (proposed, nothing here is built yet)
+# Modify Schedule: schedule modifiers and presets (design spec, proposed, nothing here is built)
 
-Status: **Proposed.** Written 13 November 2026 at your request. Every line is a "Proposed" row until you confirm it. Nothing in this document is in the app, so none of it is tested. It extends C1 (planned periods), C2 (library), PW1 to PW3 (assignment and catch-up weeks), H1 to H6 (days off), IM1 to IM12 (import) and RS1 to RS9 (automatic catch-up). It never lowers a rule: sleep, meals, the 6 protected hours a week (G3), the £40 food money (X1), the night cutoff (N1 to N7) and the typed wall (M7, H1) all stay as they are.
+Status: **Proposed.** Redone on 13 November 2026 after your correction. Every line is a "Proposed" row until you confirm it, and nothing here is in the app yet. It extends C1 (planned periods), C2 (library), PW1 to PW3 (assignment and catch-up weeks), H1 to H6 (days off), D1 to D5 (deadlines and cycles), IM1 to IM12 (import), RS1 to RS9 (automatic catch-up) and K1 to K10 (blocking). It never lowers a rule: sleep, meals, the 6 protected hours a week, the £40 food money, the night cutoff and the typed wall stay as they are.
 
-## 1. The idea in one paragraph
+## 0. What I got wrong and how I read you now
 
-Your week is a **base template** (today, Week B). A **week type** is a set of **operations** laid over that template for a range of dates: it can **inject** things (blocks, tasks, reminders), **transform** things (move them, resize them, change how they are blocked or proven) and **replace** things (swap a day or the whole template). Every week type, every operation and every block has its own **properties** (what it is) and **settings** (what you can change). Layers stack in a fixed order, the app shows the result and its cost to the Buffer before anything is applied, and anything that loosens a rule needs the wall.
+My first version treated a "week type" as a label with a few operations. What you mean is simpler and bigger:
 
-## 2. What exists today, so the gaps are plain
+> **Modify Schedule** is a tool. You open it, pick a **preset** (Assignment, Catch-up week, Week off, Weekend off, and so on), and the preset **adapts your schedule**: it injects things, transforms things and replaces whole days, whole weeks or parts of a day. Each preset has its own **settings**, some of them a **list of items that each have their own settings** (each assignment has its own hours and priority). Nothing is fixed except what protects you.
 
-| Today | What it really is | Verb |
-| --- | --- | --- |
-| Week B | The base template | none (the template) |
-| Imported events | Single dated blocks, cancels | inject, remove (wall) |
-| Imported deadlines | Tasks with a due time and a heaviness | inject |
-| Assignment week, catch-up week (PW1, PW2) | A label that only orders work when deadlines tie. It moves nothing | order only |
-| Library period (C2) | Moves work blocks to the library, adds walks | transform |
-| Day off (C1, H1) | Removes a day's work, brings lectures back as work | remove + inject work |
-| Automatic catch-up, conversions, resets, football | The app's own injects | inject |
+How I read the specific points. Tell me if any is wrong (section 15 has the questions):
 
-**The gap:** a week type cannot yet change how many study cycles a day there are, move the wake time a little each day, swap a day's template, or carry its own settings. The CSV can only say "this is a catch-up week" and add dated rows.
+1. **Assignments are separate from revision**, and they are planned **in anticipation**: work starts well before the due date and is spread back from it, not squeezed in at the end. Revision (for an exam) is its own preset.
+2. **Is that already built?** Partly, and not the part you mean. An assignment today is a deadline row or a quick-add task (D2). It counts in the Buffer from the day it is added (P5) and is placed earliest deadline first (RS2). There is no start date, no lead time, no milestones, no hours-per-assignment beyond the heaviness, and no per-assignment priority. The "assignment week" (PW2) only reorders work when deadlines tie. So **this spec adds anticipation**.
+3. **"A week off chapters"**: I read this as a **reading or chapters week** (you work through chapters, not lectures), as its own preset. If you meant a plain week off, that is the Week off preset below. Both exist in this spec.
+4. **Catch-up week** asks how many **VRNP slots** (study cycles) per day and an **intensity** choice, for example **rapid notes** (shorter, faster notes) against full notes.
+5. **Week off** lets you add **important blocks in between** (gym, church, MyTutor, a reminder), and they are **placed** at times or in windows you set. Your sentence for where they are placed was garbled ("placed e.g. gpt s jp;ofsu"), so I have given every way a block can be placed (section 7.5) and you can tell me which you meant.
+6. **Weekend off, but still set screen time limits.** A modifier can carry a **screen-time policy** that stays on even when the work is off. This is new: Spark blocks apps in blocks and at night today, and has no daily limits yet (U2 lists usage access as a planned permission).
 
-## 3. Vocabulary
+## 1. How you use it
 
-- **Template**: a full week of blocks. Week B is the base. You can have more (Revision week template, Holiday template).
-- **Week type**: a named bundle of operations with settings, applied to a date range of 1 to 14 days (PW1). It may be applied to part of a week.
-- **Operation**: one change. Verbs: INJECT, TRANSFORM, REPLACE, REMOVE (REMOVE only of things that are allowed to go, section 8).
-- **Selector**: which things an operation touches (a weekday, a block type, a module, a time window, a title).
-- **Setting**: a value you can change (a number, a choice, a time, a list). Every setting has a default, a range and a reason.
-- **Preset**: a saved set of settings under a name.
-- **Anchor**: a fixed point other things hang from: wake, first lecture, lunch, shutdown, the night cutoff.
+**Setup, Modify Schedule** shows four lists:
 
-## 4. The layer stack (what wins)
+- **Active**: modifiers running now, with their dates, and Edit, End early.
+- **Planned**: modifiers set for later.
+- **Presets**: Assignment, Revision, Catch-up week, Reading week, Week off, Weekend off, Library, Routine, Recovery, Away, Guests, Placement, Fresh start.
+- **Custom**: build one from the verbs in section 8.
 
-From the bottom, later layers act on the result of earlier ones:
+Choosing a preset runs the same five steps, every time:
 
-1. **Base template** (or its replacement, layer 2).
-2. **Template swap** (REPLACE a whole day or week).
-3. **Week types**, in the order you list them (each shows its position; default order: Routine, Library, Catch-up, Assignment, Revision, Recovery).
-4. **Day-level changes**: days off, a single day's swap.
-5. **Imports** (dated rows from a file).
-6. **Automation**: catch-up, conversions, resets, football, the library walks.
+1. **Dates and parts of the day** (section 3).
+2. **Settings** for that preset, with defaults filled in. Lists (assignments, pinned blocks, chapters) are added one item at a time, each with its own settings.
+3. **Screen time and blocking** for the period (section 9), with the preset's default.
+4. **Preview**: what is added, moved, replaced and dropped, each with its reason, the days it changes, and the Buffer before and after with the working (B3, IM5). If it does not fit it says **NEGATIVE** and shows which settings to change.
+5. **Apply**, all or nothing (IM11). Anything that loosens a rule asks for the typed wall once.
 
-Rules that never change:
-- **WT1** A layer can only act on what the layers below left. A removed block cannot be edited by a higher layer.
-- **WT2** The protected set (sleep, meals, the 6 hours a week, resets, hard alarms, the safety floor) cannot be removed, shortened or moved by any layer, except by the existing walls (a day off keeps sleep and meals; a meal can move within its window, section 8).
-- **WT3** If two operations want the same time, the higher layer wins only if the lower one is not protected. Otherwise the apply is refused with both named, never half done (IM11).
-- **WT4** Every operation is **TIGHTEN** (more work, less free time), **NEUTRAL** (moves things, same total) or **LOOSEN** (less work or free time becomes rest). TIGHTEN and NEUTRAL apply freely, as an import does (IM6). LOOSEN needs the typed wall once for the whole week type.
-- **WT5** Nothing is applied before the **preview**: what is added, moved and removed, each with its reason, and the Buffer before and after with the working (B3, IM5). A preview that makes the Buffer negative says NEGATIVE.
+## 2. What a modifier is made of
 
-## 5. The objects and what you can change on each
+Every modifier, whatever the preset, has the same parts. This is what makes the list exhaustive: a preset is just a modifier with some parts filled in.
 
-"Fixed" means it is part of the rule and cannot be changed. "Setting" means it can. "Wall" means changing it loosens and needs the wall.
+| Part | What it holds |
+| --- | --- |
+| **Scope** | Dates, days of the week, and parts of the day it acts on (section 3) |
+| **Actions** | A list of operations: inject, transform, replace, pin, remove (section 8) |
+| **Settings** | The preset's own settings (sections 5 to 7), each with a default and a range |
+| **Items** | Optional lists, each item with its own settings (assignments, exams, chapters, pinned blocks) |
+| **Screen-time policy** | Limits that apply for the dates (section 9) |
+| **Protected rules** | What it can never touch (sleep, meals, protected free hours, resets, hard alarms, food money, the cutoff) |
+| **Class** | TIGHTEN, NEUTRAL or LOOSEN, worked out from its actions; LOOSEN needs the wall |
+| **Order** | Its place when several run at once (section 10) |
+| **End rule** | End on the date, end when its work is done, or end by hand |
 
-### 5.1 Block (every block in any template)
+## 3. Scope: dates, days, parts of days
 
-| Property | Fixed or setting | Notes |
-| --- | --- | --- |
-| Title, notes | Setting | Plain words (W5, W7). A module name is used for study cycles. |
-| Type | Setting within a family | Work (study, code, planning), fixed commitment (lecture, tutorial, mytutor, training, match, gym, church), routine, meal, travel, chore, free, sleep. Changing between families can LOOSEN. |
-| Start, end, length | Setting | Within the block's own minimum and maximum (a cycle: 60 to 150 minutes). |
-| Venue | Setting | Home, library, a named room. A new room asks for its location (L6). |
-| Proof | Setting | Photo, commit, attendance photo, none. Lowering proof is LOOSEN (wall). |
-| Blocking level | Setting | Which reasons block the phone (K3). Lowering is LOOSEN. |
-| Hard alarm | Setting | D4 list. |
-| Convertible to work | Setting | Free slots only; the protected 6 hours are fixed as never convertible. |
-| Cuttable by an import | Fixed by type | Free and work blocks only (IM6). |
-| Removed by a day off | Fixed by type | The list in the days off code. |
-| Weight in the money ratio | Fixed by type (Y4) | Lecture 4, standard cycle 6, light 3, other work 5. |
-| Earns phone access (R2) | Fixed by type | 10 minutes an hour of work. |
-| Reset after it (W4) | Fixed | Always for work blocks. |
+| Setting | Options |
+| --- | --- |
+| Dates | A start and an end, 1 to 14 days at a time (PW1), or a repeating pattern ("every Saturday for 6 weeks") |
+| Days | Any set of weekdays |
+| Part of the day | **Morning** (wake to 12:00), **Afternoon** (12:00 to 18:00), **Evening** (18:00 to the night cutoff), **Night** (the cutoff to wake), a **clock window** you type, or **the whole day** |
+| Selector inside the scope | By block type (work, lecture, free, chore...), by module, by title, by venue, by block, or "everything that is not protected" |
 
-### 5.2 Study cycle (a "cycle" for one module)
+So "replace every weekday afternoon in this week" or "inject two cycles into every morning" are both one modifier.
 
-You asked that cycles be noted by module and not by method. A cycle has an internal structure (video or slides, reading, notes, problems) kept as a property, never as the title.
-
-| Property | Setting | Default |
-| --- | --- | --- |
-| Module | Setting | One of your modules |
-| Size | Setting | Standard 2.5 hours, light 1 hour (D1) |
-| Structure and minutes of each part | Setting | Video or slides 15, read 25, notes 60, problems the rest |
-| Title shown | Fixed | "Module: notes and problems" |
-| Due | Setting | End of day (D1), or a chosen time |
-| Counts toward the day's quota | Fixed | Yes |
-
-### 5.3 Cycle quota (a rule that makes cycles exist)
+## 4. Settings every modifier has (common settings)
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
-| Floor per day | The lowest number of cycles on a working day, counting the ones lectures already make | 3 |
-| Stretch per day | The extra you would like on a good day | 4 |
-| Days | Which weekdays it applies to | All |
-| Module weights | Which modules get the extra cycles first | Equal, or by what is behind |
-| Source of the extras | Deadlines in the Buffer (as a file does today) or placed blocks | Deadlines |
-| Weekend rule | Same, lower, or none | Same floor, no stretch |
-| When the Buffer would go negative | Warn only, drop the stretch, or ask | Drop the stretch and say so |
+| Name and home label | "Assignment week, until Wed 4 Nov" (PW3) | The preset's name |
+| Intensity | Gentle, normal, heavy (scales the hours, never the protected rules) | Normal |
+| Work hours a day | A minimum and a maximum, so it is not left to chance | From the template |
+| Keep lectures | Keep, move to recordings, or drop for the period (drop is LOOSEN) | Keep |
+| Keep football | 3 hours a week, 1 hour, or none (less is LOOSEN) | 3 hours |
+| Keep church, gym, MyTutor | Each a yes or no, as pinned blocks | Yes |
+| Place | Home, library, or by day (C2) | Home |
+| Blocking level | Which reasons block the phone (K3). More is TIGHTEN, less is LOOSEN | As now |
+| Reminders | Any number, each with an anchor and an offset (section 7.14) | None |
+| Pinned blocks | Important blocks that must stay or be added (section 7.5) | None |
+| Free-time floor | The 6 protected hours a week stay as the minimum | 6 hours |
+| What to do with work that does not fit | Show NEGATIVE only, move it to the next free days, or ask | Show NEGATIVE |
+| Spill-over | What happens to unfinished work when the modifier ends (it stays in the Buffer; nothing is forgiven, RS4, RS7) | Stays |
+| End rule | On the date, when done, or by hand | On the date |
 
-### 5.4 Reminder (a medicine, a habit, a check)
+## 5. Assignment preset (separate from revision, in anticipation)
 
-A reminder is a small block with a name you type. Spark gives **no medical advice**: it never chooses a dose or says when you should take something.
+**Purpose:** finish assignments well before they are due. It plans **backward from each due date**, so work starts early and is spread, and the due date is a safe end, not the plan.
 
-| Property | Setting |
+### 5.1 Per assignment (an item with its own settings)
+
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| Title and module | By module, like cycles | Required |
+| Due date and time | The deadline | Required |
+| Size | Hours and minutes of work you expect, or a heaviness (D2) | Heaviness 5 (a first guess until calibrated, B5) |
+| Priority | 1 (most) to 5, or a rank among the others | 3 |
+| Start rule | **Anticipate** (start N days before), **Start on** a date, or **As soon as there is room** | Anticipate |
+| Lead time | N days before the due date when work begins | Size ÷ the daily share, at least 3 days |
+| Finish early by | Done N hours before the deadline (a submission buffer) | 3 hours |
+| Session length | Minimum and maximum minutes of one sitting | 45 to 120 |
+| Sessions a day | At most N for this assignment | 2 |
+| Preferred part of the day | Morning, afternoon, evening, any | Any |
+| Place | Home, library, or any | Any |
+| Milestones | Outline, draft, final, each with a share of the hours and a day | Outline 15%, draft 55%, final 30% |
+| Review pass | A short block after the draft | Off |
+| Rest before due | Nothing on the evening before | Off |
+| Depends on | Another assignment that must come first | None |
+| Proof | A photo of the work, or a commit (G1) | As the block's type |
+| Reminder to submit | A reminder at a time before it is due | 1 hour before |
+
+### 5.2 For the whole preset
+
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| Number of assignments | The list above, each added in turn | 1 or more |
+| Planning mode | **Anticipate** (spread back from the dates), **Even** (equal each day), **Front-load**, **Crunch** (last, with a warning that it is the risky choice) | Anticipate |
+| Daily cap | Most assignment hours in a day | 4 hours |
+| Order when assignments compete | By due date, by priority, by size, or round robin | By due date, then priority |
+| What happens to the study cycles | Keep, lighten (light cycles only), pause with the cycles coming back as catch-up (never forgiven) | Keep |
+| Quiet mode | More blocking while assignment blocks run (TIGHTEN) | Off |
+| Re-plan | When a session is missed the remaining work is spread again over the days left, and the preview of the change is shown | On |
+| Warn if a start date has passed | Says how many hours must now be done per day | On |
+
+**How anticipation works.** For each assignment the app works backward from "due minus the submission buffer", places the milestones, and fills the **work blocks that exist**, then free time that is allowed to convert (RS3), earliest day first, respecting the daily cap and your session settings. The preview shows each assignment's start date, number of sessions and finish date. If it cannot fit before the due date, it says by how many hours (NEGATIVE) and what to change (lead time, daily cap, intensity, drop a lower priority).
+
+## 6. Revision preset (separate)
+
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| Exams (items) | Module, date and time, length, hard alarm (D4), topics list | Required |
+| Per exam | Hours to spend, priority, topics per day, past papers, a mock exam block, a rest block after | Equal split |
+| Method | Spaced rotation of modules, blocked by module, or by weakest topic first | Spaced rotation |
+| Slots a day | The number of study cycles a day | 3 |
+| Past papers | Number, under time or open | 2 per exam |
+| Rest day before an exam | Yes or no | Yes |
+| Protected sleep before an exam | Night cutoff stays | Fixed |
+
+Assignments and revision can run together; each keeps its own settings (section 10).
+
+## 7. The other presets
+
+### 7.1 Catch-up week
+
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| Backlog | All missed work, or chosen modules, or a date range | All |
+| **VRNP slots a day** (study cycles) | The floor, and a stretch on a good day. Lecture cycles count toward it | Floor 3, stretch 4 |
+| Slot length | Standard 2.5 hours or light 1 hour | Standard |
+| **Intensity** | **Full** (video or slides, reading, full notes, problems) or **Rapid notes** (faster video, skim reading, short notes, fewer problems) | Full |
+| Rapid notes detail | Video speed (1.25, 1.5, 2), reading minutes, note style (key points only), problems to do | 1.5, 15, key points, 5 |
+| Structure of a slot | The minutes of video, read, notes, problems | 15, 25, 60, the rest |
+| Module weights | Which modules get slots first (by what is most behind) | Most behind first |
+| Module cap a day | At most N slots of one module a day | 2 |
+| Recordings for missed lectures | At lecture length, or faster | At length |
+| Weekend | Same floor, lower, or none | Same floor |
+| If a stretch does not fit | Drop it and say so, or show NEGATIVE | Drop and say so |
+| Ends | At the date, or when the backlog is cleared | At the date |
+
+Slots are shown **by module** ("Neural Computation: notes and problems"), never as "VRNP".
+
+### 7.2 Reading or chapters week (my reading of "a week off chapters")
+
+| Setting | Meaning |
 | --- | --- |
-| Text | Your words, for example "Take modafinil (as prescribed)" |
-| Anchor | Wake, breakfast, lunch, a clock time, shutdown, the night cutoff |
-| Offset | Minutes before or after the anchor, for example 5 before wake |
-| Days | Every day, weekdays, a list |
-| Length | 5 minutes by default |
-| Where it may sit | Free time or empty time only; or "may trim a work block" (LOOSEN, wall) |
-| Ramp | Optional: moves a number of minutes a day toward a target (for a routine you are building) |
-| Needs proof | No (reminders are not proven) |
-| If it cannot be placed | Tell you which day and why; never place it on top of something |
+| Chapters (items) | Title or book, module, pages or minutes, due date |
+| Per chapter | Sessions, minutes a session, notes style (none, key points, full), a recall block after, priority |
+| Lectures | Kept, or replaced by this reading |
+| Daily reading | Minutes a day, and a part of the day |
+| Template | Your normal week, or a lighter reading template |
 
-### 5.5 Template and day template
+### 7.3 Week off
 
-A template is seven day templates. A day template is an ordered list of blocks with anchors. Settings: name, which days it covers, wake anchor, shutdown anchor, whether it is used on days off, and the blocks. A day template can be applied to one day (a swap) or to a whole range.
+For a whole week (up to 14 days) off lectures and work blocks, **with important blocks kept or added**.
 
-### 5.6 Week type
-
-Common properties of every week type:
-
-| Property | Setting | Notes |
+| Setting | Meaning | Default |
 | --- | --- | --- |
-| Name and label on home | Setting | "Catch-up week, until Fri 20 Nov" (PW3) |
-| Date range | Setting | 1 to 14 days (PW1) |
-| Operations | Setting | List, each with its own settings |
-| Position in the stack | Setting | Section 4 |
-| Presets | Setting | Save, load, duplicate |
-| Preview | Fixed | Always, before applying |
-| LOOSEN operations | Fixed rule | Need the wall (WT4) |
-| End | Setting | Ends on its date; can be ended early, which is itself NEUTRAL |
-| What happens to unfinished work | Fixed | It stays in the Buffer. Nothing is forgiven (RS4, RS7) |
+| Days | The dates | Required |
+| What is paused | Work blocks, lectures, cycles, planning (the list a day off removes) | Work, lectures, planning |
+| Pinned blocks (items) | Section 7.5 | Church, gym, MyTutor, football as set |
+| Light goals | Optional small things (read 20 minutes a day, a walk) | None |
+| Screen-time policy | Section 9 | The preset's default |
+| Blocking level | Social apps blocked in no block, in pinned blocks only, or as now | In pinned work blocks only |
+| Alarms | No backstop alarm on a day off (G2); optional soft wake | No alarm |
+| Sleep and meals | Always kept | Fixed |
+| Wall | A week off is a loosening: one request for the whole week, with a string that rises with days used in 30 days (H1, H5). The exact length is a question (section 15) | Proposed |
 
-## 6. The operation catalogue (exhaustive list of verbs and targets)
+### 7.4 Weekend off
 
-Each row is one operation a week type may contain. "Class" is TIGHTEN, NEUTRAL or LOOSEN.
+The same as the week off, for Saturday and Sunday (or any 1 to 3 days). **One use** toward the 30-day tally (H5). **Screen-time limits stay on** and are set in the same flow (section 9): this is the case you described. The default policy for a weekend off is "social and video limited to a daily amount you choose, no limit on calls, maps or banking".
 
-**INJECT**
+### 7.5 Important blocks (pinned blocks) and how they are placed
 
-| # | Operation | Parameters | Class |
-| --- | --- | --- | --- |
-| I1 | Add a block | Date or weekday, time, length, type, title, venue | TIGHTEN if work, NEUTRAL if it takes free time |
-| I2 | Add a task or deadline | Title, due, heaviness (D2) | TIGHTEN |
-| I3 | Add a cycle quota | Floor, stretch, days, module weights | TIGHTEN |
-| I4 | Add a reminder | Section 5.4 | NEUTRAL (LOOSEN if it trims work) |
-| I5 | Add a catch-up block of recordings | Module, length, when | TIGHTEN |
-| I6 | Add a recurring routine anchor | A fixed block every day at a ramped time | NEUTRAL |
-| I7 | Add a protected block | Rest, a walk, meal prep | NEUTRAL |
+A pinned block is an item with its own settings. It stays or is added even when everything else is off.
 
-**TRANSFORM**
+| Setting | Options |
+| --- | --- |
+| Title, type, length | Free text, any block type, minutes |
+| **Placement** | **Fixed time** (09:30 to 10:15), **Window** (somewhere between 10:00 and 12:00, placed in free or empty time), **After an anchor** (30 minutes after wake, 1 hour before sleep), **Part of the day** (any evening), **Repeat** (every day, weekdays, a list), **Once** (a date) |
+| If the time is taken | Move within the window, move to the next day, or tell me and not place |
+| Proof | Photo, none (Y1) |
+| Blocking | Whether the phone is blocked during it |
+| Hard alarm | Yes or no |
+| Counts for money | Yes or no (default per type, Y4) |
 
-| # | Operation | Parameters | Class |
-| --- | --- | --- | --- |
-| T1 | Move work to a place | Selector, venue (library), walk minutes | NEUTRAL (the walks cost time, shown) |
-| T2 | Resize work blocks | Selector, scale or minutes, min, max | TIGHTEN if longer, LOOSEN if shorter |
-| T3 | Shift times | Selector, minutes, optional ramp per day | NEUTRAL |
-| T4 | Ramp wake and shutdown | Target time, minutes per day (default 15), direction | NEUTRAL |
-| T5 | Change priority order | Deadline-first, backlog-first, module order | NEUTRAL (PW2 widened) |
-| T6 | Change blocking | Add reasons, never remove (removing is LOOSEN) | TIGHTEN or LOOSEN |
-| T7 | Change proof | Stronger is TIGHTEN, weaker is LOOSEN | either |
-| T8 | Change conversion margin | Margin percent and floor (F3) | TIGHTEN if lower margin |
-| T9 | Change reward rules | Phone access minutes per hour (R2) | LOOSEN if more |
-| T10 | Change what counts for money | Which blocks and weights | LOOSEN if it raises payout |
+### 7.6 Library period (built today as C2)
+Moves work to the library, adds walks, brings the walk minutes back as catch-up. Settings: hours (asked once), dates, which blocks, walk minutes. It becomes one action inside any other modifier.
 
-**REPLACE**
+### 7.7 Routine
+**Build** (move wake and sleep toward a target by a step a day) or **Keep** (hold a routine you have). Settings: target wake and sleep, step in minutes (default 15), direction, anchors to fix, reminders, what to do on a bad night (hold the step), tolerance before drift is shown.
 
-| # | Operation | Parameters | Class |
-| --- | --- | --- | --- |
-| R1 | Swap a day template | Date, template | by content |
-| R2 | Swap the whole week template | Template | by content |
-| R3 | Replace a block's content | Selector, new block | by content |
-| R4 | Replace lectures with recordings | Module, length (a lecture you cannot attend) | NEUTRAL |
+### 7.8 Recovery or illness
+Shorter blocks, protected rest, lectures to recordings, an optional day off (the wall, H1 to H6). Settings: days, how much work to keep, what follows (a catch-up week, default off).
 
-**REMOVE** (only of things allowed to go)
+### 7.9 Away or travel
+Swap days to a travel template, cancel clashing commitments (wall), protected rest, place changes. Settings: dates, place, commitments to keep, offline behaviour.
 
-| # | Operation | Parameters | Class |
-| --- | --- | --- | --- |
-| X1 | Remove work blocks for a day | Date (a day off, H1) | LOOSEN (wall, escalating) |
-| X2 | Cancel a commitment | Selector (IM6) | LOOSEN (wall) |
-| X3 | Drop a stretch cycle | Selector | LOOSEN |
+### 7.10 Guests or social
+A "Guests" block over free time, shorter work blocks (shown), work moved earlier (TIGHTEN), a room-prep block. Settings: arrival, leave, prep length, what must still happen (sleep, reminders).
 
-Never available, because they are protected: remove sleep, remove a meal, remove the protected free hours, remove a reset, remove a hard alarm.
+### 7.11 Placement or job
+Swap days to a work template, cancel clashing lectures (wall), a smaller cycle quota. Settings: days, hours, travel.
 
-## 7. The week types (each is a preset of operations with settings)
+### 7.12 Fresh start
+A gentle start: the 14 days of record-only money again (G6), a low quota, reminders, a slow ramp. Blocking is never record-only (U12).
 
-Every week type below has the common properties of 5.6. The table shows its **purpose**, its **default operations** and the **settings it adds**. Any operation can be removed from a type and any type can be duplicated and edited, so the list is exhaustive through modifiability even where a use is not named.
+### 7.13 Custom
+An empty modifier. You add actions from section 8, scope from section 3, settings from section 4, items and a screen-time policy. Every preset above can be duplicated into a custom one and edited, so the list is exhaustive through modifiability even where a use is not named.
 
-### 7.1 Standard week
-Purpose: Week B as it is. No operations. Settings: none.
+### 7.14 Reminders (inside any modifier)
+Text you type (for example "Take melatonin (as prescribed)"), anchor (wake, breakfast, lunch, a clock time, sleep, the night cutoff), offset in minutes, days, length (5 minutes), where it may sit (free or empty time, or trim a work block as LOOSEN), an optional ramp (minutes a day). Spark never advises on medicines: you type the timing.
 
-### 7.2 Assignment week
-Purpose: finish named assignments, at home or in the library.
-- Operations: I2 for each assignment (title, due, heaviness), T5 deadline-first, T1 optional library, T2 optional longer work blocks, T8 optional lower margin.
-- Settings: assignments (list), deep-work hours a day (default: existing work blocks only), place (home, library, mixed by day), keep lectures (yes), keep football (3 hours, can drop to 1, LOOSEN), free-time floor (never below the 6 protected hours), quiet mode (extra blocking reasons, TIGHTEN), stop adding new tasks until it ends (off).
-- Home label: "Assignment week, until Wed 4 Nov".
+## 8. The actions (what a modifier can do)
 
-### 7.3 Catch-up week
-Purpose: clear a backlog (missed lectures, cycles, tasks).
-- Operations: T5 backlog-first, I3 cycle quota, I5 recordings for missed lectures, T8 optional lower margin.
-- Settings: backlog selection (all, by module, by date), cycles floor and stretch per day (3 and 4), module weights, weekend rule, recordings length, when the backlog counts as cleared (all done, or a number), what to do with a stretch that does not fit (drop it and say so).
-- Home label: "Catch-up week, until Sun 22 Nov".
-
-### 7.4 Routine-building week ("getting into routine")
-Purpose: move sleep and wake toward a target by a small step a day and fix anchors.
-- Operations: T4 wake and shutdown ramp, I6 anchor blocks, I4 reminders, T6 optional stronger night blocking (TIGHTEN).
-- Settings: target wake and target sleep time, minutes per day (default 15, range 5 to 30), direction, first anchor to fix (wake, breakfast, shutdown), light and walk block after wake (optional), caffeine cut-off reminder (optional, your text), reminder list, what to do on a bad night (hold the step for a day, never advance).
-- Safety: the app does not advise on medicines or sleep disorders (section 5.4). The ramp never moves a hard alarm or a fixed commitment.
-
-### 7.5 Routine-keeping week ("establishing a routine")
-Purpose: hold a routine already reached.
-- Operations: I6 anchors at fixed times, I4 reminders, T3 no drift (the Z3 pull-back stays on).
-- Settings: anchors, tolerance in minutes before a drift is shown (default 15), streak display off (P6: no future-based streaks).
-
-### 7.6 Library week (C2, built today as a library period)
-Operations T1. Settings: opening hours (asked once), days, which work blocks move, walk minutes. It becomes one operation inside any other type.
-
-### 7.7 Revision or exam week
-- Operations: I3 cycle quota (higher floor), I2 exam deadlines (hard alarm), T2 longer blocks, T6 stronger blocking, optional R4.
-- Settings: exam dates and times (hard alarms), modules and weights, past papers per day, rest block after each exam (protected).
-
-### 7.8 Recovery or illness week
-- Operations: X1 day off (wall escalating, H1 to H6), T2 shorter blocks, I7 protected rest, lectures to recordings (R4).
-- Settings: days, how much work to keep, catch-up after (a catch-up week begins on its own, default off). The automatic day off after 3 hours of sleep (H4) still applies.
-
-### 7.9 Reading or holiday week
-- Operations: R2 swap to a holiday template, I2 optional reading goals, T3 optional shifted times.
-- Settings: template, what stays (sleep, meals, church, football), blocking on or off for social apps (off is LOOSEN, wall).
-
-### 7.10 Travel or away week
-- Operations: R1 for travel days, X2 cancel affected commitments (wall), I7 protected rest, T1 place changes.
-- Settings: dates, place, commitments to keep, what is possible offline (the phone keeps the plan, the PC link pauses).
-
-### 7.11 Guests or social week
-- Operations: I1 a block of "Guests" over free time (uses free time first), T2 shorter work blocks (LOOSEN, shown), I2 tasks moved earlier (TIGHTEN, tasks come before the guests).
-- Settings: arrival and leave times, room prep block (length), which work to move before, what must still happen (sleep, meds reminders).
-
-### 7.12 Placement or job week
-- Operations: R1 swap days to a work template, X2 cancel lectures if clashing (wall), I3 smaller quota.
-- Settings: days, hours, travel.
-
-### 7.13 Fresh start week (the first week of a new set of rules)
-- Operations: the app's 14 day record-only rollout (G6) applied again for money, I3 low quota, I4 reminders, T4 gentle ramp.
-- Settings: length, what is record-only (money, penalties, but never blocking, U12).
-
-## 8. Exhaustiveness: what can and cannot be changed
-
-| Thing | Existence | Modifiability |
+| Verb | Actions | Class |
 | --- | --- | --- |
-| Sleep, meals, resets, the 6 protected hours, hard alarms, the night cutoff, the £40 food money | Always exist | **Fixed.** A meal may move within a window you set (TIGHTEN or NEUTRAL only); a day off keeps them (C5) |
-| Lectures, tutorials | Exist from the timetable | Cancel or move by file (IM6, wall); replace with recordings (R4) |
-| Work and study blocks | Exist from the template | Resize, move, rename, change place and proof (changes that loosen need the wall) |
-| Study cycles | Exist for each lecture (D1) | Quota, size, module, structure, due |
-| Reminders | None by default | Any number, with anchors and ramps |
-| Week types | Standard always exists; the others you add | Every setting in section 7; duplicate, edit, remove |
-| Templates | Week B | Add, swap, edit |
-| The wall and its escalation | Always exists | **Fixed** (M7, H1 to H6); only its length by use |
-| Typed proof | Always exists | Weaker proof is LOOSEN (wall) |
+| **INJECT** | Add a block; add a task or deadline; add a study cycle or a quota of cycles; add a milestone; add a reminder; add a protected block; add a recording block | TIGHTEN, or NEUTRAL if it takes free time |
+| **TRANSFORM** | Move to a place; resize blocks (longer is TIGHTEN, shorter is LOOSEN); shift times; ramp wake and sleep; change the order of work; change the intensity; change blocking (more is TIGHTEN, less LOOSEN); change proof (stronger or weaker); change the conversion margin; change a screen-time limit | by effect |
+| **REPLACE** | Swap one day's template; swap a whole week; swap a part of a day; replace a lecture with a recording; replace a block's content | by content |
+| **PIN** | Keep a block or add an important one through a period when everything else is off | NEUTRAL |
+| **REMOVE** | Remove work blocks for a period (a day off, wall escalating); cancel a commitment (wall) | LOOSEN |
+| **LIMIT** | Set a screen-time policy for the dates | TIGHTEN or LOOSEN |
 
-## 9. Settings model
+**Never available:** remove sleep, a meal, the 6 protected free hours, a reset, a hard alarm, or the night cutoff.
 
-- **Three levels:** global default, per week type, per instance of a week type (this week). An instance inherits its type, which inherits the global default. A day can override one setting for itself.
-- **Every setting** has a name, a plain reason, a default, a range, and a class (TIGHTEN, NEUTRAL, LOOSEN) so the app knows whether the wall is needed.
-- **Presets:** save an instance's settings as a preset; apply, duplicate, rename, delete.
-- **Reset:** every setting can be put back to its default, one at a time or all.
-- **History:** each applied week type is logged with its settings, so you can see what you ran.
+## 9. Screen-time policy (new; works on its own, inside any modifier)
 
-## 10. How you install a week type (the screens)
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| Applies to | An app group (social, video, games, shopping), chosen apps, or every non-essential app | Your block list |
+| Never counted | Calls, messages for emergencies, maps, banking, authenticator, the camera (X1, LA1) | Fixed |
+| Daily limit | Minutes a day across the group, or per app | None until you set it |
+| Per-session limit | Longest single stretch | None |
+| Quiet window | Hours when the group is blocked (for example 23:00 to 09:00) | The night rule |
+| Day type | Applies on work days, off days, or both. A weekend off keeps it on | Both |
+| At the limit | **Block until tomorrow**, **ask for the wall for 15 more minutes** (the string longer each time, as N4), or **warn only** | Block until tomorrow |
+| Counts during work blocks too | Yes (a work block already blocks) | Yes |
+| Reset time | When the day's count restarts | 04:00 |
+| Class | A limit that is lower is TIGHTEN; raising or removing one is LOOSEN (wall) | |
 
-1. **Plan a week type**: pick the type, the dates (1 to 14 days), or "start from a preset".
-2. **Settings**: only the settings of that type, with defaults filled in and their reasons.
-3. **Preview**: what is added, moved, removed, and what each costs; the Buffer before and after with the working; NEGATIVE if it does not fit; which operations need the wall.
-4. **Apply**: all or nothing (IM11). Loosening operations ask for the typed wall once.
-5. **Running**: home shows the type and when it ends. A list of active and planned types lets you edit, end early or remove one (removing a type that had loosened needs the wall, like IM12).
+**How it is measured.** Android's usage access (a permission U2 already plans) tells the app how long each app was in front. It is a count of foreground minutes, not content. If the permission is off or fails, the limit says it cannot count and falls back to the blocking rules that already exist (X7). A limit can be gamed by an app that is not on the list, which is why "every non-essential app" is an option.
 
-## 11. CSV and AI: how a week type travels (proposal for format version 2)
+## 10. Several modifiers at once and the layer order
 
-Version 1 files stay valid and unchanged. A version 2 file adds one new kind of row and two columns, so an AI can describe a week type and all its settings.
+From the bottom: **base template**, **replacements** (swapped days and weeks), **modifiers** in the order you list them, **day-level changes** (days off, a single day swap), **imports**, **automation** (catch-up, conversions, resets, football, library walks).
 
-New columns (after `notes`): `weektype`, `settings`.
-New kind: `weektype`, one row per week type applied, with `date`, `end_date`, `type` (assignment, catch_up, routine_build, routine_keep, library, revision, recovery, holiday, travel, guests, placement, fresh_start, custom), `title`, and `settings` as `key=value` pairs separated by `;` (a value with a semicolon is quoted).
+- **MS1** A higher layer acts on what the lower ones left. A protected block can never be removed or moved by any layer.
+- **MS2** If two modifiers want the same time, the earlier in the list wins, unless the one it would displace is protected; then the apply is refused with both named.
+- **MS3** Up to three modifiers can run at once (Assignment, Catch-up and Library, for example). Their daily caps add up and the preview shows the day's total.
+- **MS4** Priority between assignments is set inside the assignment preset; between modifiers, by their order.
+- **MS5** Ending one modifier early restores the calendar exactly as the layers below it produce it.
 
-Example, the week you asked for, written in version 2:
+## 11. TIGHTEN, NEUTRAL, LOOSEN and the wall
+
+Each action has a class. A modifier's class is its loosest action. **TIGHTEN and NEUTRAL apply freely**, like an import (IM6). **LOOSEN needs the typed wall once for the whole modifier**, with its escalating string where a day off is involved (H1 to H6). Raising a screen-time limit, shortening work, dropping lectures, trimming a work block for a reminder, and weaker proof are all LOOSEN. The preview names each loosening action and its cost.
+
+## 12. CSV version 2 (so an AI can build a modifier)
+
+Version 1 stays valid. Version 2 adds the kinds `modifier`, `item`, `pin` and `limit`, and two columns, `preset` and `settings`. `settings` is `key=value` pairs separated by `;`. An `item` row belongs to the nearest `modifier` row above it.
 
 ```
-kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes,weektype,settings
-weektype,2026-11-16,2026-11-22,,,Catch-up and routine week,catch_up,,,,,,,"cycles_floor=3;cycles_stretch=4;weekend=same_floor;modules=Randomness and Computation|Numerical Methods and NLA|Neural Computation|Game Theory;source=deadlines;stretch_if_negative=drop"
-weektype,2026-11-16,2026-11-22,,,Routine,routine_build,,,,,,,"wake=07:30;sleep=23:10;step_min=15;reminders=modafinil@wake-5|melatonin@sleep-60"
+kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes,preset,settings
+modifier,2026-11-16,2026-11-27,,,Assignments,,,,,,,assignment,"mode=anticipate;daily_cap_h=4;cycles=lighten;quiet=off"
+item,2026-12-04,,17:00,,GT assignment,,,5,,,,assignment,"size_h=6;priority=2;lead_days=7;finish_early_h=3;sessions_per_day=2;milestones=outline:15|draft:55|final:30"
+item,2026-12-04,,17:00,,RC assignment,,,5,,,,assignment,"size_h=5;priority=1;lead_days=7"
+modifier,2026-11-16,2026-11-22,,,Catch-up and routine,,,,,,,catch_up,"slots_floor=3;slots_stretch=4;intensity=rapid;video_speed=1.5;weekend=same_floor"
+modifier,2026-11-28,2026-11-29,,,Weekend off,,,,,,,weekend_off,"blocking=pinned_only"
+pin,2026-11-28,2026-11-29,18:00,19:30,Church,church,,,,,,weekend_off,"placement=fixed"
+limit,2026-11-28,2026-11-29,,,Social limit,,,,,,,weekend_off,"group=social;daily_min=60;at_limit=block;day=both"
 ```
 
-Rules (all Proposed): a week type row that names a setting that does not exist is an error with line and column (IM4); a setting outside its range is an error; a type or operation that would loosen needs the wall once for the file (IM6); applying twice changes nothing (IM8); an unknown future setting is refused, never ignored.
+Rules (Proposed): an unknown preset, a setting that does not exist, or a value out of range is an error with its line and column (IM4); a file that contains a LOOSEN action needs the wall once (IM6); applying twice changes nothing (IM8); the checker page (`web/csv-prompt.html`) and the app check the same rules from one set of shared test files (IM2).
 
-This week's file today (version 1) does the same work with rows the app already reads: a catch-up period, deadline rows for the extra cycles, and reminder events. See `week/2026-11-16-catchup-routine-week.csv`.
+## 13. Data model
 
-## 12. Data model (for when it is built)
+`modifier` (preset, dates, parts of the day, settings JSON, class, order, state), `modifier_item` (kind, settings JSON), `pinned_block`, `screen_policy`, `usage_day` (app group, minutes, date), `modifier_log`. The calendar is **computed** from the base template plus the active modifiers each time, as the library period is today, so it always agrees with imports and days off. Removing a modifier removes nothing else.
 
-Tables: `week_template`, `day_template`, `template_block`, `week_type` (the type and its defaults), `week_instance` (type, dates, settings JSON, state), `operation` (verb, class, selector, params), `reminder`, `preset`, `week_log`. A week instance is read, not copied: the calendar is computed from base template plus layers each time, like the library period is today, so it always agrees with imports and days off.
+## 14. Failure behaviour (X7) and tests
 
-## 13. Failure behaviour (X7) and tests
+- If a modifier cannot be applied, nothing changes (IM11). If the calendar cannot be computed, the base template is shown and the app says so.
+- A pinned block that cannot be placed names the day and the reason.
+- If usage access is off, screen-time limits say they cannot count; blocking continues as now.
+- A ramp never moves a time past a fixed commitment or hard alarm.
+- Proposed tests, each named with its row ID: every verb on a sample week; each class with and without the wall; the layer order; a protected block untouched by every action; preview equals result; applying twice is a no-op; ending early restores the calendar; anticipation places an assignment's first session at or before its lead time and its last before due minus the buffer; an assignment that cannot fit says NEGATIVE with the shortfall; priorities and daily caps are respected; a missed session is re-spread once (RS5); catch-up slot counts, intensity and module caps; a week off keeps its pinned blocks and drops the rest; a weekend off keeps its screen-time limit; a limit counts only foreground minutes and never essentials; CSV v2 errors with line and column; the clock change on 25 October.
 
-- If a layer cannot be applied the whole apply is refused and nothing changes (IM11). If the calendar cannot be computed the app shows the base template and says so.
-- A reminder that cannot be placed names the day and the reason and is not placed.
-- A ramp never moves a time past a fixed commitment or hard alarm; it stops and says why.
-- Proposed tests: each verb on a sample week; every class (TIGHTEN, NEUTRAL, LOOSEN) with and without the wall; the layer order (a lower layer cannot undo a higher one's protected rule); a protected block cannot be touched by any operation; preview equals result; applying twice is a no-op; removing an instance restores the calendar exactly; ramps over the clock change on 25 October; a cycle quota with and without room; the CSV version 2 errors with line and column.
+## 15. Questions for you
 
-## 14. Open questions
-
-1. Should an unfinished stretch cycle carry over to next week, or lapse (default here: lapse, the floor still stands)?
-2. Should routine-building be allowed to change the night cutoff (default: no; the cutoff follows the wake target by the existing rule, so it moves with the ramp)?
-3. How should "at least 3 or 4" cycles be counted for a day with a long lecture schedule (default: lecture cycles count toward the floor)?
-4. Reminder timing: you type the anchor and offset; Spark will never suggest one.
-5. Do you want presets for each week type shipped, or only the ones you save?
-6. Should week types be allowed to overlap in time (default: yes, stacked in the order shown, up to three at once)?
+1. **"A week off chapters"**: did you mean a reading or chapters week (7.2), a plain week off (7.3), or something else?
+2. **Your sentence about where important blocks are placed** was cut off ("placed e.g. gpt s jp;ofsu"). Which of the placements in 7.5 did you mean, or is there another?
+3. **Week off wall:** a week off is up to 7 days. Should it be one use with a longer string (for example 75 plus 25 for each extra day), or each day as a use as today (H1), or one use like the weekend (H5)?
+4. **Anticipation default:** is "start about 7 days before, spread, finish 3 hours early" right, or do you want to set a start date per assignment every time?
+5. **Screen-time limits:** what daily default for social and video on a weekend off (the spec says none until you set one)? And should the limit at its end ask for the wall for 15 more minutes, or just block until tomorrow?
+6. **Cycles during an assignment preset:** keep them, lighten them, or pause them (with the missed ones returning as catch-up)?
+7. Should two assignments due on the same day be planned together by priority, or one after the other?

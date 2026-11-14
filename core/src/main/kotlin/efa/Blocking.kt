@@ -50,7 +50,9 @@ fun nightWindow(pattern: List<PatternSlot>, now: ZonedDateTime, fallAsleep: Dura
 fun decide(
     pkg: String, now: ZonedDateTime, pattern: List<PatternSlot>, list: Set<String>,
     allow: Allowances = Allowances(), verifiedKeys: Set<String> = emptySet(), morning: MorningState? = null, lateness: Lateness = emptyMap(), earnedAccess: Boolean = false,
+    essentials: Set<String> = ESSENTIAL_CORE,
 ): Decision {
+    if (pkg in essentials) return Decision.Allow                       // MG1: an essential is never blocked, whatever is on the list or in force
     if (pkg !in list) return Decision.Allow
     // M5, M6, M8, M9: while the alarm rings and until the ready photo, the listed apps are blocked completely. Calls, maps, banking, music and
     // everything not on the list stay open (the check above), and a stuck block ends by itself (LA1, see readyReleaseAt).

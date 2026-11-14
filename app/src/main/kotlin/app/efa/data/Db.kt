@@ -194,6 +194,7 @@ interface DayOffDao {
     @Query("SELECT * FROM day_off WHERE state = 'pending'") suspend fun pending(): List<DayOffRow>
     @Query("SELECT * FROM day_off WHERE date = :date") suspend fun get(date: String): DayOffRow?
     @Query("UPDATE day_off SET state = :state WHERE id = :id") suspend fun setState(id: Long, state: String)
+    @Query("DELETE FROM day_off WHERE date IN (:dates) AND source = :source") suspend fun deleteBySource(dates: List<String>, source: String): Int
 }
 
 /** One finished task and how long it really took (B5). Each task has at most one row, so it is asked about once. */
@@ -231,6 +232,21 @@ interface WidgetDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insert(row: WidgetRow)
     @Query("SELECT * FROM widget_placement ORDER BY position") suspend fun all(): List<WidgetRow>
     @Query("DELETE FROM widget_placement") suspend fun clear()
+}
+
+/** One applied modifier (Modify Schedule). The instance is what the person chose; `compiled` is the calendar changes it made when it was applied, kept so the plan does not shift later. */
+@Entity(tableName = "modifier")
+data class ModifierRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0, val preset: String, val startDate: String, val endDate: String, val label: String,
+    val instance: String, val compiled: String, val state: String, val createdMs: Long, val loosened: Boolean,
+)
+
+@Dao
+interface ModifierDao {
+    @Insert suspend fun insert(row: ModifierRow): Long
+    @Query("SELECT * FROM modifier ORDER BY startDate, id") suspend fun all(): List<ModifierRow>
+    @Query("SELECT * FROM modifier WHERE id = :id") suspend fun get(id: Long): ModifierRow?
+    @Query("DELETE FROM modifier WHERE id = :id") suspend fun delete(id: Long): Int
 }
 
 @Dao
@@ -398,6 +414,7 @@ interface TaskDao {
     @Query("UPDATE task SET doneAtMs = NULL, hoursEstimate = hoursEstimate + :extraHours WHERE id = :id") suspend fun reopen(id: Long, extraHours: Double)
     @Query("DELETE FROM task WHERE importId = :importId AND doneMin = 0") suspend fun deleteByImport(importId: Long): Int
     @Query("DELETE FROM task WHERE sourceKey = :key AND doneMin = 0 AND doneAtMs IS NULL") suspend fun deleteOpenByKey(key: String): Int
+    @Query("DELETE FROM task WHERE sourceKey LIKE :prefix AND doneMin = 0 AND doneAtMs IS NULL") suspend fun deleteOpenByPrefix(prefix: String): Int
 }
 
 @Dao
@@ -415,7 +432,7 @@ interface MetaDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
 }
 
-@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class, CalibrationRow::class, ShoppingRow::class, WidgetRow::class], version = 14, exportSchema = true)
+@Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class, CalibrationRow::class, ShoppingRow::class, WidgetRow::class, ModifierRow::class], version = 15, exportSchema = true)
 abstract class EfaDb : RoomDatabase() {
     abstract fun pattern(): PatternDao
     abstract fun meta(): MetaDao
@@ -439,11 +456,12 @@ abstract class EfaDb : RoomDatabase() {
     abstract fun calibration(): CalibrationDao
     abstract fun shopping(): ShoppingDao
     abstract fun widgets(): WidgetDao
+    abstract fun modifiers(): ModifierDao
 
     companion object {
         @Volatile private var inst: EfaDb? = null
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
-            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14).build().also { inst = it }
+            inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15).build().also { inst = it }
         }
     }
 }
@@ -547,6 +565,15 @@ val MIGRATION_13_14 = object : androidx.room.migration.Migration(13, 14) {
     }
 }
 
+val MIGRATION_14_15 = object : androidx.room.migration.Migration(14, 15) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `modifier` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `preset` TEXT NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT NOT NULL, `label` TEXT NOT NULL, `instance` TEXT NOT NULL, `compiled` TEXT NOT NULL, `state` TEXT NOT NULL, `createdMs` INTEGER NOT NULL, `loosened` INTEGER NOT NULL)")
+    }
+}
+
+const val META_ADMIN = "admin_state"
+const val META_ESSENTIALS_EXTRA = "essentials_extra"
+const val META_ESSENTIALS_WINDOW = "essentials_window"
 const val META_LIBRARY_HOURS = "library_hours"
 const val META_LOOK = "launcher_look"
 const val META_APPEARANCE = "appearance_mode"

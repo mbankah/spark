@@ -18,7 +18,15 @@ data class AutoResult(val catchUps: List<TaskRow>, val conversions: List<Overlay
  */
 class PlanRepo(private val db: EfaDb) {
     internal val dbForAuto: EfaDb get() = db
+    /** The calendar: the base week, imports, days off and the library period (computed), then applied modifiers (Modify Schedule) and the Admin library on top. */
     suspend fun slots(): List<PatternSlot> {
+        val core = slotsCore()
+        val withMods = core + db.modifiers().all().filter { it.state == "active" }.flatMap { decodeSlots(it.compiled) }
+        val admin = AdminState.decode(db.meta().get(META_ADMIN))
+        return if (admin.loadSet == null) withMods else withMods + placeAdmin(withMods, admin, java.time.ZonedDateTime.now(LONDON).toLocalDate(), 14).slots
+    }
+
+    private suspend fun slotsCore(): List<PatternSlot> {
         val base = db.pattern().all().map { it.toSlot() } + db.overlay().all().filter { it.kind != "declined" }.map { it.toSlot() } +
             db.daysOff().effective().map { dayOffMarker(LocalDate.parse(it.date)) }          // C5: a day off is a marker the calendar reads
         val hours = parseLibraryHours(db.meta().get(META_LIBRARY_HOURS)) ?: return base

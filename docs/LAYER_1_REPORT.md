@@ -388,3 +388,11 @@ You asked for the resets, so the six work blocks that ran straight into another 
 
 **Not built, plainly:** cloud sync and a web app that works away from the PC (A1, G8, G9, E12, ST6 only as the local dashboard); OpenStreetMap routing for walks (T2); widgets from other apps (WG5, WG6); AP1's industrial look; the floating-window and picture-in-picture tests in LA7. **Not proven on a real phone:** everything in E1 to E56.
 
+## Update: Modify Schedule, the Admin library and the essentials, November 2026
+
+**Built:** the Modify Schedule screen and five presets (Assignment planned in anticipation, Catch-up week, Period off, Focus week with the hybrid toggle, Lecture-free lighter period), each drawn from its settings and item lists, with Recommended on a button press, a preview with the Buffer before and after, and a guard-rail checker that refuses a plan that breaks a rule. The Admin library of about 60 upkeep jobs with load sets, a daily cap, Lighter and an optional trim-work switch. The essentials: a fixed core that is never blocked, a 5 minute window that takes at most 3 added apps, and a block list that refuses an essential. Database v15.
+
+**Tested:** about 120 core tests (the planner, every guard rail, Recommended, the Admin placement, the essentials) and the phone tests for storage, migration and screens.
+
+**Not built:** Revision, Routine, Recovery, Away, Guests, Placement, Fresh start, Custom; screen-time limits; re-planning after a missed session; editing a job's frequency or adding a job; CSV version 2. **Not yet proven on a real phone:** E57 to E64.
+

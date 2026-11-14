@@ -41,7 +41,7 @@ fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, healthText: String = "", onHealth: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
+    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, onModify: () -> Unit = {}, healthText: String = "", onHealth: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -52,6 +52,13 @@ fun SetupScreen(
         BlockingCard(blocking, onOpenAccessibility, onChooseList)
         NotificationsCard(notifications, onOpenNotificationAccess, onAllowBufferNotice)
         SleepCard(sleep, blocking.serviceOn)
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("MODIFY SCHEDULE")
+            BasicText("Presets that adapt your schedule", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("Assignments planned in anticipation, a catch-up week, a period off, a focus week, a lecture-free lighter period, the Admin library and the essentials.", style = Ts(c.muted, 14.sp))
+            Btn("Modify Schedule", onModify, primary = true, modifier = Modifier.fillMaxWidth())
+        }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("DAYS OFF")

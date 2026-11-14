@@ -72,7 +72,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS, PC }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS, PC, MODIFY, MOD_FORM, ADMIN, ESSENTIALS }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -187,6 +187,32 @@ class MainActivity : ComponentActivity() {
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
                 var look by remember { mutableStateOf(LauncherLook()) }
                 LaunchedEffect(screen, reload) { look = LauncherLook.decode(withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LOOK) }) }
+                // Modify Schedule: the list, a preset's form, the Admin library and the essentials.
+                var modRows by remember { mutableStateOf<List<app.efa.data.ModifierRow>>(emptyList()) }
+                var modDraft by remember { mutableStateOf<Instance?>(null) }
+                var modPreview by remember { mutableStateOf<ModPreview?>(null) }
+                var modRec by remember { mutableStateOf<Map<String, Rec>>(emptyMap()) }
+                var modMessage by remember { mutableStateOf<String?>(null) }
+                var adminState by remember { mutableStateOf(AdminState()) }
+                var adminProblems by remember { mutableStateOf<List<String>>(emptyList()) }
+                var essUi by remember { mutableStateOf(EssentialsUi(emptyList(), 0, 0, emptyList())) }
+                LaunchedEffect(screen, reload) {
+                    if (screen == Screen.MODIFY) modRows = withContext(Dispatchers.IO) { app.efa.data.ModifierRepo(db).all() }
+                    if (screen == Screen.ADMIN) withContext(Dispatchers.IO) {
+                        adminState = AdminState.decode(db.meta().get(app.efa.data.META_ADMIN))
+                        val plan = PlanRepo(db).slots()
+                        adminProblems = placeAdmin(plan.filter { !it.notes.startsWith("Admin:") }, adminState, ZonedDateTime.now(LONDON).toLocalDate(), 14).problems
+                    }
+                    if (screen == Screen.ESSENTIALS) withContext(Dispatchers.IO) {
+                        val er = EssentialsRepo(applicationContext, db); val now = System.currentTimeMillis(); val w = er.window(); val all = installedApps(applicationContext)
+                        val ess = er.resolve()
+                        essUi = EssentialsUi(all.filter { it.pkg in er.extra() }, w.remainingMs(now), w.added, all.filter { it.pkg !in ess }.take(60), essUi.message)
+                    }
+                }
+                LaunchedEffect(screen, reload, essUi.windowMs > 0) {                                // the add window counts down once a second
+                    if (screen == Screen.ESSENTIALS && essUi.windowMs > 0) { kotlinx.coroutines.delay(1000); reload++ }
+                }
+                val saveAdmin: (AdminState) -> Unit = { st -> adminState = st; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_ADMIN, st.encode())); BlockingState.refresh(applicationContext); reload++ } }
                 var healthText by remember { mutableStateOf("") }
                 LaunchedEffect(screen, healthChanged.value) {
                     if (screen == Screen.SETUP) healthText = withContext(Dispatchers.IO) {
@@ -550,6 +576,7 @@ class MainActivity : ComponentActivity() {
                         onWidgets = { widgetMessage = null; screen = Screen.WIDGETS },
                         browsers = browsers,
                         onPc = { screen = Screen.PC },
+                        onModify = { modMessage = null; screen = Screen.MODIFY },
                         look = look,
                         onLook = { icons, grid -> val next = look.change(clock.toLocalDate(), icons, grid); look = next; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_LOOK, next.encode())) } },
                         appearance = appearance,
@@ -620,6 +647,63 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onCancel = { screen = Screen.MORNING })
+                    Screen.MODIFY -> ModifyHomeScreen(modRows, clock.toLocalDate(),
+                        onPick = { p ->
+                            val today = clock.toLocalDate()
+                            modDraft = Instance(p, today, if (p == Preset.ASSIGNMENT) today.plusDays(60) else today.plusDays(if (p == Preset.FOCUS) 4 else 1), emptyMap(), if (p == Preset.ASSIGNMENT || p == Preset.FOCUS) listOf(mapOf("title" to "")) else emptyList())
+                            modPreview = null; modRec = emptyMap(); modMessage = null; screen = Screen.MOD_FORM
+                        },
+                        onRemove = { r -> scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).remove(r.id); BlockingState.refresh(applicationContext); reload++; modMessage = "Removed." } },
+                        onAdmin = { screen = Screen.ADMIN }, onEssentials = { essUi = essUi.copy(message = null); screen = Screen.ESSENTIALS }, message = modMessage, onBack = { screen = Screen.SETUP })
+                    Screen.MOD_FORM -> modDraft?.let { draft ->
+                        ModifyFormScreen(draft, clock.toLocalDate(), modPreview, modRec, modMessage,
+                            onChange = { modDraft = it; modPreview = null },
+                            onRecommend = {
+                                scope.launch(Dispatchers.IO) {
+                                    val base = PlanRepo(db).slots(); val cal = CalibrationRepo(db).calibration()
+                                    val backlog = db.tasks().open().filter { it.source == "missed" }.sumOf { it.remainingHours() }
+                                    val recs = LinkedHashMap(recommend(draft.preset, base, draft.start, draft.end, backlog, cal))
+                                    var d2 = draft
+                                    for ((k, r) in recs) if (ModDefs.settings(draft.preset).any { it.key == k } && d2.settings[k] == null) d2 = d2.copy(settings = d2.settings + (k to r.value))
+                                    // each item: hours and lead time from heaviness and the person's own times
+                                    if (draft.preset == Preset.ASSIGNMENT) d2 = d2.copy(items = d2.items.map { m -> val h = (m["heaviness"] ?: "5").toIntOrNull() ?: 5
+                                        val r = recommendAssignment(h, cal, (recs["daily_cap_h"]?.value?.toDoubleOrNull() ?: 4.0)); recs.putAll(r.mapKeys { (k, _) -> "${m["title"].orEmpty().ifBlank { "assignment" }} ${k}" })
+                                        m + r.mapValues { it.value.value }.filterKeys { k -> m[k] == null } })
+                                    modDraft = d2; modRec = recs; modPreview = null
+                                }
+                            },
+                            onPreview = { scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(draft, ZonedDateTime.now(LONDON)) } },
+                            onApply = {
+                                val p = modPreview
+                                if (p != null && p.canApply) {
+                                    val now = ZonedDateTime.now(LONDON)
+                                    scope.launch(Dispatchers.IO) {
+                                        val repo = app.efa.data.ModifierRepo(db)
+                                        val len = if (p.compiled.dayOffDates.isNotEmpty()) repo.periodOffWall(p.compiled.dayOffDates.size, now, p.compiled.dayOffDates.first() == now.toLocalDate()) else efa.WallLength.IMPORT_LOOSEN
+                                        val doApply = { scope.launch(Dispatchers.IO) { try { repo.apply(draft, ZonedDateTime.now(LONDON), len); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++; modMessage = "Applied."; withContext(Dispatchers.Main) { screen = Screen.MODIFY } } catch (e: Exception) { modMessage = "Not applied: ${e.message}" } }; Unit }
+                                        withContext(Dispatchers.Main) {
+                                            if (p.wallNeeded) { wallBack = Screen.MOD_FORM; wallLength = len; wall = Triple("Apply ${draft.preset.label}", p.compiled.loosening.joinToString(". ") + ". Type the characters below by hand to apply it.", { doApply() }); screen = Screen.GATE } else doApply()
+                                        }
+                                    }
+                                }
+                            },
+                            onBack = { screen = Screen.MODIFY })
+                    } ?: run { screen = Screen.MODIFY }
+                    Screen.ADMIN -> AdminScreen(adminState, adminProblems,
+                        onLoadSet = { l -> saveAdmin(adminState.copy(loadSet = l, on = emptySet(), off = emptySet())) },
+                        onToggle = { j -> val on = adminState.enabled(j); saveAdmin(adminState.copy(on = if (on) adminState.on - j.id else adminState.on + j.id, off = if (on) adminState.off + j.id else adminState.off - j.id)) },
+                        onCap = { v -> saveAdmin(adminState.copy(capMin = v.coerceIn(15, 300))) },
+                        onLighter = { saveAdmin(adminState.copy(lighter = !adminState.lighter)) },
+                        onTrim = {
+                            if (adminState.trimWork) saveAdmin(adminState.copy(trimWork = false))
+                            else { wallBack = Screen.ADMIN; wallLength = efa.WallLength.IMPORT_LOOSEN; wall = Triple("Let admin trim work", "Letting small jobs take minutes from work blocks loosens the plan, so it needs the typed wall.", { saveAdmin(adminState.copy(trimWork = true)) }); screen = Screen.GATE }
+                        },
+                        onBack = { screen = Screen.MODIFY })
+                    Screen.ESSENTIALS -> EssentialsScreen(essUi,
+                        onOpenWindow = { wallBack = Screen.ESSENTIALS; wallLength = efa.ESSENTIALS_ADD_WALL; wall = Triple("Add to the essentials", "Adding an app to the essentials loosens blocking. Type the characters below by hand. You then have 5 minutes to add up to 3 apps.", { scope.launch(Dispatchers.IO) { EssentialsRepo(applicationContext, db).openWindow(System.currentTimeMillis()); reload++ } }); screen = Screen.GATE },
+                        onAdd = { a -> scope.launch(Dispatchers.IO) { val ok = EssentialsRepo(applicationContext, db).add(a.pkg, System.currentTimeMillis()); BlockingState.refresh(applicationContext); essUi = essUi.copy(message = if (ok) "${a.label} is now an essential." else "The window is closed or full."); reload++ } },
+                        onRemove = { a -> scope.launch(Dispatchers.IO) { EssentialsRepo(applicationContext, db).remove(a.pkg); BlockingState.refresh(applicationContext); reload++ } },
+                        onBack = { screen = Screen.MODIFY })
                     Screen.PC -> PcScreen(pcAddress, pcCode, pcStatus,
                         onSave = { a, k -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_PC_ADDRESS, a)); db.meta().put(MetaRow(app.efa.data.META_PC_CODE, k)); PcLink.push(applicationContext); reload++ } },
                         onSend = { scope.launch(Dispatchers.IO) { PcLink.push(applicationContext); reload++ } },
@@ -741,7 +825,7 @@ class MainActivity : ComponentActivity() {
                         onCancel = { screen = Screen.READY })
                     Screen.LIST_GATE ->ListWallGate(onPassed = { screen = Screen.BLOCKLIST }, onCancel = { screen = Screen.SETUP })
                     Screen.BLOCKLIST -> BlockListScreen(apps, blockList,
-                        onSave = { chosen -> scope.launch(Dispatchers.IO) { BlockingRepo(db).saveList(chosen); reload++; withContext(Dispatchers.Main) { screen = if (setupNeeded) Screen.HOME else Screen.SETUP } } },
+                        onSave = { chosen -> scope.launch(Dispatchers.IO) { val bad = essentialsIn(chosen, EssentialsRepo(applicationContext, db).resolve()); if (bad.isNotEmpty()) { withContext(Dispatchers.Main) { android.widget.Toast.makeText(applicationContext, "These are essentials and cannot be blocked: " + apps.filter { it.pkg in bad }.joinToString { it.label }, android.widget.Toast.LENGTH_LONG).show() }; return@launch }; BlockingRepo(db).saveList(chosen); reload++; withContext(Dispatchers.Main) { screen = if (setupNeeded) Screen.HOME else Screen.SETUP } } },
                         onCancel = { screen = if (setupNeeded) Screen.HOME else Screen.SETUP })
                     Screen.MAP_HOME -> MapPicker("Set home", "Move the map until the cross is on your home area. It is saved to about 100 m, never a house.",
                         places.home ?: CAMPUS_CENTRE, maxZoom = 16.0,

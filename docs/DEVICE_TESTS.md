@@ -291,3 +291,16 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E55 | Wear a watch that writes sleep to Health Connect. Setup, Allow reading sleep. | The card says "Your watch says ... The phone says ...". |
 | E56 | Have YouTube open in Chrome when a work block begins. Put Chrome in split screen. | The card appears within a minute, and straight away in split screen. |
 
+## Modify Schedule, the Admin library and the essentials
+
+| # | Do this | Expected |
+| --- | --- | --- |
+| E57 | Setup, Modify Schedule, Assignment. Add an assignment due in three weeks. Press Recommended, then Preview. | Hours and lead time are filled with a reason each. The preview shows start date, sessions and finish date, and the Buffer before and after. |
+| E58 | Apply it. Look at the next two weeks. | Sessions named "Title: outline", "draft", "final" appear in work blocks. A long study cycle keeps its first hour. Nothing is on a lecture, a meal or in the night. |
+| E59 | Add two assignments due within three days, order Auto. | Their sessions alternate on the same days. Far apart, they run one after the other. |
+| E60 | Period off for a weekend, with Gym as a window block. Apply, typing the wall. | Work and lectures are off, the gym block is placed, the dishes, chores, Bible reading and meals stay. Days off count toward the 30 day tally. |
+| E61 | Focus week, hybrid on, for a week in the holidays. | The project sessions fill the daytime and the evenings stay free. Lectures are off. Turning hybrid off keeps the lectures. |
+| E62 | Catch-up week with rapid notes. | At least 3 study slots a day counting lecture cycles, named by module, each shorter. |
+| E63 | Admin library, Standard. | Jobs appear in free time, spread over the week, none over a meal, sleep or the night, none past the daily cap. Jobs with no room are listed with their day. Turning on "May trim work" asks for the wall. |
+| E64 | Essentials, Open the add window, type the wall, add three apps. | A fourth is refused. After 5 minutes the window is closed. An added app is never blocked in a work block. Try to block Phone or Maps from the block list: it is refused with the app named. |
+

@@ -21,7 +21,7 @@ import java.time.ZonedDateTime
 class Snapshot(
     val pattern: List<PatternSlot>, val list: Set<String>, val allow: Allowances,
     val verified: Set<String>, val tasks: List<DueWork>, val morning: MorningState? = null, val lateness: Lateness = emptyMap(),
-    val earnings: List<Earning> = emptyList(), val shortSleep: Boolean = false,
+    val earnings: List<Earning> = emptyList(), val shortSleep: Boolean = false, val essentials: Set<String> = ESSENTIAL_CORE,
 )
 
 object BlockingState {
@@ -53,6 +53,7 @@ object BlockingState {
                 lateness = MorningRepo(db).lateness(pattern, now.toLocalDate()),
                 earnings = RewardsRepo(db).earnings(now),
                 shortSleep = isShortSleepToday(db, now),
+                essentials = app.efa.EssentialsRepo(ctx, db).resolve(),                       // MG1, MG2: worked out each time
             )
         } catch (e: Exception) { /* keep the last snapshot */ }
     }
@@ -60,7 +61,7 @@ object BlockingState {
     fun decide(pkg: String): Decision {
         val s = snapshot ?: return Decision.Allow
         val now = now()
-        return decide(pkg, now, s.pattern, s.list, s.allow, s.verified, s.morning, s.lateness, earnedAccess = earnedAccessActive(now, s.earnings, s.pattern))
+        return decide(pkg, now, s.pattern, s.list, s.allow, s.verified, s.morning, s.lateness, earnedAccess = earnedAccessActive(now, s.earnings, s.pattern), essentials = s.essentials)
     }
 
     /**

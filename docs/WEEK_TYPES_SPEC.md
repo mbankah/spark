@@ -1,6 +1,6 @@
 # Modify Schedule: schedule modifiers and presets (design spec, proposed, nothing here is built)
 
-Status: **Proposed.** Fourth version, 13 November 2026, with your answers applied. Every line is a "Proposed" row until you confirm it, and nothing here is in the app yet. It extends C1 (planned periods), C2 (library), PW1 to PW3 (assignment and catch-up weeks), H1 to H6 (days off), D1 to D5 (deadlines and cycles), IM1 to IM12 (import), RS1 to RS9 (automatic catch-up) and K1 to K10 (blocking). It never lowers a rule: sleep, meals, the 6 protected hours a week, the £40 food money, the night cutoff and the typed wall stay as they are.
+Status: **Proposed.** Fifth version, 14 November 2026, with your answers applied. Every line is a "Proposed" row until you confirm it, and nothing here is in the app yet. It extends C1 (planned periods), C2 (library), PW1 to PW3 (assignment and catch-up weeks), H1 to H6 (days off), D1 to D5 (deadlines and cycles), IM1 to IM12 (import), RS1 to RS9 (automatic catch-up) and K1 to K10 (blocking). It never lowers a rule: sleep, meals, the 6 protected hours a week, the £40 food money, the night cutoff and the typed wall stay as they are.
 
 ## 0. What this is, and what changed from the last version
 
@@ -19,6 +19,9 @@ Your answers, applied:
 | Ask for 15 more minutes should be an option | A per-policy setting **"At the limit"** with three choices: **Block until tomorrow**, **Ask for 15 more minutes (typed wall)** and **Warn only**. Ask for 15 is always selectable (9). |
 | Lecture cycles depend on whether Focus is hybridised with a period off (the Christmas holidays case); make it a toggle | **Hybrid with period off** toggle on the Focus week (7.3). Off: lecture cycles keep running, lightened. On: no lectures, no lecture cycles, project all day, rest free. |
 | Adding an app to the essentials needs the wall, with a 5-minute window to add apps | **Add-essentials window** (10, MG1): one wall opens a 5-minute window in which any number can be added. |
+| Cap the add-essentials window at 3 | **At most 3 apps** can be added in one 5-minute window (10, MG3a). |
+| In a project week, chores and the daily routine still happen (dishes, tidying the room, setting up for the day, Bible reading) | A **Daily routine** setting kept in **every** modifier, Focus week and Period off included (4, MG18). |
+| A week for no lectures, a lighter period; the list must be situationally exhaustive | A new preset, **Lecture-free lighter period** (7.4), and a **Situation guide** that maps real situations to presets and combinations (7.12). |
 | Recommended runs after a button press | Recommended **only runs when you press the button**, never on its own (11, MR6). |
 | Don't break the app with placement errors, e.g. blocking never includes essentials | A **guard-rail checker** that runs on every preview and refuses to apply a plan that breaks an invariant (section 10). |
 | A Recommended button that sets parameters | **Recommended** on every preset (section 11). |
@@ -73,9 +76,10 @@ Every preset runs the same steps:
 | Keep lectures | Keep, recordings, or drop (drop is LOOSEN) | Keep |
 | Keep football | 3 hours, 1 hour or none (less is LOOSEN) | 3 hours |
 | Keep church, gym, MyTutor | Each yes or no, as pinned blocks | Yes |
+| **Daily routine** | **Kept in every modifier.** Bible reading, getting ready and setting up for the day, breakfast and bag, washing dishes and the 10-minute tidy, tidying the room (the room reset), cleaning and laundry chores, evening prayer, stretches, and the 10-minute resets. Each can be Keep (default), Lighter (shorter, never below its minimum), or Drop (LOOSEN, wall) | Keep |
 | Place | Home, library, or by day (C2) | Home |
 | Blocking level | Which reasons block the phone (K3). More is TIGHTEN, less LOOSEN | As now |
-| Reminders | Any number, each with an anchor and offset (7.9) | None |
+| Reminders | Any number, each with an anchor and offset (7.10) | None |
 | Pinned blocks | Important blocks (7.2) | None |
 | Free-time floor | At least the 6 protected hours a week | 6 hours |
 | Work that does not fit | Show NEGATIVE, move it to later free days, or ask | Show NEGATIVE |
@@ -187,6 +191,7 @@ You pick a **start date and an end date** (1 to 14 days). Work and lectures are 
 | --- | --- | --- |
 | Start and end | Any dates, 1 to 14 days. A weekend is two days | Required |
 | What is paused | Work blocks, lectures, cycles, planning (the list a day off removes) | Work, lectures, planning |
+| **Daily routine** | Kept: Bible reading, setting up for the day, dishes, tidying, chores, prayer, meals (4). This is also how a day off works today, which removes only work, lectures and planning | Kept |
 | Pinned blocks (items) | Important blocks with their own settings (below) | Church, gym, MyTutor, football as in your week |
 | Light goals | Optional small things (read 20 minutes a day, a walk) | None |
 | **Screen-time policy** | Section 9 | **4 hours a day across every non-essential app** |
@@ -219,6 +224,7 @@ You pick a **start date and an end date** (1 to 14 days). Work and lectures are 
 | **Exclusive** | **All** work time goes to the project, or a share (for example 70% project, 30% other work) | Hybrid on: 100%. Hybrid off: the project takes what the lightened lecture cycles leave |
 | Lecture cycles | **Hybrid off:** they keep running, lightened as in 5.3 and never below the floor on a lecture day. **Hybrid on:** there are no lectures, so there are none to catch up and none are made. The project's hours are the work, and the rest of the day is **free time** (the protected free hours are untouched) | By the toggle |
 | What is paused | Other assignments (hours come back as catch-up afterwards, RS1, RS7). Hybrid on: lectures, cycles and planning as in a period off | Other assignments |
+| **Daily routine** | **Still happens** in a Focus week, hybrid or not: Bible reading, getting ready and setting up for the day, washing dishes and tidying, tidying the room, chores, prayer, meals. The project takes only the work time, never the routine (4, MG18) | Kept |
 | Lectures | Hybrid off: kept, recordings, or dropped (dropped is LOOSEN). Hybrid on: none | Kept |
 | Deep-work sessions | Length, breaks, a daily goal, a check-in at the end of each day | 90 minutes, 15-minute breaks |
 | Milestones | Per day or per phase | Three phases |
@@ -228,29 +234,87 @@ You pick a **start date and an end date** (1 to 14 days). Work and lectures are 
 
 **Integration:** the **Hybrid with period off** toggle is how Focus combines with Period off: it creates the period off for the same dates (so it is one preview and one apply), and its LOOSEN actions (lectures paused, screen-time or blocking changes) need the wall once. Focus also combines with **Library**. It cannot combine with a second Focus week at the same time, and it can run beside a Catch-up week only with a share below 100%.
 
-### 7.4 Library period (built today as C2)
+### 7.4 Lecture-free lighter period (no lectures, but not off)
+
+For the days or weeks when **there are no lectures and the load is lighter, but you are still working**: a reading week, the holidays, strike days, exam leave, a gap between modules. It is **not** a Period off (work does not stop) and **not** a Focus week (there is no single project): it is the ordinary week with lectures removed and the work eased.
+
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| Dates | Start and end, 1 to 14 days | Required |
+| Lectures and tutorials | **None** in the period (they are not in the calendar, so there are no lecture cycles and nothing to catch up) | None |
+| Work level | Gentle, normal or heavy (scales the hours a day) | **Gentle** |
+| Work hours a day | Minimum and maximum | 3 to 5 |
+| Cycles | A quota of study cycles a day, none, or by module (catching up or reading ahead) | 1 a day |
+| Reading or light goals (items) | Each with a title, minutes a day, part of the day | None |
+| What fills the freed lecture time | Free time, a light goal, a longer break, or a task you choose | Free time |
+| **Daily routine** | Kept (4) | Kept |
+| Pinned blocks | Church, gym, MyTutor, football as set | As in your week |
+| Screen-time policy | Section 9 | **Your block list, no daily limit** (a lighter period is not an off period); you can set one |
+| Blocking level | As now, pinned work only, or none in the freed time | As now |
+| Wake and sleep | Unchanged by default; a Routine modifier can ramp them | Unchanged |
+| Alarms | Keep the backstop alarm (G2); a lecture alarm is not needed | Backstop kept |
+| Cost | Shown in the preview. It frees lecture hours, so it can only help the Buffer; it never lowers the cutoff or the protected hours | Shown |
+| Class | NEUTRAL or TIGHTEN when lectures are removed by the timetable; LOOSEN only if you also shorten work | |
+
+It can run **with an Assignment preset** (the freed hours go to the assignments, which is the point of a reading week) or **with a Catch-up week** (the freed lecture hours become slots).
+
+### 7.5 Library period (built today as C2)
 Moves work to the library, adds walks, brings the walk minutes back as catch-up. It is one action inside any other modifier. Settings: opening hours (asked once), dates, which blocks, walk minutes.
 
-### 7.5 Routine
+### 7.6 Routine
 **Build** (move wake and sleep toward a target by a step a day) or **Keep**. Settings: target wake and sleep, step in minutes (default 15), direction, anchors, reminders, what to do on a bad night (hold the step), tolerance before drift is shown. The ramp never moves a hard alarm or fixed commitment.
 
-### 7.6 Recovery or illness
+### 7.7 Recovery or illness
 Shorter blocks, protected rest, recordings, an optional day off (the wall, H1 to H6). Settings: days, how much work to keep, what follows (a catch-up week, default off).
 
-### 7.7 Away or travel
+### 7.8 Away or travel
 Swap days to a travel template, cancel clashing commitments (wall), protected rest, place changes. Settings: dates, place, commitments to keep, offline behaviour.
 
-### 7.8 Guests or social
+### 7.9 Guests or social
 A "Guests" block over free time, shorter work blocks (shown), work moved earlier (TIGHTEN), a room-prep block. Settings: arrival, leave, prep length, what must still happen.
 
-### 7.9 Reminders (inside any modifier)
+### 7.10 Reminders (inside any modifier)
 Text you type, anchor (wake, breakfast, lunch, a clock time, sleep, the night cutoff), offset, days, length (5 minutes), where it may sit (free or empty time, or trim a work block as LOOSEN), an optional ramp. Spark never advises on medicines: you type the timing.
 
-### 7.10 Placement or job; Fresh start
+### 7.11 Placement or job; Fresh start
 Placement: swap days to a work template, cancel clashing lectures (wall), a smaller quota. Fresh start: record-only money again (G6), a low quota, a slow ramp; blocking is never record-only (U12).
 
-### 7.11 Custom
+### 7.12 Custom
 An empty modifier you build from the verbs (section 8), the scope (section 3), the settings (section 4), items and a screen-time policy. Every preset can be duplicated into a custom one and edited, so the list is exhaustive through modifiability.
+
+### 7.13 Situation guide (so the list is exhaustive for real life)
+
+Every situation maps to a preset, a combination, or Custom. "Combination" means up to three modifiers at once (MS3).
+
+| Situation | Use |
+| --- | --- |
+| Ordinary term week | None (the base template) |
+| An assignment is coming | **Assignment** (anticipation) |
+| Several assignments, one soon | **Assignment**, order Auto |
+| Exams are coming | **Revision**, plus **Assignment** if one is also due |
+| You are behind on lectures | **Catch-up week** |
+| Behind and one assignment due | **Catch-up week** + **Assignment** |
+| No lectures, lighter, still working (reading week, strike, exam leave) | **Lecture-free lighter period** |
+| No lectures and one big project | **Focus week**, hybrid on |
+| Term time and one big project | **Focus week**, hybrid off (lecture cycles stay, lightened) |
+| Christmas or Easter holidays, working | **Lecture-free lighter period**, or **Focus week** hybrid on |
+| Christmas or Easter holidays, resting | **Period off** |
+| A weekend off | **Period off** (two days) |
+| A week off | **Period off** (up to 14 days) |
+| A week off with a few fixed things (church, gym) | **Period off** with pinned blocks |
+| A day off, ill | **Recovery**, or a day off (H1) |
+| Bad night or poor sleep stretch | **Routine** build, and the automatic day off (H4) |
+| Getting back into a routine | **Routine** build |
+| Holding a routine you have | **Routine** keep |
+| Working from the library | **Library** |
+| Travelling or away | **Away** |
+| Guests staying | **Guests** |
+| A job, placement or interview week | **Placement** |
+| A hackathon or event | **Custom** (inject the event, lighten other work) |
+| A fresh start after a bad stretch | **Fresh start** |
+| Your own mix | **Custom** |
+
+If a situation is not here, **Custom** can build it, because every preset is made of the same parts (section 2) and any of them can be added, removed or changed.
 
 ## 8. The actions (what a modifier can do)
 
@@ -289,10 +353,10 @@ Every preview runs a **checker** against the plan. A plan that fails any rule be
 
 **Essentials (the case you named)**
 
-- **MG1** The **essentials set** is never blocked and never counted by any modifier, block, quiet window, screen-time limit or "every non-essential app" choice. It is: phone and emergency calls, the default messages app, maps, banking and payment apps, authenticators, the camera, the clock and alarms, Android Settings (LA6 only walls Spark's own pages), the launcher itself, and Spark. You can **add** to it, and you can never remove the fixed core. Adding loosens blocking, so it goes through the typed wall, with one convenience: **passing the wall once opens a 5-minute add-essentials window**. During it you can add as many apps as you like with no further typing; when the 5 minutes end the window closes and the next add needs the wall again. The window shows the time left and lists what was added. Apps you added can be taken out of the essentials at any time with no wall (that only tightens). Every window and every addition is logged.
+- **MG1** The **essentials set** is never blocked and never counted by any modifier, block, quiet window, screen-time limit or "every non-essential app" choice. It is: phone and emergency calls, the default messages app, maps, banking and payment apps, authenticators, the camera, the clock and alarms, Android Settings (LA6 only walls Spark's own pages), the launcher itself, and Spark. You can **add** to it, and you can never remove the fixed core. Adding loosens blocking, so it goes through the typed wall, with one convenience: **passing the wall once opens a 5-minute add-essentials window**. During it you can add **up to 3 apps** with no further typing; when the 3 are added or the 5 minutes end, whichever comes first, the window closes and the next add needs the wall again. The window shows the time left and lists what was added. Apps you added can be taken out of the essentials at any time with no wall (that only tightens). Every window and every addition is logged.
 - **MG2** "Every non-essential app" is **worked out when it is enforced**, not saved as a list, so a newly installed banking app is covered the moment it is marked essential and is never caught in the meantime if it is on the essentials set.
 - **MG3** A block list that already contains an essential is refused, with the app named.
-- **MG3a** The add-essentials window is 5 minutes from the moment the wall is passed, counted on trusted time (G10), is closed by leaving the screen, and cannot be extended. It never lets you remove the fixed core and never lets an essential be added to a policy as a "blocked" app.
+- **MG3a** The add-essentials window is 5 minutes from the moment the wall is passed, and takes at most 3 apps, counted on trusted time (G10), is closed by leaving the screen, and cannot be extended. It never lets you remove the fixed core and never lets an essential be added to a policy as a "blocked" app.
 
 **Time and placement**
 
@@ -309,6 +373,7 @@ Every preview runs a **checker** against the plan. A plan that fails any rule be
 - **MG14** A screen-time limit is never so low that it blocks the essentials (MG1) or Spark's own screens, and cannot be set below 15 minutes a day.
 - **MG15** Two modifiers that ask for the same time are resolved by order (section 12); if they ask for something protected, the apply is refused with both named.
 - **MG16** The result is the same however many times the checker runs (applying twice changes nothing, IM8).
+- **MG18** The **daily routine** (Bible reading, getting ready and setting up for the day, breakfast and bag, washing dishes and the tidy, the room reset, chores, prayer, stretches, resets) is never removed or shortened below its minimum by a preset. Only the person can drop or lighten one, with the wall for a Drop. A Focus week, a Period off and a Lecture-free lighter period all keep it.
 - **MG17** If anything cannot be computed, the app shows the base template and says so, and blocking continues as before (X7). A modifier never leaves the phone with **less** blocking than before unless you passed the wall.
 
 ## 11. Recommended (automatic parameters)
@@ -376,6 +441,7 @@ Rules: an unknown preset or setting, or a value out of range, is an error with i
 
 ## 15. Questions still open
 
-1. **Wall for a period off.** You wrote "See last" and I could not tell what that referred to. I have assumed: one request, one use toward the 30-day tally, base string for one or two days and 25 characters longer for each further day. Is that right?
-2. **Your note on lecture cycles** ("if not hybridised with week off, for example the Christmas holidays but still working, and free if not") I have read as: **hybrid on** means a period off with only the project as work and the rest free; **hybrid off** means term time, lecture cycles keep running lightened. Is that the way round you meant? If you meant "free time" to be the outcome of the **off** setting, tell me and I will swap them.
-3. **How many apps may be added in the 5-minute window?** I wrote no limit. Should there be one (for example 10)?
+None blocks the design. Two things I have **assumed** because you moved on without correcting them. Tell me if either is wrong:
+
+1. A **period off** is one request and one use toward the 30-day tally. Up to two days costs the base string and each extra day adds 25 characters.
+2. In a **Focus week**: hybrid on means a period off with the project as the only work and the rest free; hybrid off means term time with lecture cycles kept and lightened. The daily routine (chores, Bible reading, setting up for the day) happens in both.

@@ -1,6 +1,6 @@
 # Modify Schedule: schedule modifiers and presets (design spec, proposed, nothing here is built)
 
-Status: **Proposed.** Fifth version, 14 November 2026, with your answers applied. Every line is a "Proposed" row until you confirm it, and nothing here is in the app yet. It extends C1 (planned periods), C2 (library), PW1 to PW3 (assignment and catch-up weeks), H1 to H6 (days off), D1 to D5 (deadlines and cycles), IM1 to IM12 (import), RS1 to RS9 (automatic catch-up) and K1 to K10 (blocking). It never lowers a rule: sleep, meals, the 6 protected hours a week, the £40 food money, the night cutoff and the typed wall stay as they are.
+Status: **Proposed.** Sixth version, 14 November 2026, with your answers applied. Every line is a "Proposed" row until you confirm it, and nothing here is in the app yet. It extends C1 (planned periods), C2 (library), PW1 to PW3 (assignment and catch-up weeks), H1 to H6 (days off), D1 to D5 (deadlines and cycles), IM1 to IM12 (import), RS1 to RS9 (automatic catch-up) and K1 to K10 (blocking). It never lowers a rule: sleep, meals, the 6 protected hours a week, the £40 food money, the night cutoff and the typed wall stay as they are.
 
 ## 0. What this is, and what changed from the last version
 
@@ -22,6 +22,7 @@ Your answers, applied:
 | Cap the add-essentials window at 3 | **At most 3 apps** can be added in one 5-minute window (10, MG3a). |
 | In a project week, chores and the daily routine still happen (dishes, tidying the room, setting up for the day, Bible reading) | A **Daily routine** setting kept in **every** modifier, Focus week and Period off included (4, MG18). |
 | A week for no lectures, a lighter period; the list must be situationally exhaustive | A new preset, **Lecture-free lighter period** (7.4), and a **Situation guide** that maps real situations to presets and combinations (7.12). |
+| Every possible admin job, even in the normal schedule (dishes, bathroom, room, bed, shops, bins and so on) | An **Admin library** (4A): a catalogue of every kind of upkeep job, each with its own frequency, length, window and settings, kept in every modifier. |
 | Recommended runs after a button press | Recommended **only runs when you press the button**, never on its own (11, MR6). |
 | Don't break the app with placement errors, e.g. blocking never includes essentials | A **guard-rail checker** that runs on every preview and refuses to apply a plan that breaks an invariant (section 10). |
 | A Recommended button that sets parameters | **Recommended** on every preset (section 11). |
@@ -76,7 +77,7 @@ Every preset runs the same steps:
 | Keep lectures | Keep, recordings, or drop (drop is LOOSEN) | Keep |
 | Keep football | 3 hours, 1 hour or none (less is LOOSEN) | 3 hours |
 | Keep church, gym, MyTutor | Each yes or no, as pinned blocks | Yes |
-| **Daily routine** | **Kept in every modifier.** Bible reading, getting ready and setting up for the day, breakfast and bag, washing dishes and the 10-minute tidy, tidying the room (the room reset), cleaning and laundry chores, evening prayer, stretches, and the 10-minute resets. Each can be Keep (default), Lighter (shorter, never below its minimum), or Drop (LOOSEN, wall) | Keep |
+| **Daily routine and admin** | **Kept in every modifier.** Every job switched on in the **Admin library** (4A), and the routine: Bible reading, getting ready and setting up for the day, breakfast and bag, washing dishes and the 10-minute tidy, tidying the room (the room reset), cleaning and laundry chores, evening prayer, stretches, and the 10-minute resets. Each can be Keep (default), Lighter (shorter, never below its minimum), or Drop (LOOSEN, wall) | Keep |
 | Place | Home, library, or by day (C2) | Home |
 | Blocking level | Which reasons block the phone (K3). More is TIGHTEN, less LOOSEN | As now |
 | Reminders | Any number, each with an anchor and offset (7.10) | None |
@@ -85,6 +86,145 @@ Every preset runs the same steps:
 | Work that does not fit | Show NEGATIVE, move it to later free days, or ask | Show NEGATIVE |
 | Spill-over | Unfinished work stays in the Buffer. Nothing is forgiven (RS4, RS7) | Stays |
 | End rule | On the date, when done, or by hand | On the date |
+
+## 4A. Admin library (every kind of upkeep job, in every schedule)
+
+**Why.** The normal week today has dishes, a Saturday clean, a Sunday room reset and a Monday shop, but not everything. Making the bed, bins on other days, wiping the kitchen, bed sheets, bills, post, appointments, prescription refills and the rest are not in it. The Admin library is a **catalogue** of upkeep jobs. Each job is an item with its own settings, can be switched on or off, and **is kept in every modifier**, in the normal schedule too.
+
+### 4A.1 What a job has
+
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| Title and area | By area (4A.3) | Required |
+| Checklist | Optional sub-steps, each with minutes ("bathroom: toilet 3, sink 3, shower 5, floor 4") | None |
+| **Frequency** | Daily, weekdays, N times a week, weekly on a day, every N days, fortnightly, monthly (a date or "after pay"), once, **as needed** (set off by an event, for example before guests or when the bin is full) | By job |
+| Days | Which weekdays | By job |
+| **Window** | The earliest and latest time it may sit, or a part of the day, or an anchor ("5 minutes after wake") | By job |
+| Length and **minimum** | Usual minutes and the shortest it may be squeezed to (Lighter) | By job |
+| Can split | May be done in two parts the same day | No |
+| Can combine with | Jobs it may share a block with (bins out with the washing out) | None |
+| Place | Home, a room, the shop, the post office | Home |
+| Priority | Low, normal, high (high is placed first and dropped last) | Normal |
+| Supplies | Items it needs, linked to the shopping list (bin bags, bathroom cleaner) | None |
+| Proof | A photo in the window (Y1) or none | **Chores: photo, as now. Other admin: none** |
+| Phone during it | Open (as chores are today, K3) or blocked | Open |
+| Reminder | Before the window opens, or at the end of the window | Off |
+| Counts for money | No (Y4 counts work and lectures only) | No |
+| Active dates | A season (for example "winter: change the bedding weight") | Always |
+| State | On, paused, or off | On for the standard set |
+
+### 4A.2 How jobs are placed (so the week does not break)
+
+- **Spread, do not pile up.** Jobs are spread over the week by their frequency, window and the free time that exists; **no day gets more than a daily admin cap** (default 90 minutes, a setting). Saturday is not the only dumping ground.
+- **Batch by area** when a job allows it (all the kitchen jobs together after dinner).
+- **Anchors first**: making the bed goes after wake; dishes after the meal; bins out the evening before collection; the weekly shop after the plan's shopping block.
+- **Where it sits**: only in free time, chore blocks and empty time, never on top of anything else, never in the night (MG6), and a day off keeps them (C5).
+- **If the window is full**: move within the window, move to the next day, or Lighter (its minimum). A job that still cannot be placed says which day and why. It is not silently dropped.
+- **Missed jobs** come back **once** (RS5) at the next free slot with the reason shown, but never as "work in the Buffer": admin does not change the Buffer.
+- **Away, ill, guests, a period off**: each preset says what it does to admin (section 4A.5).
+
+### 4A.3 The catalogue (every kind of job, with defaults you can change)
+
+A job is **Standard** (on by default for the normal schedule), **Optional** (off until you switch it on) or **Triggered** (as needed).
+
+| Area | Job | Default frequency | Default length | Set |
+| --- | --- | --- | --- | --- |
+| **Bed and bedroom** | Make the bed | Daily, 5 minutes after wake | 3 | Standard |
+| | Open the window or air the room | Daily after wake | 2 | Optional |
+| | Tidy the room (surfaces, clothes off the floor) | Daily, evening | 10 | Standard |
+| | Room reset (surfaces, bed, dishes) | Weekly, Sunday | 10 | Standard |
+| | Change the bed sheets | Fortnightly | 20 | Standard |
+| | Change the pillow cases | Weekly | 5 | Optional |
+| | Wipe the desk and clear the study space | Daily, before the first block | 5 | Optional |
+| | Set up the study space for tomorrow (M1) | Daily, evening | 5 | Standard |
+| **Kitchen** | Wash dishes and the 10-minute tidy | Daily, after dinner | 15 | Standard |
+| | Wipe the counters and hob | Daily | 5 | Standard |
+| | Clean the microwave | Fortnightly | 5 | Optional |
+| | Clean the fridge and bin the old food | Weekly | 10 | Standard |
+| | Clean the oven | Monthly | 20 | Optional |
+| | Meal prep and batch cook | Weekly, Sunday | 45 | Standard |
+| | Pack tomorrow's lunch | Daily, evening | 5 | Standard |
+| **Bathroom** | Wipe the sink and surfaces | Twice a week | 5 | Optional |
+| | Clean the bathroom (toilet, sink, shower, floor) | Weekly, Saturday | 25 | Standard |
+| | Clean the shower drain and tiles | Monthly | 15 | Optional |
+| **Floors and surfaces** | Hoover the floors | Weekly, Saturday | 20 | Standard |
+| | Mop | Fortnightly | 20 | Optional |
+| | Dust | Weekly | 10 | Optional |
+| | Clean the windows and mirrors | Monthly | 15 | Optional |
+| **Laundry and clothes** | Put a wash on | By need, about twice a week | 5 | Standard |
+| | Take the washing out and hang it | After each wash | 10 | Standard |
+| | Put the clean clothes away | Weekly | 15 | Standard |
+| | Ironing | Weekly, Saturday | 30 | Standard |
+| | Lay out clothes and the bag for tomorrow | Daily, evening | 5 | Standard |
+| | Gym and football kit washed and packed | Before each session | 5 | Standard |
+| **Bins and recycling** | Take the bins out | Weekly, the evening before collection | 5 | Standard |
+| | Empty the room and kitchen bins | Twice a week | 5 | Standard |
+| | Recycling and glass | Weekly | 5 | Optional |
+| **Shopping and food** | The weekly shop | Weekly, Monday (the plan's Aldi block) | 60 | Standard |
+| | Top-up shop for a missing item | Triggered | 20 | Triggered |
+| | Check the shopping list and prices (SH1, SH3) | Weekly, before the shop | 10 | Standard |
+| | Put the shopping away | After each shop | 10 | Standard |
+| **Money and bills** | Weekly money check (the guide, the £40 food money) | Weekly | 10 | Standard |
+| | Pay bills and rent | Monthly, on the due date | 15 | Optional |
+| | Check the bank and statements | Weekly | 10 | Optional |
+| | Receipts into the app | Weekly | 5 | Optional |
+| **Post and parcels** | Collect the post and parcels | Twice a week | 5 | Optional |
+| | Return an item | Triggered | 20 | Triggered |
+| **Health and body** | Shower, teeth, face (the routine) | Daily | in the routine | Standard |
+| | Refill a prescription (your medicines) | Monthly, a date you set | 15 | Optional |
+| | Book or attend an appointment (doctor, dentist, optician) | Triggered, with a date | 30 | Triggered |
+| | Haircut, nails | Every N weeks | 30 | Optional |
+| | Stretches and a walk | Daily | in the routine | Standard |
+| **Digital** | Charge the phone and devices | Nightly, at the sleep anchor | 1 | Standard |
+| | Clear the email inbox | Daily or twice a week | 10 | Optional |
+| | Back up files and the laptop | Weekly | 10 | Optional |
+| | Phone storage and updates | Monthly | 10 | Optional |
+| **University admin** | Check the timetable for changes (L6) | Weekly, Sunday | 10 | Standard |
+| | Check Canvas (D3) and MyUoB (L7) | Weekly | 10 | Standard |
+| | Registration, forms and extensions | Triggered, with a date | 20 | Triggered |
+| **Faith and life** | Pack the church bag | Weekly, Sunday | 10 | Standard |
+| | Call or message family | Weekly | 15 | Optional |
+| | Birthdays and cards | Triggered, with a date | 10 | Triggered |
+| **Household** | Water the plants | Weekly | 5 | Optional |
+| | Replace a bulb, a battery, bin bags | Triggered | 10 | Triggered |
+| **Transport** | Top up the bus pass or buy tickets | Triggered, with a date | 10 | Triggered |
+| **Guests and events** | Room prep for guests | Triggered, before guests | 150 | Triggered |
+| | Clear up after guests | Triggered, after guests | 60 | Triggered |
+
+If a job you do is not here, **Add a job** makes one from the settings in 4A.1, so the library is exhaustive through modifiability.
+
+### 4A.4 Load sets and Recommended
+
+- **Load sets:** **Light upkeep** (the Standard jobs at their minimum lengths), **Standard** (the Standard column as written), **Thorough** (Standard plus Optional). Pick one as the starting point, then switch any job on or off.
+- **Recommended** (section 11, button press only) spreads the chosen jobs over the days from your free time, your existing chores and the daily admin cap, and shows the reason for each placement ("bins on Thursday evening because collection is Friday"). It never places a job where it breaks a guard rail.
+
+### 4A.5 What each modifier does to admin
+
+| Modifier | Admin |
+| --- | --- |
+| None (normal week) | The enabled library, placed by 4A.2 |
+| Assignment, Revision, Catch-up, Focus, Lecture-free lighter | Kept. Lighter (minimum lengths) only if you choose it |
+| Period off | Kept; the period's free hours can take the Optional jobs if you choose |
+| Recovery or illness | Light upkeep (the minimums) by default; the rest wait |
+| Away or travel | Home jobs paused, travel jobs (packing, tickets) injected; paused jobs do not pile up on return unless you choose |
+| Guests | Room prep and clear-up injected (Triggered); other jobs kept |
+| Placement or job week | Light upkeep, with the weekly jobs moved to the free days |
+| Fresh start | Standard, with a slow start |
+
+Dropping a job for a period is **LOOSEN** (the wall). Pausing a Triggered job nobody has set off is not.
+
+### 4A.6 Guard rails for admin (added to section 10)
+
+- **MG19** Admin is never placed on a protected block, in the night, or on a hard alarm, and two jobs never share a time unless the job says it can combine.
+- **MG20** No day exceeds the daily admin cap; a job that does not fit is moved or lightened and the move is shown. It is never dropped silently.
+- **MG21** A job never goes below its minimum length, and a job with a checklist keeps every step unless you remove it.
+- **MG22** Anchored jobs only exist where their anchor exists: no "make the bed after wake" on a day with no wake block, no "bins out the evening before collection" without a collection day set.
+- **MG23** Health jobs (a prescription refill, an appointment) are **reminders with your own text and dates**. Spark never chooses a medicine, a dose or a date.
+- **MG24** Admin never changes the Buffer, the money ratio or the earned phone access (R2, Y4): it is upkeep, not work.
+
+### 4A.7 Tests (proposed)
+
+Each catalogue job places at its default; a frequency of every kind places on the right days; the daily cap holds; batching by area; anchors; an unplaceable job is reported with its day and reason; a missed job returns once; every modifier keeps the enabled library; Lighter respects minimums; Drop needs the wall; Recommended spreads Saturday's load; admin leaves the Buffer unchanged; guard rails MG19 to MG24 each refuse a plan that breaks them.
 
 ## 5. Assignment preset (separate from revision, in anticipation)
 
@@ -373,7 +513,7 @@ Every preview runs a **checker** against the plan. A plan that fails any rule be
 - **MG14** A screen-time limit is never so low that it blocks the essentials (MG1) or Spark's own screens, and cannot be set below 15 minutes a day.
 - **MG15** Two modifiers that ask for the same time are resolved by order (section 12); if they ask for something protected, the apply is refused with both named.
 - **MG16** The result is the same however many times the checker runs (applying twice changes nothing, IM8).
-- **MG18** The **daily routine** (Bible reading, getting ready and setting up for the day, breakfast and bag, washing dishes and the tidy, the room reset, chores, prayer, stretches, resets) is never removed or shortened below its minimum by a preset. Only the person can drop or lighten one, with the wall for a Drop. A Focus week, a Period off and a Lecture-free lighter period all keep it.
+- **MG18** The **daily routine and every enabled Admin library job** (Bible reading, getting ready and setting up for the day, breakfast and bag, washing dishes and the tidy, the room reset, making the bed, bins, chores, prayer, stretches, resets) is never removed or shortened below its minimum by a preset. Only the person can drop or lighten one, with the wall for a Drop. A Focus week, a Period off and a Lecture-free lighter period all keep it.
 - **MG17** If anything cannot be computed, the app shows the base template and says so, and blocking continues as before (X7). A modifier never leaves the phone with **less** blocking than before unless you passed the wall.
 
 ## 11. Recommended (automatic parameters)
@@ -429,6 +569,13 @@ modifier,2027-01-04,2027-01-10,,,Project focus,,,,,,,focus,"exclusive=yes;share=
 item,2027-01-10,,17:00,,CS Project,,,8,,,,focus,"size_h=30;lead_days=7;finish_early_h=24"
 ```
 
+Admin jobs travel as rows of kind `admin` (version 2), for example:
+
+```
+admin,,,18:00,18:10,Take the bins out,,,,,,,,"area=bins;frequency=weekly;days=thu;window=18:00-21:00;minutes=5;proof=photo"
+admin,,,07:35,07:38,Make the bed,,,,,,,,"area=bed;frequency=daily;anchor=wake+5;minutes=3;proof=none"
+```
+
 Rules: an unknown preset or setting, or a value out of range, is an error with its line and column (IM4); a file with a LOOSEN action needs the wall once (IM6); applying twice changes nothing (IM8); the checker page (`web/csv-prompt.html`) and the app check the same rules from shared test files (IM2). A setting called `recommended=yes` asks the app to fill every setting you did not give.
 
 **Data.** `modifier` (preset, dates, parts of the day, settings JSON, class, order, state), `modifier_item`, `pinned_block`, `screen_policy`, `usage_day`, `essential` (the added ones), `modifier_log`. The calendar is **computed** from the base template and the active modifiers each time, as the library period is today, so it always agrees with imports and days off.
@@ -444,4 +591,5 @@ Rules: an unknown preset or setting, or a value out of range, is an error with i
 None blocks the design. Two things I have **assumed** because you moved on without correcting them. Tell me if either is wrong:
 
 1. A **period off** is one request and one use toward the 30-day tally. Up to two days costs the base string and each extra day adds 25 characters.
-2. In a **Focus week**: hybrid on means a period off with the project as the only work and the rest free; hybrid off means term time with lecture cycles kept and lightened. The daily routine (chores, Bible reading, setting up for the day) happens in both.
+2. In the **Admin library**: chores keep the photo proof they have now (Y1) and other admin needs none; the daily admin cap is 90 minutes; the Standard set is the starting load. Tell me if you want different defaults.
+3. In a **Focus week**: hybrid on means a period off with the project as the only work and the rest free; hybrid off means term time with lecture cycles kept and lightened. The daily routine (chores, Bible reading, setting up for the day) happens in both.

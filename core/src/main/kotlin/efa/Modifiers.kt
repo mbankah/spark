@@ -173,6 +173,11 @@ fun validate(inst: Instance, today: LocalDate): List<String> {
             else -> {}
         }
     }
+    if (inst.preset == Preset.ASSIGNMENT || inst.preset == Preset.FOCUS) {
+        val mn = inst.int("min_session"); val mx = inst.int("max_session")
+        if (mn > mx) out += "The shortest session (${mn} minutes) cannot be longer than the longest (${mx})."
+        if (mn > inst.dbl("daily_cap_h") * 60) out += "The shortest session (${mn} minutes) is longer than the daily cap."
+    }
     for ((n, item) in inst.items.withIndex()) {
         val kind = ModDefs.items(inst.preset).firstOrNull() ?: continue
         val label = "${kind.label} ${n + 1}"
@@ -279,6 +284,13 @@ private fun planSessions(
             if (date == windowEnd(item).toLocalDate()) end = min(end, windowEnd(item).hour * 60 + windowEnd(item).minute)
             var len = minOf(end - cand.start, maxSession, remaining.getValue(item.idx), capMin - used, max(quota.getValue(item.idx) - todayMin.getValue(item.idx), minSession))
             if (len < minSession && remaining.getValue(item.idx) >= minSession) continue
+            // never a piece under the shortest allowed (MG5), and never leave a remainder under it: take it with this session if there is room, otherwise give it back to the next one
+            val rest = remaining.getValue(item.idx) - len
+            if (rest in 1 until MIN_PIECE_MIN) {
+                val room = minOf(end - cand.start, maxSession, capMin - used)
+                len = if (len + rest <= room) len + rest else len - (MIN_PIECE_MIN - rest)
+            }
+            if (len < MIN_PIECE_MIN) continue
             if (len <= 0) continue
             val title = "${item.title}: ${milestone(doneMin.getValue(item.idx), item.sizeMin)}"
             slots += PatternSlot(date.dayOfWeek, cand.start, cand.start + len, title, "study", "", false, "${MOD_NOTE}Assignment session. Due ${label(item.due.toLocalDate())} ${item.due.toLocalTime()}.", date = date)
@@ -310,7 +322,7 @@ private fun compileAssignment(inst: Instance, base: List<PatternSlot>, now: Zone
         val first = mine.minByOrNull { it.date!! }?.date; val lastDay = mine.maxByOrNull { it.date!! }?.date
         lines += if (first == null) "${i.title}: no session could be placed." else "${i.title}: ${mine.size} session${if (mine.size == 1) "" else "s"}, ${label(first)} to ${label(lastDay!!)}, due ${label(i.due.toLocalDate())} ${i.due.toLocalTime()}."
         val left = remaining.getValue(i.idx)
-        if (left > 0) problems += "${i.title} is ${fmt1(left / 60.0)}h short before its finish time. Start earlier, raise the daily cap, or lower the hours."
+        if (left >= MIN_PIECE_MIN) { val m = "${i.title} is ${fmt1(left / 60.0)}h short before its finish time. Start earlier, raise the daily cap, or lower the hours."; problems += m; lines += "Not fully planned: $m" }
     }
     if (lightened > 0) lines += "$lightened long study cycle${if (lightened == 1) " was" else "s were"} lightened to make room. The hours come back as catch-up afterwards."
     return Compiled(slots, items.map { DueWork(it.title, it.sizeMin / 60.0, it.heaviness, it.due) }, emptyList(), lines, emptyList(), problems, lightened)
@@ -329,7 +341,7 @@ private fun compileFocus(inst: Instance, base: List<PatternSlot>, now: ZonedDate
     lines += "${p.title}: ${slots.size} session${if (slots.size == 1) "" else "s"} between ${label(inst.start)} and ${label(inst.end)}, due ${label(p.due.toLocalDate())}."
     if (hybrid) lines += "Hybrid: ${dates.size} days off lectures and work blocks, the project is the only work, the rest of each day is free, and the daily routine still happens."
     else lines += "Lecture cycles keep running, lightened where the project needs the time."
-    if (remaining.getValue(p.idx) > 0) problems += "${p.title} is ${fmt1(remaining.getValue(p.idx) / 60.0)}h short in these dates. Use more days, a higher daily cap, or fewer hours."
+    if (remaining.getValue(p.idx) >= MIN_PIECE_MIN) { val m = "${p.title} is ${fmt1(remaining.getValue(p.idx) / 60.0)}h short in these dates. Use more days, a higher daily cap, or fewer hours."; problems += m; lines += "Not fully planned: $m" }
     val loosening = if (hybrid) listOf("Lectures, work blocks and planning are paused on ${dates.joinToString(", ") { label(it) }}") else emptyList()
     return Compiled(slots, listOf(DueWork(p.title, p.sizeMin / 60.0, p.heaviness, p.due)), if (hybrid) dates else emptyList(), lines, loosening, problems, lightened)
 }

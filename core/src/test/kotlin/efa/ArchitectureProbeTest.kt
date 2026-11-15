@@ -113,3 +113,28 @@ class AdminDriftTest {
         assertEquals(fromMon, fromWed)
     }
 }
+
+class SessionSettingsTest {
+    private val today = LocalDate.of(2026, 11, 2)
+    private fun asg(s: Map<String, String>) = Instance(Preset.ASSIGNMENT, today, LocalDate.of(2026, 11, 20), s, listOf(mapOf("title" to "GT", "due" to "2026-11-20", "due_time" to "17:00", "size_h" to "6.0")))
+
+    @Test fun MG8_the_shortest_session_cannot_be_longer_than_the_longest_or_the_daily_cap() {
+        assertTrue(validate(asg(mapOf("min_session" to "120", "max_session" to "45")), today).any { it.contains("cannot be longer than the longest") })
+        assertTrue(validate(asg(mapOf("min_session" to "200", "max_session" to "240", "daily_cap_h" to "2.0")), today).any { it.contains("daily cap") })
+        assertEquals(emptyList(), validate(asg(mapOf("min_session" to "45", "max_session" to "120")), today))
+    }
+
+    @Test fun MG10_hours_that_cannot_be_planned_are_said_on_screen_not_dropped() {
+        val tight = Instance(Preset.ASSIGNMENT, today, LocalDate.of(2026, 11, 4), mapOf("daily_cap_h" to "1.0"), listOf(mapOf("title" to "GT", "due" to "2026-11-04", "due_time" to "17:00", "size_h" to "40.0")))
+        val p = previewOf(tight, WeekB.slots, emptyList(), at(today, LocalTime.of(9, 0)))
+        assertTrue(p.compiled.lines.any { it.startsWith("Not fully planned") }, p.compiled.lines.joinToString())
+    }
+
+    @Test fun MG5_no_session_is_ever_planned_under_the_shortest_piece() {
+        for (size in listOf("1.0", "1.25", "2.1", "3.2", "7.4")) {
+            val p = previewOf(asg(mapOf("daily_cap_h" to "3.5")).copy(items = listOf(mapOf("title" to "GT", "due" to "2026-11-20", "due_time" to "17:00", "size_h" to size))), WeekB.slots, emptyList(), at(today, LocalTime.of(9, 0)))
+            assertTrue(p.canApply, "$size: ${p.problems}")
+            assertTrue(p.compiled.slots.all { it.endMin - it.startMin >= MIN_PIECE_MIN })
+        }
+    }
+}

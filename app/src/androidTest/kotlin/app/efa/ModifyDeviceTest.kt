@@ -63,13 +63,34 @@ class ModifyStorageTest {
         assertTrue(repo.all().isEmpty()); assertTrue(db.tasks().open().none { it.source == "modifier" })
     }
 
-    @Test fun C1_a_period_off_makes_days_off_that_count_toward_the_tally_and_removing_it_takes_them_away() = runBlocking<Unit> {
+    @Test fun C1_a_period_off_makes_days_off_that_count_toward_the_tally_and_removing_it_takes_them_off_the_calendar_but_not_out_of_the_tally() = runBlocking<Unit> {
         val inst = Instance(Preset.PERIOD_OFF, LocalDate.of(2026, 11, 7), LocalDate.of(2026, 11, 8))
         val id = repo.apply(inst, now, repo.periodOffWall(2, now, false))
         assertEquals(2, db.daysOff().all().size); assertEquals(1, usesInLast30Days(plan.uses(db), now))
         assertTrue(isDayOff(plan.slots(), LocalDate.of(2026, 11, 7)))
         repo.remove(id)
-        assertEquals(0, db.daysOff().all().size); assertFalse(isDayOff(plan.slots(), LocalDate.of(2026, 11, 7)))
+        assertFalse(isDayOff(plan.slots(), LocalDate.of(2026, 11, 7)))
+        assertEquals(1, usesInLast30Days(plan.uses(db), now))   // H1: taking it back must not refund the use
+        assertTrue(db.daysOff().effective().isEmpty())   // a cancelled day is not an upcoming day off
+        // the same days can be planned again, and the wall for that is higher than it was the first time
+        assertTrue(repo.periodOffWall(2, now, false) > WallLength.dayOff(0, false))
+        repo.apply(inst, now, repo.periodOffWall(2, now, false))
+        assertTrue(isDayOff(plan.slots(), LocalDate.of(2026, 11, 7)))
+    }
+
+    @Test fun a_holiday_period_off_makes_no_catch_up_work_and_a_short_one_in_term_does() = runBlocking<Unit> {
+        val holiday = Instance(Preset.PERIOD_OFF, LocalDate.of(2026, 11, 9), LocalDate.of(2026, 11, 15))
+        repo.apply(holiday, now, repo.periodOffWall(7, now, false))
+        assertTrue(db.tasks().open().none { it.source == "dayoff" })
+        val short = Instance(Preset.PERIOD_OFF, LocalDate.of(2026, 11, 17), LocalDate.of(2026, 11, 17))
+        repo.apply(short, now, repo.periodOffWall(1, now, false))
+        assertTrue(db.tasks().open().any { it.source == "dayoff" })
+    }
+
+    @Test fun the_same_modifier_cannot_be_applied_twice() = runBlocking<Unit> {
+        val inst = Instance(Preset.PERIOD_OFF, LocalDate.of(2026, 11, 7), LocalDate.of(2026, 11, 8))
+        repo.apply(inst, now, 100)
+        assertFalse(repo.preview(inst, now).canApply)
     }
 
     @Test fun H1_the_wall_for_a_period_off_rises_with_each_day_beyond_two_and_with_uses() = runBlocking<Unit> {

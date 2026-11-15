@@ -21,9 +21,12 @@ class PlanRepo(private val db: EfaDb) {
     /** The calendar: the base week, imports, days off and the library period (computed), then applied modifiers (Modify Schedule) and the Admin library on top. */
     suspend fun slots(): List<PatternSlot> {
         val core = slotsCore()
-        val withMods = core + db.modifiers().all().filter { it.state == "active" }.flatMap { decodeSlots(it.compiled) }
-        val admin = AdminState.decode(db.meta().get(META_ADMIN))
-        return if (admin.loadSet == null) withMods else withMods + placeAdmin(withMods, admin, java.time.ZonedDateTime.now(LONDON).toLocalDate(), 14).slots
+        // MG17: if the modifier or Admin layer cannot be worked out, the base calendar stands and blocking carries on as before (X7).
+        val withMods = try { core + db.modifiers().all().filter { it.state == "active" }.flatMap { decodeSlots(it.compiled) } } catch (e: Exception) { return core }
+        return try {
+            val admin = AdminState.decode(db.meta().get(META_ADMIN))
+            if (admin.loadSet == null) withMods else withMods + placeAdmin(withMods, admin, java.time.ZonedDateTime.now(LONDON).toLocalDate(), 14).slots
+        } catch (e: Exception) { withMods }
     }
 
     private suspend fun slotsCore(): List<PatternSlot> {
@@ -159,7 +162,7 @@ suspend fun PlanRepo.uses(db: EfaDb): List<DayOffUse> = db.daysOff().all().filte
  */
 suspend fun PlanRepo.addDaysOff(db: EfaDb, dates: List<LocalDate>, source: String, wallLength: Int, now: ZonedDateTime, sameDay: Boolean, withDemand: Boolean = true): Int = db.withTransaction {
     val nowMs = now.toInstant().toEpochMilli()
-    val fresh = dates.filter { db.daysOff().get(it.toString()) == null }
+    val fresh = dates.filter { d -> val have = db.daysOff().get(d.toString()); if (have?.state == "cancelled") db.daysOff().purgeCancelled(d.toString()); have == null || have.state == "cancelled" }
     if (fresh.isEmpty()) return@withTransaction 0
     val slots = slots()
     val claim = source == "claim"

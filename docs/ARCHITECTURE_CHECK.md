@@ -36,3 +36,20 @@ Fixed in the rerun:
 4. **Admin placement could shift as the week went on:** its weekly free-time accounting started from today. It now starts from the week's Monday, so a day's jobs are the same whichever day you look from.
 
 Still open: Admin chores ask for a photo (Y1 says chores do; kept), the period-off wall rule (+25 per day beyond two), and everything on a real phone (E1-E64). The release APK has still never been launched.
+
+## Second rerun: stress tests instead of hand-picked cases
+
+The first two passes found problems one at a time because I only tested what I thought of. This pass added randomised tests (FuzzProbeTest): 2000 random presets with random settings and dates, 400 random stacks of two to four presets, and 300 random Admin calendars, each checked against the rulebook's invariants (no new overlaps, protected blocks kept, nothing on a day off, lectures none means no lectures, wall needed when loosening, hours asked equal hours planned or the shortfall is shown, alarms off on days off and a backstop on every other day). Seeds are fixed so a failure repeats. Coverage was measured (about 250 non-empty plans per preset), not assumed.
+
+Found and fixed:
+5. **The planner could produce a session shorter than 15 minutes,** which the guard rail then refused, so about 1 in 12 assignments could not be applied through no fault of the user. It now never plans a piece under 15 minutes and never leaves a remainder under it.
+6. **Hours that did not fit were not shown.** An assignment could be applied covering 17 of 25 hours with nothing on screen saying so. The preview now says "Not fully planned: ... is Nh short".
+7. **Nonsense session settings were accepted** (shortest session longer than the longest, or longer than the daily cap). They are now refused with a reason.
+8. **Removing a period off refunded the use in the 30-day tally** (H1), because it deleted the day-off rows and nothing else in the app deletes days off. The days now stay as "cancelled": off the calendar, still counted. Planning the same dates again replaces that date's earlier record. The old device test had written the refund in as expected behaviour; it is rewritten.
+9. **The calendar had no fallback** if the modifier or Admin layer failed (MG17). It now falls back to the base calendar.
+
+No violations were found in the stacking, Admin or alarm invariants.
+
+Results: core 700+ tests, 39 device tests on the emulator (modifier, days off, library), Windows 46, traceability 214+/277.
+
+Still open: the design questions (Admin chore photos, wall +25 per day), expired modifiers still listed as active, and everything on a real phone.

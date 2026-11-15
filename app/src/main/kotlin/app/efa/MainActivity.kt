@@ -289,7 +289,7 @@ class MainActivity : ComponentActivity() {
                         val plan = PlanRepo(db); val now = ZonedDateTime.now(LONDON); val slots = plan.slots(); val uses = plan.uses(db)
                         val preview = picked.takeIf { it.isNotEmpty() && !claiming }?.let { dayOffPreview(slots, db.tasks().open().map { t -> t.toDue() }, now, it, uses, sameDay = it.first() == now.toLocalDate(), shortSleep = false) }
                         val claimable = (1L..7L).map { now.toLocalDate().minusDays(it) }.filter { d -> claimable(d, now.toLocalDate()) && db.daysOff().get(d.toString()) == null }
-                        val upcoming = db.daysOff().all().filter { LocalDate.parse(it.date) >= now.toLocalDate() }.map { r -> "${DateTimeFormatter.ofPattern("EEE d MMM").format(LocalDate.parse(r.date))}: ${r.source.replace('_', ' ')}${if (r.state == "pending") ", claim waiting" else ""}" }
+                        val upcoming = db.daysOff().all().filter { it.state != "cancelled" && LocalDate.parse(it.date) >= now.toLocalDate() }.map { r -> "${DateTimeFormatter.ofPattern("EEE d MMM").format(LocalDate.parse(r.date))}: ${r.source.replace('_', ' ')}${if (r.state == "pending") ", claim waiting" else ""}" }
                         dayOffUi = DayOffUi(now.toLocalDate(), picked, preview, usesInLast30Days(uses, now), claimable, upcoming, message, claiming)
                     }
                 }

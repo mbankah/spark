@@ -45,7 +45,7 @@ class ModifierRepo(private val db: EfaDb) {
         val inst = decodeInstance(row.instance)
         val dates = inst?.takeIf { it.preset == Preset.PERIOD_OFF || (it.preset == Preset.FOCUS && it.bool("hybrid")) }?.dates().orEmpty()
         if (dates.isNotEmpty()) {
-            db.daysOff().deleteBySource(dates.map { it.toString() }, "period_off")
+            db.daysOff().cancelBySource(dates.map { it.toString() }, "period_off")   // H1: the use stays in the tally
             dates.forEach { db.tasks().deleteOpenByPrefix("dayoff:$it|%") }
         }
         db.modifiers().delete(id)

@@ -157,3 +157,9 @@ Written 23 Oct 2026 after reading the whole ledger and seed. Each item says what
 
 ## Q-G121: Lectures on/off is one setting across presets
 Assignment, Focus and Catch-up take "Lectures during the period" (running by default; none cancels lectures and tutorials in the period, with no catch-up, and needs the wall). Period off takes auto, running or none (auto: none for 7 days or more). Lecture-free is kept as the preset that also lightens work. Chosen so a hybrid or holiday period combines with any work preset (architecture check).
+
+## Q-G122: Taking a period off back keeps its use in the tally
+A removed period off sets its day-off rows to cancelled: off the calendar and the upcoming list, still counted toward the 30-day wall tally (H1). Planning the same dates again replaces that date's earlier record, so that one use is not double counted. Chosen so removing cannot be used to reset the wall.
+
+## Q-G123: Not fully planned is shown, not blocking
+When an assignment or project cannot fit all its hours into sessions, the preview says how many hours are short. The work still goes into the Buffer in full, so it shows NEGATIVE if it does not fit (MG10). It does not block the apply, because the person may want the plan and the warning.

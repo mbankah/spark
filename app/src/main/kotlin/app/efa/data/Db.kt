@@ -178,7 +178,7 @@ interface WeekMoneyDao {
 
 /**
  * A day off (C1, C4, C5, H1 to H6, X3). `groupId` ties the days of one request together, so a weekend is one use of the wall (H5). `source` is planned,
- * illness (X3), auto_sleep (H4) or claim (H6). `state` is active, or for a claim pending, held or failed; only active and held days change the calendar.
+ * illness (X3), auto_sleep (H4) or claim (H6). `state` is active, cancelled (taken back, still counted in the tally), or for a claim pending, held or failed; only active and held days change the calendar.
  */
 @Entity(tableName = "day_off", indices = [Index(value = ["date"], unique = true)])
 data class DayOffRow(
@@ -195,6 +195,9 @@ interface DayOffDao {
     @Query("SELECT * FROM day_off WHERE date = :date") suspend fun get(date: String): DayOffRow?
     @Query("UPDATE day_off SET state = :state WHERE id = :id") suspend fun setState(id: Long, state: String)
     @Query("DELETE FROM day_off WHERE date IN (:dates) AND source = :source") suspend fun deleteBySource(dates: List<String>, source: String): Int
+    /** H1: taking a planned period off back removes the days from the calendar but the use stays in the 30 day tally. */
+    @Query("UPDATE day_off SET state = 'cancelled' WHERE date IN (:dates) AND source = :source AND state IN ('active', 'held')") suspend fun cancelBySource(dates: List<String>, source: String): Int
+    @Query("DELETE FROM day_off WHERE date = :date AND state = 'cancelled'") suspend fun purgeCancelled(date: String): Int
 }
 
 /** One finished task and how long it really took (B5). Each task has at most one row, so it is asked about once. */

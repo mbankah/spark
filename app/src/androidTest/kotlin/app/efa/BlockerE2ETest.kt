@@ -178,7 +178,7 @@ class BlockerE2ETest {
         // One key press at a time, waiting for the field to take each one, as a person types.
         for ((i, ch) in target.withIndex()) {
             screen.shell("input text $ch")
-            if (i < target.length - 1) assertTrue(screen.waitFor(3_000) { screen.has("(${i + 1} OF") }, "character ${i + 1} was not taken. Screen: " + screen.dump())
+            if (i < target.length - 1) assertTrue(screen.waitFor(3_000) { screen.has("${i + 1} / ${target.length}") }, "character ${i + 1} was not taken. Screen: " + screen.dump())
         }
         return target
     }
@@ -242,17 +242,30 @@ class WallFieldTest {
         val target = "abcdefghij"
         rule.setContent { EfaTheme { WallField(target) { done = true } } }
         rule.onNodeWithContentDescription("Type the characters here").performTextInput(target)      // all ten at once
-        rule.onNodeWithText("Mistake. Start again", substring = true).assertExists()
+        rule.onNodeWithText("Too many slips. Start again.").assertExists()
+        rule.onNodeWithText("0 / 10").assertExists()
         assertFalse(done)
     }
 
-    @Test fun M7_a_wrong_character_restarts_from_the_first() {
+    @Test fun WS1_a_wrong_character_is_a_slip_and_costs_no_progress() {
         var done = false
         rule.setContent { EfaTheme { WallField("abcd") { done = true } } }
         val f = rule.onNodeWithContentDescription("Type the characters here")
         f.performTextInput("a"); f.performTextInput("b"); f.performTextInput("x")
-        rule.onNodeWithText("Mistake. Start again", substring = true).assertExists()
-        rule.onNodeWithText("TYPE THIS EXACTLY, BY HAND (0 OF 4)").assertExists()
+        rule.onNodeWithText("Slip. 2 left.").assertExists()
+        rule.onNodeWithText("2 / 4").assertExists()
+        f.performTextInput("c"); f.performTextInput("d")
+        rule.waitUntil(5_000) { done }
+    }
+
+    @Test fun WS1_the_fourth_wrong_character_restarts_from_the_first() {
+        var done = false
+        rule.setContent { EfaTheme { WallField("abcd") { done = true } } }
+        val f = rule.onNodeWithContentDescription("Type the characters here")
+        f.performTextInput("a"); f.performTextInput("b")
+        repeat(4) { f.performTextInput("x") }
+        rule.onNodeWithText("Too many slips. Start again.").assertExists()
+        rule.onNodeWithText("0 / 4").assertExists()
         assertFalse(done)
     }
 

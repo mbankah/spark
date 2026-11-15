@@ -193,9 +193,9 @@ class RewardsScreenTest {
     @Test fun R8_the_money_screen_shows_the_payout_the_working_and_savings() {
         rule.setContent { EfaTheme { MoneyScreen(view(true)) {} } }
         val v = view(true)
-        rule.onNodeWithText(pounds(v.week.money.freeToSpendPence) + " free to spend").assertExists(); rule.onNodeWithText("Food: £40.00, guaranteed every week, never tied to work.").assertExists()
-        rule.onNodeWithText("Moved to savings: " + pounds(v.week.money.savingsPence)).assertExists(); rule.onNodeWithText("Saved so far: £27.50 over 1 week.").assertExists()
-        rule.onNodeWithText("Free to spend = £25.00 x", substring = true).assertExists()
+        rule.onNodeWithText(pounds(v.week.money.freeToSpendPence) + " free to spend").assertExists(); rule.onNodeWithContentDescription("Food: £40.00, guaranteed every week, never tied to work.").assertExists()
+        rule.onNodeWithContentDescription("Moved to savings: " + pounds(v.week.money.savingsPence)).assertExists(); rule.onNodeWithText("Saved so far: £27.50 over 1 week.").assertExists()
+        rule.onNodeWithContentDescription("Free to spend = £25.00 x", substring = true).assertExists()
     }
 
     @Test fun G6_before_the_first_live_week_the_screen_says_recording_and_when_money_starts() {

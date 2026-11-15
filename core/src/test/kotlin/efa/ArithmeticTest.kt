@@ -216,14 +216,48 @@ class WallTest {
         assertTrue(w.done)
     }
 
-    @Test fun `M7 a mistake restarts from zero`() {
-        val w = WallEntry("abcd"); w.input("a"); w.input("b"); assertFalse(w.input("x"))
-        assertEquals(0, w.typed); assertEquals(1, w.restarts); assertFalse(w.done)
+    @Test fun `WS1 three wrong characters are forgiven and the fourth restarts from zero`() {
+        val w = WallEntry("abcdef"); w.input("a"); w.input("b")
+        repeat(3) { assertFalse(w.input("x")); assertEquals(2, w.typed); assertEquals(0, w.restarts) }
+        assertEquals(0, w.slipsLeft)
+        assertFalse(w.input("x"))
+        assertEquals(0, w.typed); assertEquals(1, w.restarts); assertEquals(3, w.slipsLeft); assertFalse(w.done)
+    }
+
+    @Test fun `WS1 a forgiven slip adds nothing, so every character is still typed and the string is only finished by typing it all`() {
+        val w = WallEntry("abcd")
+        w.input("a"); w.input("z"); w.input("b"); w.input("q"); w.input("c"); w.input("y"); w.input("d")
+        assertTrue(w.done); assertEquals(0, w.restarts)
+        val short = WallEntry("abcd"); short.input("a"); short.input("z"); short.input("z"); short.input("z")
+        assertFalse(short.done); assertEquals(1, short.typed)
+    }
+
+    @Test fun `WS1 slips never refill while typing and a restart gives a fresh allowance`() {
+        val w = WallEntry("abcdefgh")
+        w.input("a"); w.input("x"); w.input("b"); w.input("x"); w.input("c"); w.input("x"); w.input("d")
+        assertEquals(0, w.slipsLeft)
+        assertFalse(w.input("x")); assertEquals(0, w.typed); assertEquals(3, w.slipsLeft)
+    }
+
+    @Test fun `N3 a wrong character on the very first position counts as a slip too`() {
+        val w = WallEntry("abcd")
+        assertFalse(w.input("x")); assertEquals(0, w.typed); assertEquals(0, w.restarts); assertEquals(2, w.slipsLeft)
+    }
+
+    @Test fun `WS1 a guesser gets no way through, since four wrong characters restart and the target needs every right one`() {
+        val w = WallEntry("abcd")
+        repeat(40) { w.input("x") }
+        assertFalse(w.done); assertEquals(0, w.typed)
     }
 
     @Test fun `M7 paste or autofill of several characters is rejected and restarts`() {
         val w = WallEntry("abcd"); w.input("a"); assertFalse(w.input("bcd"))
         assertEquals(0, w.typed); assertFalse(w.done)
+    }
+
+    @Test fun `WS1 a paste restarts at once and does not use up the slip allowance`() {
+        val w = WallEntry("abcd"); w.input("a"); w.input("x")
+        assertFalse(w.input("bcd")); assertEquals(0, w.typed); assertEquals(1, w.restarts); assertEquals(3, w.slipsLeft)
     }
 }
 

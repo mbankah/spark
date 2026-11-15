@@ -111,7 +111,7 @@ The morning runs on proof. A photo of the setup you prepared the night before st
 | M4 | The morning photo is matched against the most recent valid reference photo. If your setup moves around, a fixed standing reference is added. | Default |
 | M5 | The phone stays limited until you are upright and the alarm is stopped. Night audio (sermons, binaural beats) is never touched, and the limit starts only when the alarm fires. | Locked |
 | M6 | After the alarm stops, all social apps you chose are blocked completely. You pick the list once at first setup, not in the moment. | Locked |
-| M7 | The list is fixed. Editing it is allowed but only through the effort wall: a fresh 75-character random string, hand-typed, no pasting or autofill, and a mistake restarts it. | Locked |
+| M7 | The list is fixed. Editing it is allowed but only through the effort wall: a fresh 75-character random string, hand-typed, no pasting or autofill. Three wrong characters per attempt are forgiven (changed 15 Nov 2026, see section 26); the fourth restarts it. | Locked |
 | M8 | The block lasts until you are ready, confirmed by a photo of the last getting-ready step at a fixed spot, such as the bag by the door. It is an event, not a timer. | Locked; spot is Default |
 | M9 | While social is blocked the phone still allows the Buffer, sermons and music, calls, calendar and maps. | Default |
 | M10 | If the camera or the photo match fails: a second attempt, then steps, then a short wait. Calls and messages are never locked. | Default |
@@ -126,7 +126,7 @@ The night is where your loop starts, so it is priced and not banned. Sleep is me
 | --- | --- | --- |
 | N1 | Cutoff = tomorrow's target wake time minus 8 hours, minus the time you take to fall asleep (starting estimate 20 minutes), so you are asleep by target wake minus 8 hours. | 8 hours Locked; estimate Default |
 | N2 | Before the cutoff the night rule blocks nothing (work blocks, the getting-ready window and transitions still block as usual). After the cutoff, the same social list is blocked. | Locked |
-| N3 | An override is a 75-character random string: fresh each time, hand-typed, no pasting or autofill, a mistake restarts it. Each override buys 30 minutes. | Locked |
+| N3 | An override is a 75-character random string: fresh each time, hand-typed, no pasting or autofill, three wrong characters per attempt forgiven and the fourth restarts it (changed 15 Nov 2026, section 26). Each override buys 30 minutes. | Locked |
 | N4 | The string gets longer on each extra override in the same night. | Default |
 | N5 | After a fully verified day, each override window is 45 minutes instead of 30 for the same string. | Default |
 | N6 | The screen shows the 8-hour sum, for example "Wake 09:00, so sleeping after 01:00 means under 8h". | Locked |
@@ -675,5 +675,15 @@ Added on 29 October 2026 at your request. The timetable can adapt from a CSV fil
 | RS7 | Missed time stays lost (P8, B6, W2). Bringing the work back does not restore the time. Only the claim in H6 can. | Locked |
 | RS8 | Every automatic move is shown with its reason, and the free time that turned into work is shown as work. | Locked |
 | RS9 | Tests: a bad file of every kind is rejected with its line and column, a good file applies, the same file twice changes nothing, a failed apply changes nothing, a loosening file needs the wall, missed work comes back once and is placed and split, protected free time is never converted, and the clock change on 25 October 2026 holds. | Locked |
+
+## 26. Changes of 15 November 2026
+
+Asked for by you on 15 November 2026: the wall allows for a small keyboard and big thumbs, the home screen gets a second page for the whole schedule, and the screens are redrawn with less text.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| WS1 | The wall forgives up to 3 wrong characters in one attempt. A forgiven character adds nothing, so every character of the string still has to be typed. The fourth wrong character restarts from the first. The 3 do not come back during an attempt and a restart gives a fresh 3. A paste, autofill or any several-character input restarts at once and uses no allowance. | Locked (Michael, 15 Nov 2026) |
+| SC1 | The home screen has a second page one swipe to the left, or one tap on its dot, showing the whole calendar for the next 28 days: every block in time order, the work placed in each work block, deadlines on their day, days off marked, and the running block marked NOW. It is built from the same slots as the Buffer, the alarms and the blocker, so it cannot disagree with them. The home button returns to the first page. The search bar and the add buttons stay on both pages. | Locked (Michael, 15 Nov 2026) |
+| SC2 | Calculations are drawn as well as written: the Buffer working compares available and work hours as bars, the running block shows how far through it you are, and money shows confirmed against planned work. Every bar is drawn from a number that is also shown in words, and the working lines are kept. | Locked (Michael, 15 Nov 2026) |
 
 The ledger has no Open items. Lines marked Default here are still to be confirmed by you.

@@ -278,7 +278,7 @@ class ImportScreenTest {
 
     @Test fun IM6_the_wall_for_a_loosening_file_is_75_characters_by_hand() {
         rule.setContent { EfaTheme { ImportWallGate("Apply a file that loosens", "Cancels Randomness.", {}, {}) } }
-        rule.onNodeWithText("TYPE THIS EXACTLY, BY HAND (0 OF 75)").assertExists()
+        rule.onNodeWithText("TYPE THIS BY HAND").assertExists()
     }
 
     @Test fun RS8_PW3_home_says_the_period_and_what_was_moved_with_the_reason() {
@@ -395,7 +395,7 @@ class ImportIntentTest {
             rule.waitUntil(10_000) { rule.onAllNodesWithText("Apply, with the wall").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithText("THIS FILE LOOSENS").assertExists()
             rule.onNodeWithText("Apply, with the wall").performClick()
-            rule.waitUntil(10_000) { rule.onAllNodesWithText("TYPE THIS EXACTLY, BY HAND (0 OF 75)").fetchSemanticsNodes().isNotEmpty() }
+            rule.waitUntil(10_000) { rule.onAllNodesWithText("TYPE THIS BY HAND").fetchSemanticsNodes().isNotEmpty() }
             assertEquals(0, count("overlay_item WHERE kind = 'import'"), "nothing is stored before the wall is passed")
             val target = rule.onNodeWithContentDescription("Characters to type", substring = true).fetchSemanticsNode().config
                 .let { c -> c[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].first().removePrefix("Characters to type: ") }
@@ -413,7 +413,7 @@ class ImportIntentTest {
             rule.waitUntil(10_000) { rule.onAllNodesWithText("Apply").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithText("Apply").performClick(); rule.waitUntil(10_000) { rule.onAllNodesWithText("DONE").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithText("Remove").performScrollTo().performClick()
-            rule.waitUntil(10_000) { rule.onAllNodesWithText("TYPE THIS EXACTLY, BY HAND (0 OF 75)").fetchSemanticsNodes().isNotEmpty() }
+            rule.waitUntil(10_000) { rule.onAllNodesWithText("TYPE THIS BY HAND").fetchSemanticsNodes().isNotEmpty() }
             assertEquals(1, count("task WHERE source LIKE 'import%'"))
             val target = rule.onNodeWithContentDescription("Characters to type", substring = true).fetchSemanticsNode().config
                 .let { c -> c[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].first().removePrefix("Characters to type: ") }

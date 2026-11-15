@@ -109,9 +109,13 @@ class MainActivity : ComponentActivity() {
     /** IM10: a timetable file that arrived by Open with or Share, read once and then only previewed (IM5). */
     private val incomingIntent = mutableStateOf<Intent?>(null)
 
+    /** The home button was pressed: the home screen returns to its first page. */
+    private val homeTick = mutableIntStateOf(0)
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.hasCategory(Intent.CATEGORY_HOME)) homeTick.intValue++
         pendingAction.value = intent.getStringExtra(BufferNotifier.EXTRA_ACTION)
         if (ImportSource.isImportIntent(intent)) incomingIntent.value = intent
     }
@@ -482,7 +486,8 @@ class MainActivity : ComponentActivity() {
                         val nn = l?.pattern?.let { nowAndNext(it, clock) }
                         val hhmm = DateTimeFormatter.ofPattern("HH:mm")
                         val period = l?.let { activePeriod(it.periods, clock.toLocalDate()) }
-                        val alloc = l?.pattern?.let { p -> allocateTasks(p, l.tasks.map { it.toOpen(period) }, clock) }
+                        val openTasks = l?.tasks?.map { it.toOpen(period) }.orEmpty()
+                        val alloc = l?.pattern?.let { p -> allocateTasks(p, openTasks, clock) }
                         // RS2, RS8: what is placed in a block is said in the block's own line, split across blocks when it is big.
                         val includes: (DatedSlot) -> String = { ds -> alloc?.inSlot(ds).orEmpty().takeIf { it.isNotEmpty() }?.joinToString(", ", "Includes: ") { "${it.task.title} (${it.minutes} min)" }.orEmpty() }
                         val phoneDecision = blockList?.takeIf { it.isNotEmpty() }?.let { BlockingState.decide(it.first()) }
@@ -495,18 +500,21 @@ class MainActivity : ComponentActivity() {
                                 nowLabel = nn?.now?.let { "Now, until ${hhmm.format(it.end)}" },
                                 nowTitle = nn?.now?.slot?.title,
                                 nowDetail = nn?.now?.let { listOf(it.detail(), includes(it), proofHint(proofFor(it.slot))).filter { s -> s.isNotBlank() }.joinToString(". ") },
+                                nowFraction = nn?.now?.let { n -> (java.time.Duration.between(n.start, clock).toMillis().toFloat() / java.time.Duration.between(n.start, n.end).toMillis().coerceAtLeast(1)).coerceIn(0f, 1f) },
+                                progressFraction = l?.money?.week?.takeIf { it.plannedHours > 0 }?.let { (it.verifiedHours / it.plannedHours).toFloat() },
+                                schedule = l?.pattern?.let { p -> scheduleView(p, openTasks, alloc, clock) }.orEmpty(),
                                 nowOpensBlock = nn?.now?.let { proofFor(it.slot) != Proof.NONE } == true,
                                 next = l?.pattern?.let { p -> upcoming(p, clock, 2).map { NextRow(hhmm.format(it.start), it.slot.title, listOf(it.detail(), includes(it)).filter { s -> s.isNotBlank() }.joinToString(". ")) } }.orEmpty(),
                                 freeToSpendPence = l?.money?.takeIf { it.live }?.week?.money?.freeToSpendPence,      // G6: record-only for the first 14 days
                                 progress = l?.money?.week?.takeIf { it.plannedHours > 0 }?.progress(),
-                                moneyNote = l?.money?.takeIf { !it.live }?.let { "Money starts on ${DateTimeFormatter.ofPattern("EEE d MMM").format(it.liveFrom)}. Until then it is only recorded." },
+                                moneyNote = l?.money?.takeIf { !it.live }?.let { "Money starts ${DateTimeFormatter.ofPattern("EEE d MMM").format(it.liveFrom)}. Recorded until then." },
                                 earnedOn = l?.pattern?.let { p -> earnedAccessActive(clock, l.earnings, p) } == true,
                                 proofDue = l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { "${it.slot.title}, ended ${hhmm.format(it.end)}. Take its photo." },
                                 heldWaiting = heldWaiting,
                                 unavailable = l != null && l.pattern == null,
                                 launcherPaused = launcherPaused,
                                 morning = when (morningPhase(morning?.toState(), clock)) {
-                                    MorningPhase.WAITING_FOR_READY -> "Social is blocked until you take the ready photo. It ends by itself at ${hhmm.format(readyReleaseAt(morning!!.stoppedMs!!, clock.zone))} if you cannot."
+                                    MorningPhase.WAITING_FOR_READY -> "Social is blocked until the ready photo. It ends by itself at ${hhmm.format(readyReleaseAt(morning!!.stoppedMs!!, clock.zone))}."
                                     MorningPhase.RINGING -> "The alarm is ringing."
                                     else -> null
                                 },
@@ -535,6 +543,7 @@ class MainActivity : ComponentActivity() {
                             onBuffer = { if (buffer is BufferState.Value) screen = Screen.WORKING },
                             onQuickAdd = { screen = Screen.QUICK_ADD },
                             onSetup = { screen = Screen.SETUP },
+                            homeTick = homeTick.intValue,
                         )
                     }
                     Screen.WORKING -> (buffer as? BufferState.Value)?.let { WorkingScreen(it.result) { screen = Screen.HOME } } ?: run { screen = Screen.HOME }

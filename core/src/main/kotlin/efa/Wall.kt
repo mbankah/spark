@@ -29,22 +29,32 @@ fun newWallString(length: Int, rng: SecureRandom = SecureRandom()): String {
     return buildString { repeat(length) { append(alphabet[rng.nextInt(alphabet.length)]) } }
 }
 
+/** Wrong single characters forgiven in one attempt (Michael, 15 Nov 2026: large thumbs, small keyboard). The next one restarts the wall. */
+const val WALL_SLIPS = 3
+
 /**
  * The typed-input rule. Only one character at a time is accepted, so a paste or autofill (many characters at once)
- * is rejected, and any wrong character restarts from zero.
+ * is rejected and restarts from zero at once. A wrong single character is not counted and is forgiven up to [slipsAllowed]
+ * times in one attempt; the next one restarts from zero. The allowance is per attempt and never refills while typing, so every
+ * character of the string must still be typed correctly.
  * Limit: a keyboard app or automation that sends one character at a time can still type it. Android cannot prevent
  * that; see docs/DECISIONS.md D-12.
  */
-class WallEntry(val target: String) {
+class WallEntry(val target: String, val slipsAllowed: Int = WALL_SLIPS) {
     var typed: Int = 0; private set
     var restarts: Int = 0; private set
+    /** Wrong characters forgiven so far in this attempt. */
+    var slips: Int = 0; private set
+    val slipsLeft: Int get() = slipsAllowed - slips
     val done: Boolean get() = typed == target.length
 
     /** Returns true if the input was accepted as progress. */
     fun input(chars: String): Boolean {
         if (done) return false
-        if (chars.length != 1) { restart(); return false }
-        return if (chars[0] == target[typed]) { typed++; true } else { restart(); false }
+        if (chars.length != 1) { restart(); return false }     // a paste gets no allowance
+        if (chars[0] == target[typed]) { typed++; return true }
+        if (slips < slipsAllowed) slips++ else restart()
+        return false
     }
-    private fun restart() { typed = 0; restarts++ }
+    private fun restart() { typed = 0; slips = 0; restarts++ }
 }

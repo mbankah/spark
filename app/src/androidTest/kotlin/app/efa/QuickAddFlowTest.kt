@@ -41,13 +41,13 @@ class QuickAddFlowTest {
         rule.onNodeWithText("Today").performClick(); rule.onNodeWithText("23:59").performClick()
         rule.onNodeWithText("Save").performClick()
         // Back home, the Buffer card is a real number and opens its working.
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("Tap dial for the sum").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodesWithContentDescription("Available", substring = true).fetchSemanticsNodes().isNotEmpty() }
         rule.onNode(SemanticsMatcher("is the Buffer card") { n ->
             (androidx.compose.ui.semantics.SemanticsProperties.ContentDescription in n.config && n.config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].firstOrNull()?.startsWith("Buffer.") == true)
         }).performClick()
         rule.onNodeWithText("Buffer working").assertExists()
         // The home screen shows the old Buffer until the stored task has been read back, so the working is waited for and not read at once.
-        try { rule.waitUntil(10_000) { rule.onAllNodesWithText("Neural Computation coursework (heaviness 8): 10.0h x 1.0 = 10.0h", substring = true).fetchSemanticsNodes().isNotEmpty() } }
+        try { rule.waitUntil(10_000) { rule.onAllNodesWithContentDescription("Neural Computation coursework (heaviness 8): 10.0h x 1.0 = 10.0h", substring = true).fetchSemanticsNodes().isNotEmpty() } }
         catch (e: Throwable) { throw AssertionError("working screen: " + rule.onRoot().printToString(3500), e) }
     }
 

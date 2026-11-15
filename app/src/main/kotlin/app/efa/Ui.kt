@@ -50,6 +50,27 @@ fun Label(text: String) {
     BasicText(text.uppercase(), style = Ts(LocalColors.current.muted, 11.sp, fontFamily = Mono, letterSpacing = 0.9.sp))
 }
 
+/** A flat progress bar: a track with a filled share. Always drawn from a real number (P4), never decorative. */
+@Composable
+fun Bar(fraction: Float, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 6.dp, color: Color = LocalColors.current.accent) {
+    val c = LocalColors.current
+    val shape = RoundedCornerShape(50)
+    Box(modifier.fillMaxWidth().height(height).background(c.track, shape)) {
+        val f = fraction.coerceIn(0f, 1f)
+        if (f > 0f) Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(color, shape))
+    }
+}
+
+/** A small rounded tag, for a day's state or a block's kind. */
+@Composable
+fun Pill(text: String, filled: Boolean = false) {
+    val c = LocalColors.current
+    val shape = RoundedCornerShape(50)
+    Box(Modifier.then(if (filled) Modifier.background(c.accent, shape) else Modifier.border(1.dp, c.track, shape)).padding(horizontal = 9.dp, vertical = 3.dp)) {
+        BasicText(text.uppercase(), style = Ts(if (filled) c.onAccent else c.muted, 10.sp, fontFamily = Mono, letterSpacing = 0.8.sp))
+    }
+}
+
 /** Plain button. Primary uses the accent as a fill (never as text colour, see AP8 test). */
 @Composable
 fun Btn(text: String, onClick: () -> Unit, primary: Boolean = false, modifier: Modifier = Modifier, description: String = text) {

@@ -76,7 +76,7 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | B4 | Tap Go home, then open the app again. | Home screen, then the card again. No loop. |
 | B5 | Open the app, press the back button on the card. | You go to the home screen, not into the app. |
 | B6 | Open the app, tap "Open anyway: type 75 characters", type the string by hand. | The app opens for 30 minutes. Your current work block is marked broken. A second try after 31 minutes shows the card again. |
-| B7 | Try to paste, use swipe typing or voice on the wall string. | It restarts. Report which keyboard you use. |
+| B7 | Try to paste, use swipe typing or voice on the wall string. | It restarts at once. Report which keyboard you use. |
 | B8 | Open a blocked app through each route: search, a notification, recents, a link from another app, the share sheet, a widget, split screen. | Every route ends at the same card. Tell me any that do not (LA8, LA7). |
 | B9 | Put a blocked app in a floating window or picture-in-picture. | The card appears (LA7). Report if it does not. |
 | B10 | After the night cutoff, open a blocked app. | Night card with "Wake HH:MM, so sleeping after HH:MM means under 8h". An override uses 75 characters, the next one tonight 100, then 125. |
@@ -304,3 +304,9 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E63 | Admin library, Standard. | Jobs appear in free time, spread over the week, none over a meal, sleep or the night, none past the daily cap. Jobs with no room are listed with their day. Turning on "May trim work" asks for the wall. |
 | E64 | Essentials, Open the add window, type the wall, add three apps. | A fourth is refused. After 5 minutes the window is closed. An added app is never blocked in a work block. Try to block Phone or Maps from the block list: it is refused with the app named. |
 
+| E65 | Open any wall (Open anyway on a blocked app). On your own keyboard type 10 characters, then deliberately hit a wrong key three times, then carry on and finish. | Each wrong key shows a dot going out and "Slip. N left." and adds nothing; the count of characters does not move. All three are forgiven and the wall finishes. Say if the keyboard's key size still catches you out. |
+| E66 | Open a wall and hit four wrong keys in one attempt. | The fourth wrong key says "Too many slips. Start again." and the count goes back to 0 with a fresh set of three. |
+| E67 | Open a wall, then paste or swipe-type a few characters at once. | It restarts at once and does not use up a slip. |
+| E68 | On the home screen swipe left, then swipe right, then tap each dot, then press the home button while on the schedule page, then press back while on it. | Swipe left shows the whole schedule, today first, with the running block marked NOW and days off marked. Right, the dot for home and the home button all return to the first page. Back on the schedule goes to the first page and does not leave Spark. The search bar and plus stay on both pages. Report if the swipe fights with scrolling the cards. |
+| E69 | Compare the schedule page with the calendar you imported: pick three days and check every block and every deadline is there. | Nothing is missing or made up. A modifier's sessions and a planned day off show. |
+| E70 | Tap the Buffer, then the money card. Check the bars against the numbers. | Available and Work bars match their hours, each task has its line and a bar, and the money bar matches "N of M hours done". |

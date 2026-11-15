@@ -53,7 +53,7 @@ class BlockSetupScreenTest {
 
     @Test fun K2_M7_changing_a_saved_list_needs_the_wall_of_75_characters() {
         rule.setContent { EfaTheme { ListWallGate({}, {}) } }
-        rule.onNodeWithText("TYPE THIS EXACTLY, BY HAND (0 OF 75)").assertExists()
+        rule.onNodeWithText("TYPE THIS BY HAND").assertExists()
     }
 
     @Test fun K2_M7_passing_the_list_wall_by_hand_continues() {

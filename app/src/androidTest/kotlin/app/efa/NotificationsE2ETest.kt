@@ -301,7 +301,7 @@ class HomeLookTest {
     @Test fun D6_with_no_deadline_the_dial_says_so_and_is_not_tappable() {
         rule.setContent { EfaTheme { HomeScreen(state(BufferState.NoDeadline), {}, {}) } }
         rule.onNodeWithText("No deadline.").assertExists()
-        rule.onNodeWithText("Tap dial for the sum").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Buffer. None", substring = true).assertIsNotEnabled()
     }
 
     @Test fun WG7_held_notifications_appear_as_a_card_with_no_count() {

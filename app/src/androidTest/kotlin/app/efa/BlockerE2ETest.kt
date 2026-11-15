@@ -75,7 +75,7 @@ internal class TestScreen(inst: Instrumentation) {
     }
 
     /** Scrolls the screen up with swipes until [sub] is on it, for a control that starts below the fold. */
-    fun scrollTo(sub: String, swipes: Int = 8): Boolean {
+    fun scrollTo(sub: String, swipes: Int = 20): Boolean {      // Setup has grown a few cards, so the buttons at its foot take more swipes to reach
         repeat(swipes) { if (has(sub)) return true; shell("input swipe 540 1900 540 700 300"); Thread.sleep(500) }
         return has(sub)
     }

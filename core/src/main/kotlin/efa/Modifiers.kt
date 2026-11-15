@@ -74,7 +74,13 @@ object ModDefs {
         d("days", "Days", SettingKind.TEXT, "all", help = "all, or for example sat,sun"),
     ), min = 0, max = 20)
 
-    fun settings(p: Preset): List<SettingDef> = when (p) {
+    /** Lectures are one dimension any work preset can set (term state): none cancels lectures and tutorials in the period and nothing comes back. */
+    private val lecturesAnywhere = d("lectures", "Lectures during the period", SettingKind.CHOICE, "running", choices = listOf("running", "none"),
+        help = "None: lectures and tutorials in the period are cancelled, with no catch-up, so the same plan works in a hybrid or holiday week.")
+
+    fun settings(p: Preset): List<SettingDef> = own(p) + (if (p == Preset.ASSIGNMENT || p == Preset.FOCUS || p == Preset.CATCH_UP) listOf(lecturesAnywhere) else emptyList())
+
+    private fun own(p: Preset): List<SettingDef> = when (p) {
         Preset.ASSIGNMENT -> listOf(
             d("order", "Planning order", SettingKind.CHOICE, "auto", choices = listOf("auto", "sequential", "interleaved"), help = "Auto interleaves when two assignments overlap and fall due within 3 days"),
             d("mode", "Planning mode", SettingKind.CHOICE, "anticipate", choices = listOf("anticipate", "even", "front", "crunch")),
@@ -437,12 +443,28 @@ private fun compileLectureFree(inst: Instance, base: List<PatternSlot>, now: Zon
 }
 
 /** Compiles a preset against the calendar as it is, without writing anything. [work] is the work due now, so the Buffer can be shown. */
-fun compile(inst: Instance, base: List<PatternSlot>, work: List<DueWork>, now: ZonedDateTime, zone: ZoneId = LONDON): Compiled = when (inst.preset) {
-    Preset.ASSIGNMENT -> compileAssignment(inst, base, now, zone)
-    Preset.FOCUS -> compileFocus(inst, base, now, zone)
-    Preset.CATCH_UP -> compileCatchUp(inst, base, work, now, zone)
-    Preset.PERIOD_OFF -> compilePeriodOff(inst, base, zone)
-    Preset.LECTURE_FREE -> compileLectureFree(inst, base, now, zone)
+fun compile(inst: Instance, base: List<PatternSlot>, work: List<DueWork>, now: ZonedDateTime, zone: ZoneId = LONDON): Compiled {
+    val cuts = lectureCuts(inst, base, zone)                                       // term state: lectures off is laid under the preset, so its sessions can use the time
+    val b = base + cuts
+    val c = when (inst.preset) {
+        Preset.ASSIGNMENT -> compileAssignment(inst, b, now, zone)
+        Preset.FOCUS -> compileFocus(inst, b, now, zone)
+        Preset.CATCH_UP -> compileCatchUp(inst, b, work, now, zone)
+        Preset.PERIOD_OFF -> compilePeriodOff(inst, base, zone)
+        Preset.LECTURE_FREE -> compileLectureFree(inst, base, now, zone)
+    }
+    if (cuts.isEmpty()) return c
+    return c.copy(slots = cuts + c.slots, loosening = c.loosening + "${cuts.size} lecture${if (cuts.size == 1) "" else "s"} and tutorial${if (cuts.size == 1) "" else "s"} are cancelled from ${label(inst.start)} to ${label(inst.end)}",
+        lines = c.lines + "No lectures from ${label(inst.start)} to ${label(inst.end)}, so none come back as catch-up.")
+}
+
+/** The lectures and tutorials a "lectures: none" instance cancels. Only work presets use this; period off and lecture-free handle their own. */
+fun lectureCuts(inst: Instance, base: List<PatternSlot>, zone: ZoneId = LONDON): List<PatternSlot> {
+    if (inst.preset != Preset.ASSIGNMENT && inst.preset != Preset.FOCUS && inst.preset != Preset.CATCH_UP) return emptyList()
+    if (inst.str("lectures") != "none") return emptyList()
+    return inst.dates().filter { !isDayOff(base, it) }.flatMap { date ->
+        slotsFor(base, date, zone).filter { it.slot.date == null && (it.slot.type == "lecture" || it.slot.type == "tutorial") }.map { it.slot.copy(date = date, cancelled = true, notes = "lectures off") }
+    }
 }
 
 // ---------- guard rails (spec section 10) ----------

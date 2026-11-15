@@ -17,7 +17,7 @@ Tests: ArchitectureProbeTest (5), core suite green.
 
 ## Decisions for you
 
-- **Generalise lectures on/off.** Lecture-free and period-off now both carry a lecture setting. Cleaner would be one "term state" (lectures running or not) that any preset can use, so a hybrid week can mix lecture-free with assignments, revision, catch-up or focus without a separate preset. Not done: it changes the design.
+- **Generalise lectures on/off (DONE).** Assignment, Focus and Catch-up now each have a "Lectures during the period" setting (running or none). None cancels lectures and tutorials in the period under the plan, so sessions can use the time and nothing comes back as catch-up. It needs the wall, like lecture-free, because it loosens. Period off keeps auto/running/none; Lecture-free stays as the preset that also lightens work. Was: Lecture-free and period-off now both carry a lecture setting. Cleaner would be one "term state" (lectures running or not) that any preset can use, so a hybrid week can mix lecture-free with assignments, revision, catch-up or focus without a separate preset. Not done: it changes the design.
 - **Period off wall:** +25 characters per day beyond two is still an assumption.
 - **Admin jobs typed "chore" ask for a photo** (Y1). Jobs like bins or dishes may be better as "errand" (no photo). Not changed.
 

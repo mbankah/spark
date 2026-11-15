@@ -154,3 +154,6 @@ Written 23 Oct 2026 after reading the whole ledger and seed. Each item says what
 - Android Studio SDK is not installed here (no `adb`, Gradle or Android SDK). Pure logic runs on JDK 17 and Node 24. Everything touching Android needs the SDK and a phone.
 - .NET SDK and Rust are not installed, so the Windows service (Layer 5) cannot be built or run here yet.
 - LA14 (100 reboots), S7 (overnight), K10 (browsers), E7 (antivirus) and all of section 10 of the build prompt need Michael's phone and PC.
+
+## Q-G121: Lectures on/off is one setting across presets
+Assignment, Focus and Catch-up take "Lectures during the period" (running by default; none cancels lectures and tutorials in the period, with no catch-up, and needs the wall). Period off takes auto, running or none (auto: none for 7 days or more). Lecture-free is kept as the preset that also lightens work. Chosen so a hybrid or holiday period combines with any work preset (architecture check).

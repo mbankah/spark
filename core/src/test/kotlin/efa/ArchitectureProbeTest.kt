@@ -55,3 +55,33 @@ class ArchitectureProbeTest {
         assertTrue(both.compiled.slots.isNotEmpty())
     }
 }
+
+class TermStateTest {
+    private val base = WeekB.slots
+    private val today = LocalDate.of(2026, 11, 2)
+    private val now = at(today, LocalTime.of(9, 0))
+    private fun item(t: String, due: String) = mapOf("title" to t, "due" to due, "due_time" to "17:00", "size_h" to "6.0")
+
+    @Test fun ARCH_lectures_none_combines_with_an_assignment() {
+        val inst = Instance(Preset.ASSIGNMENT, today, LocalDate.of(2026, 11, 13), mapOf("lectures" to "none"), listOf(item("GT", "2026-11-13")))
+        val p = previewOf(inst, base, emptyList(), now)
+        assertTrue(p.problems.isEmpty(), p.problems.joinToString())
+        val after = applied(base, p.compiled)
+        for (d in inst.dates()) assertTrue(slotsFor(after, d).none { it.slot.type == "lecture" || it.slot.type == "tutorial" }, "lectures on $d")
+        assertTrue(p.compiled.loosening.any { it.contains("cancelled") })
+        assertTrue(p.wallNeeded)
+    }
+
+    @Test fun ARCH_lectures_none_combines_with_catch_up_and_focus() {
+        val cu = Instance(Preset.CATCH_UP, today.plusDays(1), today.plusDays(7), mapOf("lectures" to "none"))
+        val p = previewOf(cu, base, emptyList(), now)
+        for (d in cu.dates()) assertTrue(slotsFor(applied(base, p.compiled), d).none { it.slot.type == "lecture" })
+        val fo = Instance(Preset.FOCUS, today, LocalDate.of(2026, 11, 14), mapOf("lectures" to "none"), listOf(item("CS", "2026-11-14") + ("size_h" to "20.0")))
+        assertTrue(previewOf(fo, base, emptyList(), now).compiled.slots.any { it.cancelled })
+    }
+
+    @Test fun ARCH_lectures_default_to_running() {
+        val inst = Instance(Preset.ASSIGNMENT, today, LocalDate.of(2026, 11, 13), emptyMap(), listOf(item("GT", "2026-11-13")))
+        assertEquals(emptyList(), lectureCuts(inst, base))
+    }
+}

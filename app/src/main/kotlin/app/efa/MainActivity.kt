@@ -192,6 +192,8 @@ class MainActivity : ComponentActivity() {
                 var look by remember { mutableStateOf(LauncherLook()) }
                 LaunchedEffect(screen, reload) { look = LauncherLook.decode(withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LOOK) }) }
                 // Modify Schedule: the list, a preset's form, the Admin library and the essentials.
+                var wakeUi by remember { mutableStateOf(WakeUi()) }                                   // WT1
+                var wakeMessage by remember { mutableStateOf<String?>(null) }
                 var modRows by remember { mutableStateOf<List<app.efa.data.ModifierRow>>(emptyList()) }
                 var modDropped by remember { mutableStateOf(0) }
                 var modDraft by remember { mutableStateOf<Instance?>(null) }
@@ -202,6 +204,14 @@ class MainActivity : ComponentActivity() {
                 var adminProblems by remember { mutableStateOf<List<String>>(emptyList()) }
                 var essUi by remember { mutableStateOf(EssentialsUi(emptyList(), 0, 0, emptyList())) }
                 LaunchedEffect(screen, reload) {
+                    if (screen == Screen.SETUP) withContext(Dispatchers.IO) {                                   // WT1: what the wake time card says
+                        val now = BlockingState.now()
+                        val plan = try { AlarmScheduler.planNow(applicationContext, now) } catch (e: Exception) { null }
+                        val chosen = try { AlarmScheduler.chosenWake(applicationContext, now) } catch (e: Exception) { null }
+                        val why = when (plan?.reason) { AlarmReason.CHOSEN -> "the time you chose"; AlarmReason.ONSET -> "about 8 hours after you fell asleep"; AlarmReason.HARD -> "30 minutes before a hard commitment"; AlarmReason.BACKSTOP -> "the 12:00 latest alarm"; null -> "" }
+                        val start = (plan?.at ?: now.toLocalDate().atTime(10, 30).atZone(now.zone)).let { (it.hour * 60 + it.minute).let { m -> (m + 7) / 15 * 15 } }
+                        wakeUi = WakeUi(if (plan == null) "No alarm: that day is a planned day off." else "Next alarm %02d:%02d, %s.".format(plan.at.hour, plan.at.minute, why), chosen != null, (start / 60) % 24, start % 60)
+                    }
                     if (screen == Screen.MODIFY) { modRows = withContext(Dispatchers.IO) { app.efa.data.ModifierRepo(db).all() }; modDropped = withContext(Dispatchers.IO) { PlanRepo(db).droppedByChanges() } }
                     if (screen == Screen.ADMIN) withContext(Dispatchers.IO) {
                         adminState = AdminState.decode(db.meta().get(app.efa.data.META_ADMIN))
@@ -621,6 +631,25 @@ class MainActivity : ComponentActivity() {
                         codeReminders = codeReminders,
                         photoReminders = photoReminders,
                         quietMode = quietMode,
+                        wake = wakeUi.copy(message = wakeMessage),
+                        onWakeClear = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, null); wakeMessage = "Back to the normal alarm."; reload++ } },
+                        onWakeSet = { h, m ->
+                            scope.launch(Dispatchers.IO) {
+                                val now = BlockingState.now(); val chosen = nextClockTime(now, h, m)
+                                val onset = AlarmScheduler.liveOnset(app.efa.data.SleepRepo(db), now)
+                                val problem = wakeChoiceProblem(now, onset, chosen)
+                                if (problem != null) { wakeMessage = problem; return@launch }
+                                val normal = AlarmScheduler.planNow(applicationContext, now, useChosen = false)
+                                val withChoice = planAlarmWithDaysOff(now, onset, PlanRepo(db).slots(), chosen)
+                                val at = "%02d:%02d".format(chosen.hour, chosen.minute)
+                                val save = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, chosen); wakeMessage = "The next alarm is set for $at."; reload++ }; Unit }
+                                if (wakeNeedsWall(normal, withChoice)) {
+                                    wallBack = Screen.SETUP; wallLength = efa.WallLength.WAKE_LATER
+                                    wall = Triple("Wake later", "You will sleep until $at, later than Spark would have woken you. The blocks before then are missed, and come back as work. Type the characters below by hand.", { save() })
+                                    screen = Screen.GATE
+                                } else save()
+                            }
+                        },
                         onQuietMode = { on ->
                             if (on) scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_QUIET_MODE, "1")); BlockingState.refresh(applicationContext); reload++ }
                             else {                                                                               // QM1: turning it off lets notifications through again, so it needs the wall

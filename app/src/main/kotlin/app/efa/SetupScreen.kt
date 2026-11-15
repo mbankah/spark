@@ -17,6 +17,7 @@ import efa.GitConfig
 import efa.AppearanceMode
 import efa.parseGitConfig
 import efa.MAX_GIT_REPOS
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -36,6 +37,9 @@ data class PlacesState(val home: Pair<Double, Double>?, val venues: List<VenueSt
  * Setup for places (L4 to L8). Home is set on a map and saved at about 100 m resolution. Every timetable venue shows where its
  * point came from, and any venue can be placed on the map; a venue OpenStreetMap could not match is flagged first (L5).
  */
+/** WT1: what the wake time card shows: the next alarm in words, whether a time was chosen, the time the picker starts at, and the last answer. */
+data class WakeUi(val text: String = "", val chosen: Boolean = false, val hour: Int = 10, val minute: Int = 30, val message: String? = null)
+
 @Composable
 fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
@@ -45,6 +49,7 @@ fun SetupScreen(
     codeReminders: Boolean = true, onCodeReminders: (Boolean) -> Unit = {},
     photoReminders: Boolean = true, onPhotoReminders: (Boolean) -> Unit = {},
     quietMode: Boolean = false, onQuietMode: (Boolean) -> Unit = {},
+    wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -128,6 +133,21 @@ fun SetupScreen(
             BasicText("Voice quick add", style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText("Say a deadline, like “assignment due Friday, heavy”. A card shows what was heard before anything is saved. Voice can open a day off request or the block list but cannot finish one. Typed quick add is always there.", style = Ts(c.muted, 14.sp))
             Chip(if (voiceQuietOff) "Voice is off in lectures and the library" else "Voice is on everywhere", voiceQuietOff, { onVoiceQuiet(!voiceQuietOff) }, if (voiceQuietOff) "Turn voice on in lectures and the library" else "Turn voice off in lectures and the library")
+        }
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("WAKE TIME")
+            BasicText(wake.text.ifBlank { "Next alarm not worked out yet." }, style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("Choose when the next alarm rings. The normal alarm is about 8 hours after you fall asleep, and the latest it can be is 12:00. A later time than the normal one needs the wall. Blocks you sleep through are missed and come back as work.", style = Ts(c.muted, 14.sp))
+            var minutes by remember(wake.hour, wake.minute) { androidx.compose.runtime.mutableIntStateOf(wake.hour * 60 + wake.minute) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Btn("− 15", { minutes = (minutes - 15 + 1440) % 1440 }, description = "Wake time 15 minutes earlier")
+                BasicText("%02d:%02d".format(minutes / 60, minutes % 60), style = Ts(c.text, 34.sp, FontWeight.Bold, fontFamily = Mono), modifier = Modifier.weight(1f).semantics { contentDescription = "Wake time %02d:%02d".format(minutes / 60, minutes % 60) })
+                Btn("+ 15", { minutes = (minutes + 15) % 1440 }, description = "Wake time 15 minutes later")
+            }
+            Btn("Set this wake time", { onWakeSet(minutes / 60, minutes % 60) }, primary = true, modifier = Modifier.fillMaxWidth(), description = "Set the wake time to %02d:%02d".format(minutes / 60, minutes % 60))
+            if (wake.chosen) Btn("Use the normal alarm", onWakeClear, modifier = Modifier.fillMaxWidth())
+            wake.message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.SemiBold)) }
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

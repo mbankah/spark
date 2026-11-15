@@ -584,6 +584,7 @@ const val META_PC_ADDRESS = "pc_address"
 const val META_PC_CODE = "pc_code"
 const val META_PC_LAST = "pc_last"
 const val META_VOICE_QUIET_OFF = "voice_quiet_off"
+const val META_WAKE_CHOSEN = "wake_chosen_ms"            // WT1: the wake time chosen for the next morning, as epoch milliseconds; "0" or missing means none
 const val META_QUIET_MODE = "quiet_mode"                  // "1" holds every notification except essentials in a work block and the night (QM1); anything else is off
 const val META_PHOTO_REMINDERS = "photo_reminders"         // "0" switches the photo reminders off; anything else is on
 const val META_CODE_REMINDERS = "code_reminders"           // "0" switches the lecture attendance code reminders off; anything else is on

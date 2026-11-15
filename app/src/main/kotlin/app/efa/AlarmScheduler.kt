@@ -38,9 +38,24 @@ object AlarmScheduler {
         return if (stillAsleep) Instant.ofEpochMilli(night.startMs).atZone(now.zone) else null
     }
 
-    suspend fun planNow(ctx: Context, now: ZonedDateTime): AlarmPlan? {
+    /** WT1: the wake time chosen for the next morning, if there is one still ahead. A choice that is long past (the alarm rang, or it was never reached) is forgotten. */
+    suspend fun chosenWake(ctx: Context, now: ZonedDateTime): ZonedDateTime? {
+        val db = EfaDb.get(ctx.applicationContext)
+        val ms = db.meta().get(app.efa.data.META_WAKE_CHOSEN)?.toLongOrNull()?.takeIf { it > 0 } ?: return null
+        if (ms < now.toInstant().toEpochMilli() - 6 * 3_600_000L) { db.meta().put(MetaRow(app.efa.data.META_WAKE_CHOSEN, "0")); return null }
+        return Instant.ofEpochMilli(ms).atZone(now.zone)
+    }
+
+    /** WT1: chooses a wake time for the next morning, or with null goes back to the normal alarm. The alarm is set again at once. */
+    suspend fun setChosenWake(ctx: Context, at: ZonedDateTime?, now: ZonedDateTime = BlockingState.now()) {
+        EfaDb.get(ctx.applicationContext).meta().put(MetaRow(app.efa.data.META_WAKE_CHOSEN, (at?.toInstant()?.toEpochMilli() ?: 0L).toString()))
+        refresh(ctx, now)
+    }
+
+    /** [useChosen] false gives the alarm Spark would set on its own, which is what a later chosen time is compared with (WT1). */
+    suspend fun planNow(ctx: Context, now: ZonedDateTime, useChosen: Boolean = true): AlarmPlan? {
         val db = EfaDb.get(ctx)
-        return planAlarmWithDaysOff(now, liveOnset(SleepRepo(db), now), PlanRepo(db).slots())
+        return planAlarmWithDaysOff(now, liveOnset(SleepRepo(db), now), PlanRepo(db).slots(), if (useChosen) chosenWake(ctx, now) else null)
     }
 
     /** Sets the alarm for [plan] if it differs from what is set by a minute or more. Returns whether it changed anything. */
@@ -94,6 +109,7 @@ class AlarmReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 MorningRepo(EfaDb.get(context.applicationContext)).fire(at, reason, System.currentTimeMillis())
+                EfaDb.get(context.applicationContext).meta().put(MetaRow(app.efa.data.META_WAKE_CHOSEN, "0"))          // WT1: the chosen time has done its job
                 BlockingState.refresh(context.applicationContext)
                 AlarmService.start(context.applicationContext)
                 AlarmSession.ringing = true

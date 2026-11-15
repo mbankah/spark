@@ -22,6 +22,7 @@ object WallLength {
     const val IMPORT_LOOSEN = WALL_BASE    // IM6, IM12
     const val CALIBRATE_LESS = WALL_BASE   // R10: saying a task took less loosens every later estimate of its size
     const val QUIET_OFF = WALL_BASE        // QM1: turning quiet mode off lets notifications through again
+    const val WAKE_LATER = WALL_BASE       // WT1: choosing a wake time later than the one Spark would have chosen
 }
 
 /** Fresh random string every time. Easily confused characters left out; no spaces. */

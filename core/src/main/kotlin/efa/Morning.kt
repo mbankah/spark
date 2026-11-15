@@ -90,7 +90,7 @@ val ALARM_FLOOR: Duration = Duration.ofHours(3)                 // Z2: nothing r
 val BACKSTOP_AT: LocalTime = LocalTime.NOON                     // G2: one alarm a day at the latest, 12:00
 val HARD_LEAD: Duration = Duration.ofMinutes(30)                // a hard alarm rings this long before the commitment (Q-G55)
 
-enum class AlarmReason { BACKSTOP, ONSET, HARD }
+enum class AlarmReason { BACKSTOP, ONSET, HARD, CHOSEN }
 
 data class AlarmPlan(val at: ZonedDateTime, val reason: AlarmReason)
 
@@ -104,7 +104,7 @@ fun hardAlarmAt(slots: List<PatternSlot>, date: LocalDate, zone: ZoneId): ZonedD
  * never sooner than 3 hours after onset, never later than the backstop (the backstop counts as hard, so the floor does not hold it back),
  * and a hard alarm earlier than that rings first. [onset] is where the live night says sleep started, or null.
  */
-fun planAlarm(now: ZonedDateTime, onset: ZonedDateTime?, slots: List<PatternSlot>, isDayOff: Boolean = false): AlarmPlan? {
+fun planAlarm(now: ZonedDateTime, onset: ZonedDateTime?, slots: List<PatternSlot>, isDayOff: Boolean = false, chosen: ZonedDateTime? = null): AlarmPlan? {
     if (isDayOff) return null                                   // G2: always set unless it is a planned day off
     val zone = now.zone
     val wakeDate = if (onset != null) onset.plus(SLEEP_TARGET).toLocalDate() else if (now.toLocalTime().isBefore(BACKSTOP_AT)) now.toLocalDate() else now.toLocalDate().plusDays(1)
@@ -115,9 +115,34 @@ fun planAlarm(now: ZonedDateTime, onset: ZonedDateTime?, slots: List<PatternSlot
         val ring = maxOf(onset.plus(SLEEP_TARGET), onset.plus(ALARM_FLOOR))
         if (ring.isBefore(backstop)) plan = AlarmPlan(ring, AlarmReason.ONSET)
     }
+    // WT1: a wake time you chose replaces onset plus 8 hours, but never goes past the backstop, never rings sooner than the 3-hour floor after sleep began, and a hard alarm still rings first.
+    if (chosen != null && chosen.isAfter(now) && !chosen.isAfter(backstop)) {
+        val ring = if (onset != null) maxOf(chosen, onset.plus(ALARM_FLOOR)) else chosen
+        plan = AlarmPlan(minOf(ring, backstop), AlarmReason.CHOSEN)
+    }
     if (hard != null && hard.isBefore(plan.at)) plan = AlarmPlan(hard, AlarmReason.HARD)
     return plan
 }
+
+/** WT1: the next time the clock says [hour]:[minute], today if that is still ahead and otherwise tomorrow. */
+fun nextClockTime(now: ZonedDateTime, hour: Int, minute: Int): ZonedDateTime {
+    val today = now.toLocalDate().atTime(hour, minute).atZone(now.zone)
+    return if (today.isAfter(now)) today else now.toLocalDate().plusDays(1).atTime(hour, minute).atZone(now.zone)
+}
+
+/** WT1: why a chosen wake time cannot be used, or null if it can. The latest alarm is the 12:00 backstop (G2). */
+fun wakeChoiceProblem(now: ZonedDateTime, onset: ZonedDateTime?, chosen: ZonedDateTime): String? {
+    val wakeDate = if (onset != null) onset.plus(SLEEP_TARGET).toLocalDate() else if (now.toLocalTime().isBefore(BACKSTOP_AT)) now.toLocalDate() else now.toLocalDate().plusDays(1)
+    val backstop = ZonedDateTime.of(wakeDate, BACKSTOP_AT, now.zone)
+    return when {
+        !chosen.isAfter(now) -> "That time has passed."
+        chosen.isAfter(backstop) -> "The latest alarm is 12:00."
+        else -> null
+    }
+}
+
+/** WT1: a wake time later than the one Spark would have chosen is a loosening and needs the typed wall; an earlier or equal one only tightens. */
+fun wakeNeedsWall(normal: AlarmPlan?, chosen: AlarmPlan?): Boolean = normal != null && chosen != null && chosen.at.isAfter(normal.at)
 
 // ---- Stopping the alarm (M2, M3, M10) ----
 

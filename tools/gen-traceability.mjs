@@ -54,7 +54,7 @@ put(1, [...range('P', 1, 11), ...range('A', 1, 9), ...range('D', 1, 7), ...range
   'K1', 'K2', 'K3', 'K10', 'G1', 'G4', 'G5', 'X1', 'X4', 'X5', 'X6', 'X7', 'O4', 'O9', 'O5', 'O6', 'O7', 'O8',
   'O1', 'O14', 'R20-F4', 'R20-F2']);
 put(1, [...range('IM', 1, 12), ...range('PW', 1, 3), ...range('RS', 1, 9)]);   // section 25, built early at your request
-put(1, ['SC1', 'SC2', 'LC1', 'AN1', 'PH1', 'CH1', 'RP1', 'RP2', 'QM1', 'SC3']);   // section 26, asked for on 15 Nov 2026
+put(1, ['SC1', 'SC2', 'LC1', 'AN1', 'PH1', 'CH1', 'RP1', 'RP2', 'QM1', 'SC3', 'WT1']);   // section 26, asked for on 15 Nov 2026
 put(2, range('S', 1, 7));
 put(3, [...range('M', 1, 10), 'WS1', ...range('Z', 1, 4), 'G2', 'Y7', 'X2', 'R20-F1', 'O2']);
 put(4, [...range('N', 1, 7), 'R20-F3']);

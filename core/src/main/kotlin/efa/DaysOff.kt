@@ -149,5 +149,5 @@ fun claimable(date: LocalDate, today: LocalDate): Boolean = date.isBefore(today)
 fun weekendOf(saturday: LocalDate): List<LocalDate>? = if (saturday.dayOfWeek == DayOfWeek.SATURDAY) listOf(saturday, saturday.plusDays(1)) else null
 
 /** G2: no alarm rings on a planned day off, not even the 12:00 backstop. The next one is for the next day that is not off. */
-fun planAlarmWithDaysOff(now: ZonedDateTime, onset: ZonedDateTime?, slots: List<PatternSlot>): AlarmPlan? =
-    planAlarm(now, onset, slots)?.takeUnless { isDayOff(slots, it.at.toLocalDate()) }
+fun planAlarmWithDaysOff(now: ZonedDateTime, onset: ZonedDateTime?, slots: List<PatternSlot>, chosen: ZonedDateTime? = null): AlarmPlan? =
+    planAlarm(now, onset, slots, chosen = chosen)?.takeUnless { isDayOff(slots, it.at.toLocalDate()) }

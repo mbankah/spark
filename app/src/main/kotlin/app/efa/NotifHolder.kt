@@ -16,7 +16,8 @@ import kotlinx.coroutines.*
  * Holds notifications from blocked apps while they are blocked (U8). Each one is stored on this phone first and only then removed
  * from the shade, so nothing can be lost: if the store fails, the notification stays where it was (X7).
  * Calls, alarms, authenticator codes, banking alerts and MyUoB notices are never held (LA1), and apps that are not blocked come through
- * as normal. It reads the notification's title and text only to put them in the digest; they never leave the phone.
+ * as normal, unless quiet mode is on and the phone is in a work block or the night: then everything is held except the essentials, the phone's
+ * own packages, ongoing notifications and the categories that are the phone working (QM1). It reads the notification's title and text only to put them in the digest; they never leave the phone.
  */
 class NotifHolder : NotificationListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -25,7 +26,8 @@ class NotifHolder : NotificationListenerService() {
         if (sbn.packageName == packageName) return
         val n = sbn.notification
         val incoming = Incoming(sbn.packageName, n.category, sbn.isOngoing, n.flags and Notification.FLAG_GROUP_SUMMARY != 0)
-        if (!shouldHold(incoming, BlockingState.decide(sbn.packageName))) return
+        val quiet = BlockingState.quietWindow() != null                              // QM1: a work block or the night, with quiet mode on
+        if (!shouldHold(incoming, BlockingState.decide(sbn.packageName), quiet, BlockingState.snapshot?.essentials ?: efa.ESSENTIAL_CORE)) return
         val extras = n.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty()

@@ -22,6 +22,7 @@ class Snapshot(
     val pattern: List<PatternSlot>, val list: Set<String>, val allow: Allowances,
     val verified: Set<String>, val tasks: List<DueWork>, val morning: MorningState? = null, val lateness: Lateness = emptyMap(),
     val earnings: List<Earning> = emptyList(), val shortSleep: Boolean = false, val essentials: Set<String> = ESSENTIAL_CORE,
+    val quiet: Boolean = false,
 )
 
 object BlockingState {
@@ -54,9 +55,21 @@ object BlockingState {
                 earnings = RewardsRepo(db).earnings(now),
                 shortSleep = isShortSleepToday(db, now),
                 essentials = app.efa.EssentialsRepo(ctx, db).resolve(),                       // MG1, MG2: worked out each time
+                quiet = db.meta().get(app.efa.data.META_QUIET_MODE) == "1",                  // QM1
             )
         } catch (e: Exception) { /* keep the last snapshot */ }
     }
+
+    /** QM1: the quiet window the phone is in now (a work block or the night), or null. Always null with quiet mode off. */
+    fun quietWindow(): Decision.Block? {
+        val s = snapshot ?: return null
+        if (!s.quiet) return null
+        val now = now()
+        return efa.quietWindow(now, s.pattern, s.allow, s.verified, s.morning, s.lateness, earnedAccessActive(now, s.earnings, s.pattern), s.essentials)
+    }
+
+    /** QM1: whether quiet mode is on, whatever the time. */
+    fun quietOn(): Boolean = snapshot?.quiet == true
 
     fun decide(pkg: String): Decision {
         val s = snapshot ?: return Decision.Allow

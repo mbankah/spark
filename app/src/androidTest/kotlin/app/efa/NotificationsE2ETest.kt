@@ -57,7 +57,7 @@ class HeldNotificationsE2ETest {
 
     @After fun tearDown() {
         BlockingState.clockOverride = null
-        runBlocking { BlockingRepo(db).saveList(emptySet()); db.openHelper.writableDatabase.execSQL("DELETE FROM held_notification") }
+        runBlocking { BlockingRepo(db).saveList(emptySet()); db.meta().put(MetaRow(app.efa.data.META_QUIET_MODE, "0")); db.openHelper.writableDatabase.execSQL("DELETE FROM held_notification") }
         screen.shell("cmd notification disallow_listener app.efa/app.efa.NotifHolder")
     }
 
@@ -76,6 +76,47 @@ class HeldNotificationsE2ETest {
         Thread.sleep(4_000)
         assertEquals(0, heldCount())
         assertTrue(inShade("open1"), "it should stay in the shade")
+    }
+
+    private fun quiet(on: Boolean) { runBlocking { db.meta().put(MetaRow(app.efa.data.META_QUIET_MODE, if (on) "1" else "0")); BlockingRepo(db).saveList(emptySet()); BlockingState.refresh(ctx) } }
+
+    @Test fun QM1_with_quiet_mode_on_an_app_that_is_not_blocked_is_held_in_a_work_block() {
+        quiet(true)
+        post("quiet1", "Alex", "free-tonight")
+        assertTrue(screen.waitFor(15_000) { heldCount() == 1 }, "the notification was not held")
+        assertEquals(SHELL, runBlocking { db.held().unreviewed() }.single().pkg)
+        assertTrue(screen.waitFor(10_000) { !inShade("quiet1") }, "it should be gone from the shade once stored")
+    }
+
+    @Test fun QM1_with_quiet_mode_off_the_same_notification_comes_through() {
+        quiet(false)
+        post("quiet2", "Sam", "hello")
+        Thread.sleep(4_000)
+        assertEquals(0, heldCount()); assertTrue(inShade("quiet2"))
+    }
+
+    @Test fun QM1_quiet_mode_holds_nothing_when_the_phone_is_open_in_free_time() {
+        quiet(true); clockAt(t(19, 21, 0))
+        post("quiet3", "Sam", "hello")
+        Thread.sleep(4_000)
+        assertEquals(0, heldCount()); assertTrue(inShade("quiet3"))
+    }
+
+    @Test fun QM1_what_was_held_waits_in_the_digest_until_the_work_block_ends_then_shows() {
+        quiet(true)
+        post("quiet4", "Alex", "free-tonight")
+        assertTrue(screen.waitFor(15_000) { heldCount() == 1 })
+        val during = digest(runBlocking { HeldRepo(db).unreviewed() }, BlockingState.quietWindow()?.until) { BlockingState.decide(it) }
+        assertTrue(during.ready.isEmpty()); assertEquals(t(19, 12, 15), during.waitingUntil)
+        clockAt(t(19, 12, 30))
+        val after = digest(runBlocking { HeldRepo(db).unreviewed() }, BlockingState.quietWindow()?.until) { BlockingState.decide(it) }
+        assertEquals(1, after.ready.size); assertNull(after.waitingUntil)
+    }
+
+    @Test fun QM1_the_quiet_window_is_the_work_block_and_only_with_quiet_mode_on() {
+        quiet(false); assertNull(BlockingState.quietWindow()); assertFalse(BlockingState.quietOn())
+        quiet(true); assertNotNull(BlockingState.quietWindow()); assertTrue(BlockingState.quietOn())
+        clockAt(t(19, 21, 0)); assertNull(BlockingState.quietWindow())
     }
 
     @Test fun U8_a_listed_app_is_not_held_when_the_phone_is_open() {
@@ -340,3 +381,26 @@ class HeldMigrationTest {
         db.query("SELECT COUNT(*) FROM held_notification WHERE reviewedAtMs IS NULL").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
     }
 }
+
+/** QM1: the Setup switch, and the wall that turning it off needs. */
+@RunWith(AndroidJUnit4::class)
+class QuietModeScreenTest {
+    @get:Rule val rule = createComposeRule()
+
+    @Test fun QM1_the_setup_screen_shows_quiet_mode_and_turning_it_on_asks_for_nothing() {
+        var set: Boolean? = null
+        rule.setContent { EfaTheme { SetupScreen(PlacesState(null, emptyList()), {}, {}, {}, quietMode = false, onQuietMode = { set = it }) } }
+        rule.onNodeWithContentDescription("Turn quiet mode on").performScrollTo().performClick()
+        assertEquals(true, set)
+    }
+
+    @Test fun QM1_the_setup_screen_offers_turning_it_off_and_says_it_needs_the_wall() {
+        var set: Boolean? = null
+        rule.setContent { EfaTheme { SetupScreen(PlacesState(null, emptyList()), {}, {}, {}, quietMode = true, onQuietMode = { set = it }) } }
+        rule.onNodeWithText("Quiet mode: on").assertExists()
+        rule.onNodeWithText("Turning it off needs the wall.", substring = true).assertExists()
+        rule.onNodeWithContentDescription("Turn quiet mode off").performScrollTo().performClick()
+        assertEquals(false, set)           // MainActivity answers this by opening the wall; the setting changes only when it is passed
+    }
+}
+

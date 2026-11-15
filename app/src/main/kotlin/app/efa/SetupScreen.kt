@@ -44,6 +44,7 @@ fun SetupScreen(
     onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, onModify: () -> Unit = {}, healthText: String = "", onHealth: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
     codeReminders: Boolean = true, onCodeReminders: (Boolean) -> Unit = {},
     photoReminders: Boolean = true, onPhotoReminders: (Boolean) -> Unit = {},
+    quietMode: Boolean = false, onQuietMode: (Boolean) -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -127,6 +128,13 @@ fun SetupScreen(
             BasicText("Voice quick add", style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText("Say a deadline, like “assignment due Friday, heavy”. A card shows what was heard before anything is saved. Voice can open a day off request or the block list but cannot finish one. Typed quick add is always there.", style = Ts(c.muted, 14.sp))
             Chip(if (voiceQuietOff) "Voice is off in lectures and the library" else "Voice is on everywhere", voiceQuietOff, { onVoiceQuiet(!voiceQuietOff) }, if (voiceQuietOff) "Turn voice on in lectures and the library" else "Turn voice off in lectures and the library")
+        }
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("QUIET MODE")
+            BasicText("Hold everything except essentials", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("In a work block and at night, every notification is held for the digest, except your essentials, calls, alarms, codes and bank alerts, directions, downloads and the phone's own messages. Turning it off needs the wall.", style = Ts(c.muted, 14.sp))
+            Chip(if (quietMode) "Quiet mode: on" else "Quiet mode: off", quietMode, { onQuietMode(!quietMode) }, if (quietMode) "Turn quiet mode off" else "Turn quiet mode on")
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

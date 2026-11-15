@@ -255,6 +255,7 @@ class MainActivity : ComponentActivity() {
                 var voiceQuietOff by remember { mutableStateOf(true) }
                 var codeReminders by remember { mutableStateOf(true) }
                 var photoReminders by remember { mutableStateOf(true) }
+                var quietMode by remember { mutableStateOf(false) }
                 var nightPhotoMs by remember { mutableStateOf<Long?>(null) }
                 var widgetRows by remember { mutableStateOf<List<WidgetRowUi>>(emptyList()) }
                 var widgetMessage by remember { mutableStateOf<String?>(null) }
@@ -268,7 +269,7 @@ class MainActivity : ComponentActivity() {
                 }
                 var shopping by remember { mutableStateOf<List<app.efa.data.ShoppingRow>>(emptyList()) }
                 LaunchedEffect(screen, reload) { if (screen == Screen.SHOPPING) shopping = withContext(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).items() } }
-                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" }; codeReminders = withContext(Dispatchers.IO) { LectureCodeAlarm.enabled(db) }; photoReminders = withContext(Dispatchers.IO) { PhotoAlarm.enabled(db) }; nightPhotoMs = withContext(Dispatchers.IO) { app.efa.data.SleepRepo(db).shutdownPhotoMs() } }
+                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" }; codeReminders = withContext(Dispatchers.IO) { LectureCodeAlarm.enabled(db) }; photoReminders = withContext(Dispatchers.IO) { PhotoAlarm.enabled(db) }; quietMode = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_QUIET_MODE) == "1" }; nightPhotoMs = withContext(Dispatchers.IO) { app.efa.data.SleepRepo(db).shutdownPhotoMs() } }
                 /** V1, V3, V4: what was heard becomes a card to check, or opens a screen. A loosening only opens its request screen, where the typed wall is. */
                 var reviewRow by remember { mutableStateOf<app.efa.data.TaskRow?>(null) }
                 /** B5, E9: the estimates are corrected from finished tasks, and the newest finished task not yet asked about is offered on home. */
@@ -428,7 +429,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 LaunchedEffect(screen, reload, clock) {
-                    if (screen == Screen.DIGEST) digestState = withContext(Dispatchers.IO) { digest(HeldRepo(db).unreviewed()) { BlockingState.decide(it) } }
+                    if (screen == Screen.DIGEST) digestState = withContext(Dispatchers.IO) { digest(HeldRepo(db).unreviewed(), BlockingState.quietWindow()?.until) { BlockingState.decide(it) } }
                 }
                 // U4, X5: whenever the app comes back to the front, check the blocking service is still on. Switching it off is logged once.
                 LifecycleResumeEffect(Unit) {
@@ -618,6 +619,17 @@ class MainActivity : ComponentActivity() {
                         onVoiceQuiet = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_VOICE_QUIET_OFF, if (v) "1" else "0")); reload++ } },
                         codeReminders = codeReminders,
                         photoReminders = photoReminders,
+                        quietMode = quietMode,
+                        onQuietMode = { on ->
+                            if (on) scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_QUIET_MODE, "1")); BlockingState.refresh(applicationContext); reload++ }
+                            else {                                                                               // QM1: turning it off lets notifications through again, so it needs the wall
+                                wallBack = Screen.SETUP; wallLength = efa.WallLength.QUIET_OFF
+                                wall = Triple("Turn quiet mode off", "Quiet mode holds every notification except your essentials while you work and at night. Turning it off lets them through again, so it needs the wall. Type the characters below by hand.", {
+                                    scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_QUIET_MODE, "0")); BlockingState.refresh(applicationContext); reload++ }
+                                })
+                                screen = Screen.GATE
+                            }
+                        },
                         onPhotoReminders = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_PHOTO_REMINDERS, if (v) "1" else "0")); PhotoAlarm.refresh(applicationContext); reload++ } },
                         onCodeReminders = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_CODE_REMINDERS, if (v) "1" else "0")); LectureCodeAlarm.refresh(applicationContext); reload++ } },
                         onShopping = { screen = Screen.SHOPPING },

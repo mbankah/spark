@@ -322,3 +322,9 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E80 | Import `tonight-plan-2026-11-15.csv`. Read the preview, type the wall, press Apply. | The preview says it replaces Student Dinner, Public transport, Plan Monday, Evening prayer, Stretches and Shutdown on Sun 15 Nov, 20:00 to 23:59, and asks for the wall. After Apply, Today on the schedule page shows your plan from 20:00 to 00:30 and nothing of the old evening, with the blocks before 20:00 unchanged. |
 | E81 | At 23:00 tonight, with the phone in your pocket. | A notification with the alarm sound says Melatonin 3mg. |
 | E82 | On Setup, Import, look at the imports log and remove the tonight import. | The old evening comes back, and the plan is gone. |
+| E83 | Setup, Quiet mode, switch it on. Start a work block, then have a friend message you on an app that is not on your block list, and an email arrive. | Neither makes a sound or stays in the shade. At the end of the block the digest shows both with the app names, in time order, with no count. |
+| E84 | During a work block with quiet mode on, receive a phone call, a text, an authenticator or bank code, and start navigation in Maps. | All come through at once. The call rings, the text and code show, directions keep going. |
+| E85 | During a work block with quiet mode on, plug in the charger, start a download, and set a clock timer. | None are held. |
+| E86 | After the night cutoff with quiet mode on, get a message from an app that is not an essential. Then pass a night override. | It is held. After the override the phone is open for its minutes and new ones come through. |
+| E87 | Setup, Quiet mode, switch it off. | The wall asks for 75 characters. Only after it is typed does it go off. Cancelling leaves it on. |
+| E88 | Note any app whose notification you needed and did not get while quiet mode was on. | Tell me which. Add it to the essentials, or I add it to the always-pass list. |

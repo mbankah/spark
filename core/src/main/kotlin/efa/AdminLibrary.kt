@@ -189,16 +189,18 @@ fun placeAdmin(base: List<PatternSlot>, state: AdminState, from: LocalDate, days
     val freeUsed = HashMap<Int, Int>()
     fun freeBaseline(date: LocalDate): Int { val mon = date.with(DayOfWeek.MONDAY); return (0..6).sumOf { k -> slotsFor(base, mon.plusDays(k.toLong()), zone).filter { it.slot.type == "free" }.sumOf { it.slot.endMin - it.slot.startMin } } }
     val enabled = AdminLibrary.jobs.filter { state.enabled(it) }
-    for (date in generateSequence(from) { it.plusDays(1) }.take(days)) {
+    // The week is worked out from its Monday, so what was placed earlier in the week counts and a day does not move as the week goes on.
+    val start = from.with(DayOfWeek.MONDAY)
+    for (date in generateSequence(start) { it.plusDays(1) }.take(days + java.time.temporal.ChronoUnit.DAYS.between(start, from).toInt())) {
         val due = enabled.filter { dueOn(it, date) && !covered(it, base, date, zone) }.sortedWith(compareBy({ -it.priority }, { it.from }))
         var used = 0
         for (job in due) {
             val len = state.minutesFor(job)
             val name = "${date.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() }} ${date.dayOfMonth}"
-            if (used + len > state.capMin) { problems += "$name: ${job.title} does not fit under the daily cap of ${state.capMin} minutes."; continue }
+            if (used + len > state.capMin) { if (date >= from) problems += "$name: ${job.title} does not fit under the daily cap of ${state.capMin} minutes."; continue }
             var from0 = job.from; val to0 = job.to
             if (job.anchor == "wake") {
-                val wake = slotsFor(base, date, zone).firstOrNull { it.slot.title.startsWith("Wake") } ?: run { problems += "$name: ${job.title} needs a wake block and there is none."; null } ?: continue
+                val wake = slotsFor(base, date, zone).firstOrNull { it.slot.title.startsWith("Wake") } ?: run { if (date >= from) problems += "$name: ${job.title} needs a wake block and there is none."; null } ?: continue
                 from0 = wake.slot.startMin
             }
             val current = base + out
@@ -219,13 +221,13 @@ fun placeAdmin(base: List<PatternSlot>, state: AdminState, from: LocalDate, days
                     .minByOrNull { it.slot.startMin }
                 if (piece != null) placed = (piece.slot.startMin + MIN_PIECE_MIN) to 0
             }
-            if (placed == null) { problems += "$name: no room for ${job.title} (${len} minutes${if (job.anchor == "wake") " after waking" else ""})."; continue }
+            if (placed == null) { if (date >= from) problems += "$name: no room for ${job.title} (${len} minutes${if (job.anchor == "wake") " after waking" else ""})."; continue }
             freeUsed[weekKey(date)] = (freeUsed[weekKey(date)] ?: 0) + placed.second
             out += PatternSlot(date.dayOfWeek, placed.first, placed.first + len, job.title, job.type, "", false, "Admin: ${job.area.label}.", date = date)
-            used += len; perDay[date] = used
+            used += len; if (date >= from) perDay[date] = used
         }
     }
-    return AdminPlan(out, problems, perDay)
+    return AdminPlan(out.filter { (it.date ?: from) >= from }, problems, perDay)
 }
 
 private fun max0(v: Int) = if (v < 0) 0 else v

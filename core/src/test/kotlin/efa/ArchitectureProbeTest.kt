@@ -85,3 +85,31 @@ class TermStateTest {
         assertEquals(emptyList(), lectureCuts(inst, base))
     }
 }
+
+class ModifierClashTest {
+    private val today = LocalDate.of(2026, 11, 2)
+    private fun po(a: Int, b: Int) = Instance(Preset.PERIOD_OFF, today.plusDays(a.toLong()), today.plusDays(b.toLong()))
+    private fun asg(t: String) = Instance(Preset.ASSIGNMENT, today, LocalDate.of(2026, 11, 20), emptyMap(), listOf(mapOf("title" to t, "due" to "2026-11-20")))
+
+    @Test fun ARCH_the_same_instance_cannot_be_applied_twice() = assertTrue(modifierConflicts(po(1, 3), listOf(po(1, 3))).isNotEmpty())
+    @Test fun ARCH_two_periods_off_cannot_share_days_but_can_follow_each_other() {
+        assertTrue(modifierConflicts(po(3, 6), listOf(po(1, 4))).isNotEmpty())
+        assertEquals(emptyList(), modifierConflicts(po(5, 6), listOf(po(1, 4))))
+    }
+    @Test fun ARCH_a_new_assignment_can_be_added_but_not_planned_twice() {
+        assertEquals(emptyList(), modifierConflicts(asg("RC"), listOf(asg("GT"))))
+        assertTrue(modifierConflicts(asg("GT"), listOf(asg("gt "))).isNotEmpty())
+    }
+}
+
+class AdminDriftTest {
+    private val base = WeekB.slots
+    private val state = AdminState(LoadSet.STANDARD)
+
+    @Test fun ARCH_admin_placed_for_a_day_does_not_change_as_the_week_goes_on() {
+        val mon = LocalDate.of(2026, 11, 2)
+        val fromMon = placeAdmin(base, state, mon, 14).slots.filter { it.date == mon.plusDays(4) }.map { Triple(it.title, it.startMin, it.endMin) }.sortedBy { it.second }
+        val fromWed = placeAdmin(base, state, mon.plusDays(2), 14).slots.filter { it.date == mon.plusDays(4) }.map { Triple(it.title, it.startMin, it.endMin) }.sortedBy { it.second }
+        assertEquals(fromMon, fromWed)
+    }
+}

@@ -26,3 +26,13 @@ Tests: ArchitectureProbeTest (5), core suite green.
 - Applying the same modifier twice, and overlapping period-offs sharing day-off rows on removal.
 - Admin placement shifting as "today" moves.
 - Anything on a real phone (E1-E64 in docs/DEVICE_TESTS.md).
+
+## Rerun (system wide)
+
+Core 693 tests, Windows service 46 tests, app and device tests compile, traceability 214 of 277 rows with tests (the rest need the phone or a build not yet made).
+
+Fixed in the rerun:
+3. **The same modifier could be applied twice, and two periods over the same days shared their days off,** so removing one took the other's away. A new instance is now refused if it is identical to an active one, a period of the same kind covers some of the same days (period off also against lecture-free), or an assignment or project with the same title and due date is already planned. Different assignments can still be added.
+4. **Admin placement could shift as the week went on:** its weekly free-time accounting started from today. It now starts from the week's Monday, so a day's jobs are the same whichever day you look from.
+
+Still open: Admin chores ask for a photo (Y1 says chores do; kept), the period-off wall rule (+25 per day beyond two), and everything on a real phone (E1-E64). The release APK has still never been launched.

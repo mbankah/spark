@@ -604,3 +604,23 @@ fun decodeSlots(text: String): List<PatternSlot> = text.lines().filter { it.isNo
         PatternSlot(DayOfWeek.valueOf(p[0]), p[1].toInt(), p[2].toInt(), unesc(p[3]), p[4], unesc(p[5]), p[6].toBoolean(), unesc(p[7]), p[8].takeIf { it.isNotEmpty() }?.let(LocalDate::parse), p[9].toBoolean())
     }.getOrNull()
 }
+
+/**
+ * What stops a new instance being applied on top of ones already active. The same thing twice would double the work and a second period over the same days
+ * would share its days off, so removing one would take the other's away. Work presets may overlap (the guard rails catch clashes in the calendar) unless they
+ * repeat an assignment or project that is already planned.
+ */
+fun modifierConflicts(inst: Instance, active: List<Instance>): List<String> {
+    val out = ArrayList<String>()
+    if (active.any { encodeInstance(it) == encodeInstance(inst) }) out += "This is already applied."
+    val periodic = inst.preset == Preset.PERIOD_OFF || inst.preset == Preset.LECTURE_FREE || inst.preset == Preset.CATCH_UP || (inst.preset == Preset.FOCUS && inst.bool("hybrid"))
+    if (periodic && active.any { it.preset == inst.preset && !it.end.isBefore(inst.start) && !it.start.isAfter(inst.end) })
+        out += "${inst.preset.label} already covers some of these days. Remove it first or choose other dates."
+    if (inst.preset == Preset.PERIOD_OFF && active.any { it.preset == Preset.LECTURE_FREE && !it.end.isBefore(inst.start) && !it.start.isAfter(inst.end) })
+        out += "A lecture-free period already covers some of these days. Remove it first or choose other dates."
+    if (inst.preset == Preset.ASSIGNMENT || inst.preset == Preset.FOCUS) {
+        val planned = active.filter { it.preset == inst.preset }.flatMap { a -> a.items.map { (it["title"] ?: "").trim().lowercase() to it["due"] } }.toSet()
+        for (item in inst.items) if (((item["title"] ?: "").trim().lowercase() to item["due"]) in planned) out += "${item["title"]} due ${item["due"]} is already planned."
+    }
+    return out
+}

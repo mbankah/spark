@@ -13,7 +13,9 @@ class ModifierRepo(private val db: EfaDb) {
 
     suspend fun preview(inst: Instance, now: ZonedDateTime): ModPreview {
         val base = PlanRepo(db).slots()
-        return previewOf(inst, base, db.tasks().open().map { it.toDue() }, now)
+        val p = previewOf(inst, base, db.tasks().open().map { it.toDue() }, now)
+        val clash = modifierConflicts(inst, db.modifiers().all().filter { it.state == "active" }.mapNotNull { decodeInstance(it.instance) })
+        return if (clash.isEmpty()) p else p.copy(problems = p.problems + clash)
     }
 
     /** The wall a period off needs: one request, one use toward the 30 day tally, 25 characters more for each day beyond two (spec 7.2, proposed). */

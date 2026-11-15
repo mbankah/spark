@@ -513,7 +513,7 @@ class MainActivity : ComponentActivity() {
                                 nowLeftMin = nn?.now?.let { n -> java.time.Duration.between(clock, n.end).toMinutes().coerceAtLeast(0).toInt() },
                                 nowFraction = nn?.now?.let { n -> (java.time.Duration.between(n.start, clock).toMillis().toFloat() / java.time.Duration.between(n.start, n.end).toMillis().coerceAtLeast(1)).coerceIn(0f, 1f) },
                                 progressFraction = l?.money?.week?.takeIf { it.plannedHours > 0 }?.let { (it.verifiedHours / it.plannedHours).toFloat() },
-                                schedule = l?.pattern?.let { p -> scheduleView(p, openTasks, alloc, clock, days = 35, from = weekStart(clock.toLocalDate()), verified = l.verified) }.orEmpty(),
+                                schedule = l?.pattern?.let { p -> scheduleView(p, openTasks, alloc, clock, days = 35, verified = l.verified) }.orEmpty(),
                                 nowOpensBlock = nn?.now?.let { proofFor(it.slot) != Proof.NONE } == true,
                                 next = l?.pattern?.let { p -> upcoming(p, clock, 2).map { NextRow(hhmm.format(it.start), it.slot.title, listOf(it.detail(), includes(it)).filter { s -> s.isNotBlank() }.joinToString(". ")) } }.orEmpty(),
                                 freeToSpendPence = l?.money?.takeIf { it.live }?.week?.money?.freeToSpendPence,      // G6: record-only for the first 14 days

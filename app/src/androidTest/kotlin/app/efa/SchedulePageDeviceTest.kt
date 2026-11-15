@@ -150,20 +150,34 @@ class SchedulePageDeviceTest {
         rule.onNodeWithText("Tomorrow essay").assertDoesNotExist(); rule.onNode(header("Tomorrow", "Closed")).assertExists()
     }
 
+    @Test fun AN1_every_day_of_the_window_opens_when_tapped_and_closes_when_tapped_again_today_included() {
+        val d = days(tasks = dues)
+        rule.setContent { EfaTheme { ScheduleScreen(d) } }
+        for (day in d.take(7)) {
+            val name = day.tag ?: day.heading
+            val state = if (day.today) "Open" else "Closed"
+            val other = if (day.today) "Closed" else "Open"
+            scrollTo(name, state); rule.onNode(header(name, state)).performClick(); rule.waitForIdle()
+            rule.onNode(header(name, other)).assertExists()
+            rule.onNode(header(name, other)).performClick(); rule.waitForIdle()
+            rule.onNode(header(name, state)).assertExists()
+        }
+    }
+
     @Test fun AN1_the_weeks_are_a_carousel_and_the_days_listed_are_the_shown_week() {
         rule.setContent { EfaTheme { ScheduleScreen(days()) } }
-        rule.onNodeWithText("This week").assertExists(); rule.onNodeWithText("2 to 8 Nov").assertExists()
+        rule.onNodeWithText("Next 7 days").assertExists(); rule.onNodeWithText("2 to 8 Nov").assertExists()
         rule.onNodeWithText("Mon 9 Nov").assertDoesNotExist()
         rule.onNodeWithContentDescription("Week 2 of 2").performClick(); rule.waitForIdle()
-        rule.onNodeWithText("Next week").assertExists(); rule.onNodeWithText("9 to 15 Nov").assertExists()
+        rule.onNodeWithText("The 7 days after").assertExists(); rule.onNodeWithText("9 to 15 Nov").assertExists()
         rule.onNodeWithContentDescription("Week 2 of 2, showing").assertExists()
         rule.onNodeWithText("Mon 9 Nov").assertExists(); rule.onNodeWithText("Mon 2 Nov").assertDoesNotExist()
     }
 
     @Test fun AN1_swiping_the_week_card_moves_to_the_next_week() {
         rule.setContent { EfaTheme { ScheduleScreen(days()) } }
-        rule.onNodeWithText("This week").performTouchInput { swipeLeft() }
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("Next week").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("Next 7 days").performTouchInput { swipeLeft() }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("The 7 days after").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Week 2 of 2, showing").assertExists()
     }
 

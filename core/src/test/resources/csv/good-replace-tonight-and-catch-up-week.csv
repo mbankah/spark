@@ -1,0 +1,16 @@
+kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
+replace,2026-11-15,,20:20,23:59,Tonight's plan,,,,,,
+event,2026-11-15,,20:20,20:30,Prep: sort clothes and pack the bag and lay out clothes and pick the film,errand,,,none,,Sort the clothes into loads with the football kit separate. Pack the bag except the kit: boots and shin pads and water bottle. Lay out tomorrow's clothes. Stop: bag by the door and film chosen.
+event,2026-11-15,,20:30,20:40,Strip the bed and put fresh sheets on and set the dirty ones aside; load 1 on (football kit goes in),errand,,,none,,Stop: bed made and machine running.
+event,2026-11-15,,20:40,21:30,Cook: pork first then pasta about 30 min later then pesto stirred in off the heat,errand,,,none,,Stop: plated by 21:30.
+event,2026-11-15,,21:30,22:20,Eat and film,errand,,,none,,Pause the film at 22:20. If cooking ran long the film shrinks and nothing else moves.
+event,2026-11-15,,22:20,22:30,Wash up; load 1 out and hung (kit dry by tomorrow); dirty sheets in as load 2,errand,,,none,,Stop: sink empty and load 2 running.
+event,2026-11-15,,22:30,22:50,Clean the bathroom,errand,,,none,,Toilet and sink and shower and floor. Stop: timer ends.
+event,2026-11-15,,22:50,23:10,Room tidy until spotless,errand,,,none,,Rubbish and cups out; clothes put away; surfaces wiped; desk reset; floor hoovered. Stop: four passes done.
+event,2026-11-15,,23:00,23:05,Melatonin 3mg,reminder,,,none,,Sounds at 23:00.
+event,2026-11-15,,23:10,23:30,Music and design in FL Studio,errand,,,none,,Build one loop or section. Stop: timer ends and the project is saved.
+event,2026-11-15,,23:30,23:50,Worship at the piano,errand,,,none,,One song or set for the week; headphones if you can. Stop: timer ends and note where you stopped.
+event,2026-11-15,,23:50,23:59,Week page,errand,,,none,,Catch-up target and the app's next step; queue tomorrow's first video. One page no copying notes.
+event,2026-11-16,,00:00,00:40,App block: choose tonight's one feature 00:00 to 00:10; build 00:10 to 00:30; write the next step 00:30 to 00:40,errand,,,none,,Hard stop 00:40 mid-flow.
+event,2026-11-16,,00:40,01:00,Text friends you're off; teeth and wash; phone on the charger; lie down at 00:50,errand,,,none,,Phone across the room with the sermon queued at low volume and a sleep timer. Lights out 01:00.
+period,2026-11-16,2026-11-22,,,Catch-up week,catch_up_week,,,,,

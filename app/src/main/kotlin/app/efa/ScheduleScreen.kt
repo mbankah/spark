@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -48,8 +49,8 @@ import java.util.Locale
 private const val FULL_DAY_MIN = 8 * 60
 
 /**
- * The second home page (SC1). A carousel of weeks sits on top: swipe for the next one, each with a chart of its work per day. Under it are that
- * week's days, each folded to a header (its date, its hours and a bar) and opened with a tap; today starts open. Tapping a column of the chart opens
+ * The second home page (SC1). A carousel sits on top: the next 7 days from today, then the 7 after, and so on; swipe for the next one. Each has a chart of
+ * its work per day, grey except today and the day you have opened. Under it are that window's days, each folded to a header (its date, its hours and a bar) and opened with a tap; today starts open. Tapping a column of the chart opens
  * that day and takes you to it. An open day is a timeline: a rail down the side with a dot for every block, filled for work, dark for fixed
  * commitments, small for the things around the day, and a ring where there is free time. A finished block is muted and the one running has a NOW
  * tag. It only reads: a block is changed where it already is, never here. Things move only briefly and only when you cause it (AN1).
@@ -73,7 +74,7 @@ fun ScheduleScreen(days: List<ScheduleDay>, modifier: Modifier = Modifier) {
         item(key = "weeks") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 HorizontalPager(pager, Modifier.fillMaxWidth(), pageSpacing = 12.dp) { i ->
-                    WeekPage(weeks[i], top) { d ->
+                    WeekPage(weeks[i], top, { d -> open[d.date] == true }) { d ->
                         open[d.date] = true
                         val at = week.days.indexOfFirst { it.date == d.date }
                         if (at >= 0) scope.launch { list.animateScrollToItem(2 + at) }
@@ -90,7 +91,7 @@ fun ScheduleScreen(days: List<ScheduleDay>, modifier: Modifier = Modifier) {
 
 /** One week: its name and dates, what it holds, and a column per day as tall as that day's work. A day off is a ring. Tap a column to open that day. */
 @Composable
-private fun WeekPage(w: ScheduleWeek, top: Int, onDay: (ScheduleDay) -> Unit) {
+private fun WeekPage(w: ScheduleWeek, top: Int, isOpen: (ScheduleDay) -> Boolean, onDay: (ScheduleDay) -> Unit) {
     val c = LocalColors.current
     Column(Modifier.fillMaxWidth().card().padding(horizontal = 14.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
@@ -111,13 +112,14 @@ private fun WeekPage(w: ScheduleWeek, top: Int, onDay: (ScheduleDay) -> Unit) {
                         val f = animatedFraction(d.workMin.toFloat() / top)
                         when {
                             d.dayOff -> Box(Modifier.size(6.dp).border(1.5.dp, c.muted, CircleShape))
-                            d.workMin > 0 -> Box(Modifier.fillMaxWidth().fillMaxHeight(f).background(if (d.today) c.accent else c.accent.copy(alpha = 0.55f), RoundedCornerShape(4.dp)))
+                            // Today is the accent, the day you have opened is the lighter accent, and every other day is grey.
+                            d.workMin > 0 -> Box(Modifier.fillMaxWidth().fillMaxHeight(f).background(if (d.today) c.accent else if (isOpen(d)) c.accent.copy(alpha = 0.6f) else c.muted.copy(alpha = 0.32f), RoundedCornerShape(4.dp)))
                             else -> Box(Modifier.fillMaxWidth().height(2.dp).background(c.track))
                         }
                     }
                     Spacer(Modifier.height(4.dp))
-                    BasicText(d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.UK), style = Ts(if (d.today) c.text else c.muted, 11.sp, if (d.today) FontWeight.Bold else FontWeight.Medium, fontFamily = Mono))
-                    BasicText("${d.date.dayOfMonth}", style = Ts(if (d.today) c.accentText else c.muted, 11.sp, if (d.today) FontWeight.Bold else null, fontFamily = Mono))
+                    BasicText(d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.UK), style = Ts(if (d.today || isOpen(d)) c.text else c.muted, 11.sp, if (d.today || isOpen(d)) FontWeight.Bold else FontWeight.Medium, fontFamily = Mono))
+                    BasicText("${d.date.dayOfMonth}", style = Ts(if (d.today) c.accentText else if (isOpen(d)) c.text else c.muted, 11.sp, if (d.today || isOpen(d)) FontWeight.Bold else null, fontFamily = Mono))
                 }
             }
         }
@@ -131,7 +133,7 @@ private fun WeekDots(count: Int, page: Int, onPage: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         repeat(count) { i ->
             val w = animateDpAsState(if (i == page) 20.dp else 7.dp, motion(Motion.STANDARD), label = "weekdot").value
-            Box(Modifier.heightIn(min = 28.dp).widthIn(min = 28.dp).clickable(role = Role.Tab) { onPage(i) }.semantics { contentDescription = "Week ${i + 1} of $count" + if (i == page) ", showing" else "" }, contentAlignment = Alignment.Center) {
+            Box(Modifier.heightIn(min = 44.dp).widthIn(min = 40.dp).clickable(role = Role.Tab) { onPage(i) }.semantics { contentDescription = "Week ${i + 1} of $count" + if (i == page) ", showing" else "" }, contentAlignment = Alignment.Center) {
                 Box(Modifier.size(width = w, height = 7.dp).background(if (i == page) c.accent else c.track, CircleShape))
             }
         }
@@ -144,9 +146,10 @@ private fun DayBlock(d: ScheduleDay, open: Boolean, onToggle: () -> Unit, modifi
     val c = LocalColors.current
     val enter = if (LocalMotion.current) expandVertically(motion(Motion.STANDARD)) + fadeIn(motion(Motion.QUICK)) else EnterTransition.None
     val exit = if (LocalMotion.current) shrinkVertically(motion(Motion.STANDARD)) + fadeOut(motion(Motion.QUICK)) else ExitTransition.None
-    Column(modifier.fillMaxWidth().card()) {
+    // The day you have opened, other than today, is shaded grey, so it is clear which one is selected.
+    Column(modifier.fillMaxWidth().card().then(if (open && !d.today) Modifier.background(c.track.copy(alpha = 0.3f), CardShape) else Modifier)) {
         Column(
-            Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = if (open) "Close this day" else "Open this day", onClick = onToggle).padding(horizontal = 16.dp, vertical = 14.dp)
+            Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(CardShape).clickable(role = Role.Button, onClickLabel = if (open) "Close this day" else "Open this day", onClick = onToggle).padding(horizontal = 16.dp, vertical = 14.dp)
                 .semantics { contentDescription = "${d.tag ?: d.heading}. ${if (d.dayOff) "Day off. " else ""}${d.summary().ifBlank { "Nothing planned" }}"; stateDescription = if (open) "Open" else "Closed" },
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

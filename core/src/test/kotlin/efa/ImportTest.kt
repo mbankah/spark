@@ -356,6 +356,16 @@ class ImportVerifyTest {
         assertEquals(at(sunday, LocalTime.of(23, 0)), nextEventReminder(merged, at(sunday, LocalTime.of(20, 0)))?.at)
     }
 
+    @Test fun `RP2 PW2 the combined schedule file replaces tonight and plans the catch-up week in one import, with one wall`() {
+        val v = verifySunday(java.io.File("src/test/resources/csv/good-replace-tonight-and-catch-up-week.csv").readText())
+        assertTrue(v.ok, v.errors.joinToString { it.text() })
+        assertTrue(v.needsWall); assertEquals(1, v.loosening.count { it.startsWith("Replaces") }); assertEquals(1, v.loosening.size)
+        assertEquals(13, v.adds); assertEquals(1, v.periods.size)
+        assertEquals(PeriodKind.CATCH_UP_WEEK, v.periods.single().kind)
+        assertEquals(LocalDate.of(2026, 11, 16), v.periods.single().start); assertEquals(LocalDate.of(2026, 11, 22), v.periods.single().end)
+        assertTrue(v.summaryLines().any { it.contains("Catch-up week") } && v.summaryLines().any { it.endsWith("planned blocks replaced") })
+    }
+
     @Test fun `RP2 a replace row with the end before the start is an error at that line and column`() {
         val p = parseTimetableCsv(file("replace,2026-11-15,,23:59,20:00,Backwards,,,,,,"), sunday)
         assertTrue(p.errors.any { it.line == 2 && it.column == "end" })

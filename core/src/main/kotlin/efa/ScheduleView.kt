@@ -84,8 +84,8 @@ fun scheduleView(
     )
 }
 
-/** One Monday-to-Sunday week of the page, for the carousel. A week at the edge holds only the days that were asked for. */
-data class ScheduleWeek(val monday: LocalDate, val label: String, val range: String, val days: List<ScheduleDay>) {
+/** Seven days of the page, for the carousel: the next 7 days from today, the 7 days after, and so on. A window at the end holds only the days that were asked for. */
+data class ScheduleWeek(val start: LocalDate, val label: String, val range: String, val days: List<ScheduleDay>) {
     val workMin: Int get() = days.sumOf { it.workMin }
     val lectures: Int get() = days.sumOf { it.lectures }
     val daysOff: Int get() = days.count { it.dayOff }
@@ -99,13 +99,10 @@ data class ScheduleWeek(val monday: LocalDate, val label: String, val range: Str
 
 private val SHORT = DateTimeFormatter.ofPattern("d MMM", Locale.UK)
 
-/** Groups [days] into weeks that start on a Monday. The week holding [today] is "This week", the next "Next week", then "Week of 30 Nov". */
-fun scheduleWeeks(days: List<ScheduleDay>, today: LocalDate? = days.firstOrNull { it.today }?.date): List<ScheduleWeek> {
-    val thisMonday = today?.with(java.time.DayOfWeek.MONDAY)
-    return days.groupBy { it.date.with(java.time.DayOfWeek.MONDAY) }.toSortedMap().map { (monday, ds) ->
-        val sunday = monday.plusDays(6)
-        val range = if (monday.month == sunday.month) "${monday.dayOfMonth} to ${SHORT.format(sunday)}" else "${SHORT.format(monday)} to ${SHORT.format(sunday)}"
-        val label = when (monday) { thisMonday -> "This week"; thisMonday?.plusDays(7) -> "Next week"; thisMonday?.minusDays(7) -> "Last week"; else -> "Week of ${SHORT.format(monday)}" }
-        ScheduleWeek(monday, label, range, ds.sortedBy { it.date })
-    }
+/** Cuts [days] into windows of seven from the first day, which is today: "Next 7 days", "The 7 days after", then "From 23 Nov". */
+fun scheduleWeeks(days: List<ScheduleDay>): List<ScheduleWeek> = days.chunked(7).mapIndexed { i, ds ->
+    val first = ds.first().date; val last = ds.last().date
+    val range = if (first.month == last.month) "${first.dayOfMonth} to ${SHORT.format(last)}" else "${SHORT.format(first)} to ${SHORT.format(last)}"
+    val label = when (i) { 0 -> "Next 7 days"; 1 -> "The 7 days after"; else -> "From ${SHORT.format(first)}" }
+    ScheduleWeek(first, label, range, ds)
 }

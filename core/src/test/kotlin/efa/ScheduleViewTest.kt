@@ -105,23 +105,34 @@ class ScheduleViewTest {
         assertEquals("Seminar", rows[1].title); assertEquals("Room 2.14", rows[1].detail)
     }
 
-    @Test fun `AN1 SC1 the days group into Monday to Sunday weeks named This week and Next week`() {
-        val days = scheduleView(base, emptyList(), null, now, days = 35, from = today)          // 2 Nov 2026 is a Monday
-        val weeks = scheduleWeeks(days)
-        assertEquals(5, weeks.size)
-        assertEquals(listOf("This week", "Next week", "Week of 16 Nov", "Week of 23 Nov", "Week of 30 Nov"), weeks.map { it.label })
-        assertTrue(weeks.all { it.monday.dayOfWeek == java.time.DayOfWeek.MONDAY && it.days.size == 7 })
-        assertEquals("2 to 8 Nov", weeks[0].range); assertEquals("30 Nov to 6 Dec", weeks[4].range)
-        assertEquals(days.map { it.date }, weeks.flatMap { it.days }.map { it.date }, "every day is in exactly one week, in order")
+    @Test fun `AN1 SC1 the carousel pages are the next 7 days from today, the 7 after, and so on, whatever the weekday`() {
+        for (todayOffset in 0L..6L) {
+            val start = today.plusDays(todayOffset); val n = at(start, LocalTime.of(10, 30))
+            val weeks = scheduleWeeks(scheduleView(base, emptyList(), null, n, days = 35, from = start))
+            assertEquals(5, weeks.size, "from ${start.dayOfWeek}")
+            assertTrue(weeks.all { it.days.size == 7 })
+            assertEquals(start, weeks[0].days.first().date); assertEquals(start.plusDays(7), weeks[1].days.first().date)
+            assertEquals(listOf("Next 7 days", "The 7 days after"), weeks.take(2).map { it.label })
+            assertEquals("From ${java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.UK).format(start.plusDays(14))}", weeks[2].label)
+            assertEquals("Today", weeks[0].days.first().tag); assertTrue(weeks[0].days.first().today)
+        }
     }
 
-    @Test fun `AN1 SC1 a week that starts before today holds the days from its Monday and marks Today`() {
+    @Test fun `AN1 SC1 the windows hold every day once, in order, with the ranges named`() {
+        val days = scheduleView(base, emptyList(), null, now, days = 35, from = today)
+        val weeks = scheduleWeeks(days)
+        assertEquals(days.map { it.date }, weeks.flatMap { it.days }.map { it.date })
+        assertEquals("2 to 8 Nov", weeks[0].range); assertEquals("30 Nov to 6 Dec", weeks[4].range)
+        assertEquals(emptyList(), scheduleWeeks(emptyList()))
+        assertEquals(1, scheduleWeeks(scheduleView(base, emptyList(), null, now, days = 3, from = today)).size)
+    }
+
+    @Test fun `AN1 SC1 a window that starts on a Wednesday starts with Wednesday, which is Today`() {
         val wed = at(today.plusDays(2), LocalTime.of(10, 30))
-        val days = scheduleView(base, emptyList(), null, wed, days = 14, from = today)           // the page starts on the Monday of this week
-        assertEquals(today.plusDays(2), days.single { it.today }.date); assertEquals("Today", days.single { it.today }.tag)
-        assertEquals(today.plusDays(3), days.single { it.tag == "Tomorrow" }.date)
-        assertTrue(days.first { it.date == today }.rows.all { it.state == RowState.PAST }, "Monday is over by Wednesday")
-        assertEquals("This week", scheduleWeeks(days).first().label)
+        val days = scheduleView(base, emptyList(), null, wed, days = 14, from = wed.toLocalDate())
+        val weeks = scheduleWeeks(days)
+        assertEquals(today.plusDays(2), weeks[0].days.first().date); assertEquals("Today", weeks[0].days.first().tag); assertEquals("Tomorrow", weeks[0].days[1].tag)
+        assertEquals("4 to 10 Nov", weeks[0].range)
     }
 
     @Test fun `AN1 SC1 a week's summary counts its work, lectures and days off`() {

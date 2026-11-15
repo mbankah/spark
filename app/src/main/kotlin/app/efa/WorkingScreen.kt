@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -21,13 +22,13 @@ import efa.fmt1
 
 /**
  * B3: tapping the Buffer shows every task, its heaviness, its hours and the sum. Nothing is hidden (P4). The sum is laid out as the sum it is,
- * available minus work equals the Buffer, and every task is a row of the same numbers the old lines gave. The bars are scaled from the figures
- * beside them and carry nothing those do not say.
+ * available minus work equals the Buffer, and every task is a row of the same numbers the old lines gave. The two rings are shares of a whole:
+ * how much of the available time the work takes, and how the work divides between tasks. They are drawn from the figures beside them and carry
+ * nothing those do not say.
  */
 @Composable
 fun WorkingScreen(r: BufferResult, onBack: () -> Unit) {
     val c = LocalColors.current
-    val scale = maxOf(r.availableHours, r.workHours, 0.1)
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -42,16 +43,32 @@ fun WorkingScreen(r: BufferResult, onBack: () -> Unit) {
                 Operator("=")
                 Tile(if (r.negative) "NEGATIVE" else "Buffer", r.label().removePrefix("Buffer ").removePrefix("NEGATIVE "), Modifier.weight(1.25f), result = true)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Bar((r.availableHours / scale).toFloat(), color = c.accent, height = 10.dp)
-                Bar((r.workHours / scale).toFloat(), color = c.text, height = 10.dp)
+            // The available time as a whole: the work takes its share and what is left over is the Buffer.
+            val takes = if (r.availableHours > 0) (r.workHours / r.availableHours).toFloat().coerceIn(0f, 1f) else 1f
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Donut(listOf(Slice(takes, c.text), Slice(1f - takes, c.accent)), 96.dp, 14.dp, track = c.track) {
+                    BasicText("${Math.round(takes * 100)}%", style = Ts(c.text, 18.sp, FontWeight.Bold))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Legend(c.text, if (r.negative) "Work takes all of it" else "Work takes ${Math.round(takes * 100)}%")
+                    if (!r.negative) Legend(c.accent, "${fmt1(r.hours)}h left over")
+                    else BasicText("${fmt1(-r.hours)}h more than there is", style = Ts(c.muted, 13.sp))
+                }
             }
         }
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Label("Work due"); Label("Hours") }
             if (r.lines.isEmpty()) BasicText("No work due.", style = Ts(c.muted, 14.sp))
-            val top = r.lines.maxOfOrNull { it.hours }?.coerceAtLeast(0.1) ?: 0.1
-            r.lines.forEach { TaskRow(it, top) }
+            else {
+                val total = r.workHours.coerceAtLeast(0.01)
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Donut(r.lines.mapIndexed { i, l -> Slice((l.hours / total).toFloat(), sliceColour(i, c.accent)) }, 96.dp, 14.dp, gapDegrees = 3f) {
+                        BasicText("${fmt1(r.workHours)}h", style = Ts(c.text, 17.sp, FontWeight.Bold))
+                    }
+                    BasicText("How the work divides between the tasks.", style = Ts(c.muted, 13.sp))
+                }
+            }
+            r.lines.forEachIndexed { i, l -> TaskRow(l, sliceColour(i, c.accent)) }
             if (r.lines.isNotEmpty()) {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(c.track))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -62,6 +79,17 @@ fun WorkingScreen(r: BufferResult, onBack: () -> Unit) {
         }
         if (r.shortSleep) BasicText("Short night: hard work x1.5, easy work x1.15.", style = Ts(c.muted, 13.sp))
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** The accent in steps from full to faint, so each task has its own slice of the ring and the same colour on its row. */
+internal fun sliceColour(i: Int, accent: Color): Color = accent.copy(alpha = listOf(1f, 0.62f, 0.4f, 0.26f, 0.16f)[i.coerceAtMost(4)])
+
+@Composable
+private fun Legend(colour: Color, text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).background(colour, CircleShape))
+        BasicText(text, style = Ts(LocalColors.current.text, 14.sp, FontWeight.Medium))
     }
 }
 
@@ -83,20 +111,17 @@ private fun Operator(sign: String) {
     BasicText(sign, style = Ts(LocalColors.current.muted, 20.sp, FontWeight.Medium), modifier = Modifier.padding(bottom = 12.dp))
 }
 
-/** One task: its name, a heaviness dot with the number, what it costs, and a bar scaled to the biggest task. Read aloud as the whole sentence. */
+/** One task: a swatch in its slice colour, its name, a heaviness dot with the number, and what it costs. Read aloud as the whole sentence. */
 @Composable
-private fun TaskRow(l: WorkingLine, top: Double) {
+private fun TaskRow(l: WorkingLine, swatch: Color) {
     val c = LocalColors.current
     val said = "${l.title} (heaviness ${l.heaviness}): ${fmt1(l.rawHours)}h x ${l.factor} = ${fmt1(l.hours)}h"
-    Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = said }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
-            Box(Modifier.size(26.dp).background(c.bg, CircleShape), contentAlignment = Alignment.Center) { BasicText("${l.heaviness}", style = Ts(c.text, 13.sp, FontWeight.Bold, fontFamily = Mono)) }
-            Column(Modifier.weight(1f)) {
-                BasicText(l.title, style = Ts(c.text, 15.sp, FontWeight.SemiBold))
-                BasicText(fmt1(l.rawHours) + "h" + (if (l.factor != 1.0) " x ${l.factor}" else ""), style = Ts(c.muted, 12.sp, fontFamily = Mono))
-            }
-            BasicText("${fmt1(l.hours)}h", style = Ts(c.text, 16.sp, FontWeight.Bold, fontFamily = Mono))
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = said }, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.padding(top = 5.dp).size(12.dp).background(swatch, CircleShape))
+        Column(Modifier.weight(1f)) {
+            BasicText(l.title, style = Ts(c.text, 15.sp, FontWeight.SemiBold))
+            BasicText("Heaviness ${l.heaviness}, " + fmt1(l.rawHours) + "h" + (if (l.factor != 1.0) " x ${l.factor}" else ""), style = Ts(c.muted, 12.sp, fontFamily = Mono))
         }
-        Bar((l.hours / top).toFloat(), color = c.text, height = 4.dp)
+        BasicText("${fmt1(l.hours)}h", style = Ts(c.text, 16.sp, FontWeight.Bold, fontFamily = Mono))
     }
 }

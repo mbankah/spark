@@ -265,6 +265,103 @@ class ImportVerifyTest {
         assertTrue(v.overlay.isEmpty(), "no lecture, study block or meal is touched")
     }
 
+    // RP1, RP2: replacing the rest of a day, and a reminder that rings.
+    private val sunday = LocalDate.of(2026, 11, 15)
+    private val sundayNoon = at(sunday, LocalTime.of(19, 0))
+    private fun verifySunday(f: String, known: Set<String> = emptySet(), pattern: List<PatternSlot> = slots) = verifyImport(parseTimetableCsv(f, sunday), pattern, known, emptyList(), sundayNoon)
+    private val replaceEvening = file(
+        "replace,2026-11-15,,20:00,23:59,Tonight's plan,,,,,,",
+        row("event", "2026-11-15", start = "20:00", end = "20:20", title = "Sort the clothes", type = "errand", study = "none"),
+        row("event", "2026-11-15", start = "21:10", end = "22:20", title = "Eat and film", type = "errand", study = "none"),
+        row("event", "2026-11-15", start = "23:00", end = "23:05", title = "Melatonin 3mg", type = "reminder", study = "none"),
+    )
+
+    @Test fun `RP2 without a replace row, an evening plan on top of dinner, transport and sleep is refused`() {
+        val v = verifySunday(replaceEvening.lines().filterNot { it.startsWith("replace") }.joinToString("\n"))
+        assertFalse(v.ok); assertTrue(v.errors.any { "Student Dinner" in it.message } && v.errors.any { "Shutdown" in it.message || "Public transport" in it.message })
+    }
+
+    @Test fun `RP2 a replace row takes away what is planned in its window, behind the wall, and says what it removes`() {
+        val v = verifySunday(replaceEvening)
+        assertTrue(v.ok, v.errors.joinToString { it.text() })
+        assertTrue(v.needsWall)
+        val line = v.loosening.single { it.startsWith("Replaces") }
+        for (name in listOf("Student Dinner", "Public transport", "Plan Monday", "Shutdown")) assertTrue(name in line, "$name in $line")
+        assertEquals(3, v.adds); assertTrue(v.replaced >= 4)
+        assertTrue(v.summaryLines().any { it.endsWith("planned blocks replaced") })
+        assertTrue(v.overlay.filter { it.slot.cancelled }.all { it.slot.notes == "imported replace" })
+        assertEquals(v.overlay.size, v.overlay.map { it.rowHash }.toSet().size, "every stored row has its own fingerprint, since the store keeps one row per fingerprint")
+    }
+
+    @Test fun `RP2 after a replace the window holds only the file's events, and what is outside it is untouched`() {
+        val v = verifySunday(replaceEvening)
+        val merged = slots + v.overlay.map { it.slot }
+        val evening = slotsFor(merged, sunday).filter { it.start.hour * 60 + it.start.minute >= 20 * 60 }
+        assertEquals(listOf("Sort the clothes", "Eat and film", "Melatonin 3mg"), evening.map { it.slot.title })
+        val outside = listOf("Buffer: arrive, seat, phone away", "Church")
+        for (t in outside) assertTrue(slotsFor(merged, sunday).any { it.slot.title == t }, "$t is outside the window and stays")
+        assertTrue(slotsFor(merged, sunday).any { it.slot.title == "Church" }, "church ended before the window and stays")
+    }
+
+    @Test fun `RP2 the window cannot take in the wake, and the same file twice changes nothing`() {
+        val bad = verifySunday(file("replace,2026-11-15,,20:00,23:59,x,,,,,,", "replace,2026-11-16,,06:00,08:00,Takes the wake,,,,,,"))
+        assertFalse(bad.ok); assertTrue(bad.errors.any { "wake" in it.message })
+        val v = verifySunday(replaceEvening)
+        val known = v.overlay.map { it.rowHash }.toSet() + parseTimetableCsv(replaceEvening, sunday).rows.map { it.hash() }
+        val again = verifySunday(replaceEvening, known)
+        assertTrue(again.changesNothing); assertEquals(0, again.replaced)
+    }
+
+    @Test fun `RP2 a replace over time with nothing planned says so and removes nothing`() {
+        val v = verifySunday(file("replace,2026-11-15,,23:30,23:59,Empty,,,,,,"))
+        assertTrue(v.ok); assertEquals(0, v.replaced); assertFalse(v.needsWall); assertTrue(v.warnings.any { "Nothing is planned" in it.message })
+    }
+
+    @Test fun `RP1 a reminder may sit on top of a work block or a commitment and takes no time from it`() {
+        val study = slotsFor(slots, LocalDate.of(2026, 11, 3)).first { it.slot.type.startsWith("study") }
+        val start = java.time.format.DateTimeFormatter.ofPattern("HH:mm").format(study.start.plusMinutes(5))
+        val v = verify(file(row("event", "2026-11-03", start = start, end = "%02d:%02d".format(study.end.hour, study.end.minute), title = "Take the tablet", type = "reminder", study = "none")))
+        assertTrue(v.ok, v.errors.joinToString { it.text() }); assertFalse(v.needsWall, "a reminder takes nothing from the block")
+        val merged = slots + v.overlay.map { it.slot }
+        assertTrue(slotsFor(merged, LocalDate.of(2026, 11, 3)).any { it.slot.startMin == study.slot.startMin && it.slot.endMin == study.slot.endMin && it.slot.title == study.slot.title }, "the study block is still whole")
+    }
+
+    @Test fun `RP1 a reminder is never the block you are in, and is found as the next reminder`() {
+        val v = verifySunday(replaceEvening)
+        val merged = slots + v.overlay.map { it.slot }
+        val during = at(sunday, LocalTime.of(23, 1))
+        assertTrue(nowAndNext(merged, during).now?.slot?.type != REMINDER_TYPE)
+        assertTrue(upcoming(merged, at(sunday, LocalTime.of(22, 59)), 3).none { it.slot.type == REMINDER_TYPE })
+        val next = nextEventReminder(merged, at(sunday, LocalTime.of(22, 0)))
+        assertEquals(at(sunday, LocalTime.of(23, 0)), next?.at); assertEquals("Melatonin 3mg", next?.title)
+        assertNull(nextEventReminder(merged, at(sunday, LocalTime.of(23, 0))))
+    }
+
+    @Test fun `RP2 tonight's plan file applies behind the wall, replacing the evening, with every block of it in place`() {
+        val v = verifySunday(java.io.File("src/test/resources/csv/good-replace-tonight-plan.csv").readText())
+        assertTrue(v.ok, v.errors.joinToString { it.text() })
+        assertTrue(v.needsWall)
+        assertEquals(13, v.adds)
+        val line = v.loosening.single { it.startsWith("Replaces") }
+        for (name in listOf("Student Dinner", "Public transport", "Plan Monday", "Evening prayer", "Stretches", "Shutdown")) assertTrue(name in line, "$name in $line")
+        val merged = slots + v.overlay.map { it.slot }
+        val tonight = slotsFor(merged, sunday).filter { it.start.toLocalTime() >= LocalTime.of(20, 0) }
+        assertEquals(listOf("20:20", "20:30", "20:40", "21:30", "22:20", "22:30", "22:50", "23:00", "23:10", "23:30", "23:50"), tonight.map { "%02d:%02d".format(it.start.hour, it.start.minute) })
+        assertEquals(listOf("Prep", "Cook", "Eat and film", "Clean the bathroom", "Room tidy until spotless", "Melatonin 3mg", "Music and design in FL Studio", "Worship at the piano", "Week page"), tonight.map { it.slot.title.substringBefore(":") }.filter { it in setOf("Prep", "Cook", "Eat and film", "Clean the bathroom", "Room tidy until spotless", "Melatonin 3mg", "Music and design in FL Studio", "Worship at the piano", "Week page") })
+        assertTrue(tonight.none { it.slot.title.contains("kit bag", ignoreCase = true) }, "the kit-bag block is gone")
+        val early = slotsFor(merged, sunday.plusDays(1)).filter { it.start.hour < 7 }
+        assertEquals(listOf("00:00", "00:40"), early.map { "%02d:%02d".format(it.start.hour, it.start.minute) })
+        assertEquals("App block", early.first().slot.title.substringBefore(":")); assertEquals(40, early.first().slot.endMin - early.first().slot.startMin)
+        assertEquals(50, tonight.first { it.slot.title == "Eat and film" }.let { java.time.Duration.between(it.start, it.end).toMinutes().toInt() })
+        assertEquals(at(sunday, LocalTime.of(23, 0)), nextEventReminder(merged, at(sunday, LocalTime.of(20, 0)))?.at)
+    }
+
+    @Test fun `RP2 a replace row with the end before the start is an error at that line and column`() {
+        val p = parseTimetableCsv(file("replace,2026-11-15,,23:59,20:00,Backwards,,,,,,"), sunday)
+        assertTrue(p.errors.any { it.line == 2 && it.column == "end" })
+        assertTrue(parseTimetableCsv(file("replace,,,20:00,21:00,No date,,,,,,"), sunday).errors.any { it.line == 2 && it.column == "date" })
+    }
+
     @Test fun `IM5 the preview changes nothing`() {
         val before = slots.toList()
         verify(file(row("event", "2026-11-03", start = "16:30", end = "17:30", title = "x", type = "lecture")))

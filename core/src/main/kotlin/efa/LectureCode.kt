@@ -28,3 +28,12 @@ fun lectureCodeReminders(slots: List<PatternSlot>, from: LocalDate, days: Int, z
 /** The first reminder strictly after [after], looking a week ahead. null if there is none. */
 fun nextCodeReminder(slots: List<PatternSlot>, after: ZonedDateTime): CodeReminder? =
     lectureCodeReminders(slots, after.toLocalDate().minusDays(1), 9, after.zone).firstOrNull { it.at.isAfter(after) }
+
+/** RP1: a reminder event, which sounds when it starts. */
+data class EventReminder(val at: ZonedDateTime, val title: String)
+
+/** The first reminder event that starts strictly after [after], looking a week ahead. null if there is none. */
+fun nextEventReminder(slots: List<PatternSlot>, after: ZonedDateTime): EventReminder? =
+    (-1L..8L).flatMap { slotsFor(slots, after.toLocalDate().plusDays(it), after.zone) }
+        .filter { it.slot.type == REMINDER_TYPE && it.start.isAfter(after) }.minByOrNull { it.start }
+        ?.let { EventReminder(it.start, it.slot.title) }

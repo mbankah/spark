@@ -33,13 +33,14 @@ Rules
 - The first line is exactly: kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
 - One row per line, with every cell present. Leave a cell empty if it is not used. Put a cell in double quotes if it has a comma in it.
 - Dates are year-month-day, like 2026-11-02. Times are 24-hour, like 09:00. All times are UK time.
-- kind is event, deadline or period.
+- kind is event, deadline, period or replace.
 
 event: a fixed commitment on one date
 - Needs: date, start, end, title, type. Optional: venue, study, action, notes.
-- type is one of: lecture, tutorial, mytutor, training, match, gym, church, errand, travel.
+- type is one of: lecture, tutorial, mytutor, training, match, gym, church, errand, travel, reminder.
 - action is empty or add to add it, or cancel to remove the commitment of that type that starts at that time on that date.
 - A moved lecture is two rows: cancel at the old time, add at the new time. Moving a lecture also moves its walk, so cancel and add the travel rows too.
+- A reminder is an event of type reminder: it sounds a notification at its start, may sit on top of anything and takes no time from anything. Give it any short end.
 - study is standard, light or none. Empty means standard for a lecture or tutorial that is added, and none for everything else. Use none when the lecture only replaces one that was already there.
 
 deadline: work that is due
@@ -47,6 +48,9 @@ deadline: work that is due
 
 period: an assignment week or a catch-up week, 1 to 14 days
 - Needs: date (first day), end_date (last day), type (assignment_week or catch_up_week). Optional: title.
+
+replace: take everything planned in a time away and put this file's events there instead
+- Needs: date, start, end (the same day, end after start). Optional: title. The events of the same file stand in its place. It needs the typed wall in the app, so use it only when I ask to replace part of a day.
 
 Do not guess. If a date, time or type is not in what I give you, leave that row out.</textarea>
     <button id="copy">Copy the prompt</button><span id="copied" class="muted"></span>
@@ -76,7 +80,7 @@ Do not guess. If a date, time or type is not in what I give you, leave that row 
 // The same rules as docs/TIMETABLE_CSV.md. Tested with: node --test web/test
 
 const COLUMNS = ['kind', 'date', 'end_date', 'start', 'end', 'title', 'type', 'venue', 'heaviness', 'study', 'action', 'notes'];
-const EVENT_TYPES = ['lecture', 'tutorial', 'mytutor', 'training', 'match', 'gym', 'church', 'errand', 'travel'];
+const EVENT_TYPES = ['lecture', 'tutorial', 'mytutor', 'training', 'match', 'gym', 'church', 'errand', 'travel', 'reminder'];
 const PERIOD_TYPES = ['assignment_week', 'catch_up_week'];
 const MAX_BYTES = 1_000_000;
 const MAX_ROWS = 2000;
@@ -129,14 +133,14 @@ function checkCsv(text) {
     const line = i + 2;
     if (r.length !== header.length) { err(line, '', `This line has ${r.length} cells and the header has ${header.length}. Every cell must be present, even if empty.`); return; }
     const kind = at(r, 'kind').toLowerCase();
-    if (!['event', 'deadline', 'period'].includes(kind)) { err(line, 'kind', 'kind must be event, deadline or period.'); return; }
+    if (!['event', 'deadline', 'period', 'replace'].includes(kind)) { err(line, 'kind', 'kind must be event, deadline, period or replace.'); return; }
     const d = date(at(r, 'date'));
     if (!d) err(line, 'date', 'The date must be like 2026-11-02 or 02/11/2026, and a real day.');
     const action = at(r, 'action').toLowerCase();
     if (!['', 'add', 'cancel'].includes(action)) err(line, 'action', 'action must be empty, add or cancel.');
     const study = at(r, 'study').toLowerCase();
     if (!['', 'standard', 'light', 'none'].includes(study)) err(line, 'study', 'study must be empty, standard, light or none.');
-    if (kind !== 'period' && at(r, 'title') === '') err(line, 'title', 'A title is needed.');
+    if (kind !== 'period' && kind !== 'replace' && at(r, 'title') === '') err(line, 'title', 'A title is needed.');
     if (at(r, 'title').length > 120) err(line, 'title', 'The title is over 120 characters.');
     if (kind === 'event') {
       const s = minutes(at(r, 'start')); const e = minutes(at(r, 'end'));
@@ -144,6 +148,11 @@ function checkCsv(text) {
       if (e === null) err(line, 'end', 'The end must be a 24-hour time like 10:00.');
       if (s !== null && e !== null && e <= s) err(line, 'end', 'The end must be after the start, on the same day.');
       if (!EVENT_TYPES.includes(at(r, 'type').toLowerCase())) err(line, 'type', `type must be one of: ${EVENT_TYPES.join(', ')}.`);
+    } else if (kind === 'replace') {
+      const s = minutes(at(r, 'start')); const e = minutes(at(r, 'end'));
+      if (s === null) err(line, 'start', 'The start must be a 24-hour time like 20:00.');
+      if (e === null) err(line, 'end', 'The end must be a 24-hour time like 23:59.');
+      if (s !== null && e !== null && e <= s) err(line, 'end', 'The end must be after the start, on the same day.');
     } else if (kind === 'deadline') {
       if (minutes(at(r, 'start')) === null) err(line, 'start', 'The due time must be a 24-hour time like 17:00.');
       const h = at(r, 'heaviness');

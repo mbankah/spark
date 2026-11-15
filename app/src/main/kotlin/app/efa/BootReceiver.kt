@@ -19,7 +19,7 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         val app = context.applicationContext
         CoroutineScope(Dispatchers.Default).launch {
-            try { BlockingState.refresh(app); BufferNotifier.update(app); AlarmScheduler.rebuild(app); LectureCodeAlarm.refresh(app) } catch (_: Throwable) { } finally { pending.finish() }     // X2: the alarm is set again at boot
+            try { BlockingState.refresh(app); BufferNotifier.update(app); AlarmScheduler.rebuild(app); LectureCodeAlarm.refresh(app); PhotoAlarm.refresh(app); EventReminderAlarm.refresh(app) } catch (_: Throwable) { } finally { pending.finish() }     // X2: the alarm is set again at boot
         }
     }
 }

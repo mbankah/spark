@@ -24,7 +24,10 @@ object ImportLimits {
 val CSV_COLUMNS = listOf("kind", "date", "end_date", "start", "end", "title", "type", "venue", "heaviness", "study", "action", "notes")
 
 /** Event types: fixed commitments that a university or club sets, and the walk to them (T1). Study blocks are never created by a file (IM6). */
-val EVENT_TYPES = listOf("lecture", "tutorial", "mytutor", "training", "match", "gym", "church", "errand", "travel")
+val EVENT_TYPES = listOf("lecture", "tutorial", "mytutor", "training", "match", "gym", "church", "errand", "travel", "reminder")
+
+/** RP1: an event of this type sounds a notification when it starts. It may sit on top of anything and takes no time from anything. */
+const val REMINDER_TYPE = "reminder"
 
 enum class PeriodKind(val csv: String, val label: String) {
     ASSIGNMENT_WEEK("assignment_week", "Assignment week"),
@@ -43,6 +46,8 @@ data class EventRow(
 ) : ImportRow
 data class DeadlineRow(override val line: Int, val date: LocalDate, val dueMin: Int, val title: String, val heaviness: Int) : ImportRow
 data class PeriodRow(override val line: Int, val start: LocalDate, val end: LocalDate, val kind: PeriodKind, val title: String) : ImportRow
+/** RP2: everything the calendar holds on [date] from [startMin] to [endMin] is taken away and the events of the same file stand in its place. It needs the typed wall. */
+data class ReplaceRow(override val line: Int, val date: LocalDate, val startMin: Int, val endMin: Int, val title: String) : ImportRow
 
 /** [column] is blank for a problem with the file as a whole. [line] is the line in the file, counting the header as line 1. */
 data class ImportIssue(val line: Int, val column: String, val message: String) {
@@ -60,6 +65,7 @@ fun ImportRow.hash(): String {
         is EventRow -> listOf("event", date, startMin, endMin, title.lowercase(), type, if (cancel) "cancel" else "add", study).joinToString("|")
         is DeadlineRow -> listOf("deadline", date, dueMin, title.lowercase()).joinToString("|")
         is PeriodRow -> listOf("period", start, end, kind.csv).joinToString("|")
+        is ReplaceRow -> listOf("replace", date, startMin, endMin).joinToString("|")
     }
     return MessageDigest.getInstance("SHA-256").digest(canon.toByteArray()).take(12).joinToString("") { "%02x".format(it) }
 }
@@ -108,7 +114,7 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
         val before = errors.size
 
         val kind = text("kind").lowercase()
-        if (kind !in listOf("event", "deadline", "period")) { err(line, "kind", if (kind.isBlank()) "Empty. Use event, deadline or period." else "\"$kind\" is not a kind. Use event, deadline or period."); continue }
+        if (kind !in listOf("event", "deadline", "period", "replace")) { err(line, "kind", if (kind.isBlank()) "Empty. Use event, deadline, period or replace." else "\"$kind\" is not a kind. Use event, deadline, period or replace."); continue }
 
         fun date(c: String): LocalDate? {
             val s = text(c)
@@ -169,6 +175,12 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
                 if (listOf("end", "type", "venue", "study", "action", "end_date").any { text(it).isNotBlank() }) warn(line, "type", "A deadline uses only date, start (the time it is due), title and heaviness. The other cells are ignored.")
                 if (errors.size == before && d != null && due != null && t != null && heaviness != null) DeadlineRow(line, d, due, t, heaviness) else null
             }
+            "replace" -> {
+                val d = date("date"); val s = time("start", d); val e = time("end", d)
+                if (s != null && e != null && e <= s) err(line, "end", "${minutesText(e)} is not after the start ${minutesText(s)}. Replace one day at a time, up to 23:59.")
+                val t = title(false)
+                if (errors.size == before && d != null && s != null && e != null) ReplaceRow(line, d, s, e, t.orEmpty().ifBlank { "Replaced" }) else null
+            }
             else -> {
                 val d = date("date"); val e = date("end_date")
                 val type = text("type").lowercase()
@@ -187,7 +199,7 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
             }
         }
         if (row == null) continue
-        val past = when (row) { is EventRow -> row.date.isBefore(today); is DeadlineRow -> row.date.isBefore(today); is PeriodRow -> row.end.isBefore(today) }
+        val past = when (row) { is EventRow -> row.date.isBefore(today); is DeadlineRow -> row.date.isBefore(today); is PeriodRow -> row.end.isBefore(today); is ReplaceRow -> row.date.isBefore(today) }
         if (past) { skippedPast++; warn(line, "date", "In the past, skipped."); continue }
         if (!seen.add(row.hash())) { dupes++; warn(line, "", "The same row appears earlier in the file, skipped."); continue }
         rows += row

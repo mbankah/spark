@@ -35,11 +35,11 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 
 | Column | Used by | Meaning |
 | --- | --- | --- |
-| kind | all | `event`, `deadline` or `period` |
+| kind | all | `event`, `deadline`, `period` or `replace` |
 | date | all | `2026-11-02` or `02/11/2026`. For a period, the first day. |
 | end_date | period | The last day. A period is 1 to 14 days. |
-| start | event, deadline | `09:00`, 24-hour UK time. For a deadline, the time it is due. |
-| end | event | `10:00`. After the start, on the same day. |
+| start | event, deadline, replace | `09:00`, 24-hour UK time. For a deadline, the time it is due. |
+| end | event, replace | `10:00`. After the start, on the same day. |
 | title | all | Up to 120 characters. Required for event and deadline. |
 | type | event, period | Event: {types}. Period: `assignment_week` or `catch_up_week`. |
 | venue | event | The building and room, as on the timetable. Spark matches it to its venue directory (L4). |
@@ -53,8 +53,13 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 - **Add** events, deadlines and periods freely. Adding only tightens.
 - **Cancel** a fixed commitment, or add an event that takes time from a study or code block, and Spark asks for the typed wall once for the
   whole file (IM6).
-- A file **cannot** create, shorten or remove a study block, a meal, sleep or a day off. Those types are refused. A day off and a library
-  period are planned in the app (PW1, H1).
+- **Replace** (`kind` replace, with a date, start and end) takes away everything planned in that time on that day, meals, walks, planning and sleep
+  included, and the events of the same file stand in its place. It asks for the typed wall, and the preview names what it removes (RP2). It cannot
+  take in the wake, and it works on one day at a time.
+- A **reminder** is an event of type `reminder`: it sounds a notification at its start, may sit on top of anything and takes no time from
+  anything (RP1).
+- A file **cannot** create, shorten or remove a study block, a meal, sleep or a day off as an event type. Those types are refused. A day off and a
+  library period are planned in the app (PW1, H1). Only a replace row takes a meal or sleep away, behind the wall.
 - An event on top of sleep, a meal, a walk or another commitment is an error that names it. To move a lecture, cancel the old row and its
   walk, then add the new rows (the same file).
 - A lecture or tutorial that is added brings its study block with it (D1), unless `study` is `none`.

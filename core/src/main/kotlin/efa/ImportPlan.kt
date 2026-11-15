@@ -20,7 +20,7 @@ data class Verification(
     val alreadyImported: Int, val skippedPast: Int,
     val loosening: List<String>,
     val before: BufferState, val after: BufferState,
-    val adds: Int, val cancels: Int,
+    val adds: Int, val cancels: Int, val replaced: Int = 0,
 ) {
     val ok: Boolean get() = errors.isEmpty()
     val needsWall: Boolean get() = loosening.isNotEmpty()
@@ -41,12 +41,27 @@ fun verifyImport(
     val overlay = ArrayList<OverlayItem>(); val newWork = ArrayList<NewWork>()
     val periods = ArrayList<PeriodRow>(); val periodHashes = ArrayList<String>()
     val loosening = ArrayList<String>()
-    var already = 0; var adds = 0; var cancels = 0
+    var already = 0; var adds = 0; var cancels = 0; var replaced = 0
     var cur = slots
 
     fun slotText(s: PatternSlot) = "${s.title} ${minutesText(s.startMin)}-${minutesText(s.endMin)}"
 
     val events = parsed.rows.filterIsInstance<EventRow>()
+    // RP2: a replace row takes away everything the calendar holds in its window, so the events of the file can stand in its place. It is a loosening and needs the wall.
+    for (r in parsed.rows.filterIsInstance<ReplaceRow>()) {
+        val h = r.hash()
+        if (h in known) { already++; continue }
+        val hit = slotsFor(cur, r.date, zone).filter { it.slot.startMin < r.endMin && it.slot.endMin > r.startMin && it.slot.type != REMINDER_TYPE }
+        if (hit.any { it.slot.title == "Wake, shower" }) { errors += ImportIssue(r.line, "end", "The window takes in the wake. The morning alarm is planned from it, so end the window before it."); continue }
+        if (hit.any { it.slot.date != null }) { errors += ImportIssue(r.line, "start", "Part of that time came from an earlier file. Remove that import first, then replace."); continue }
+        // Each stored row needs its own fingerprint (the store keeps one row per fingerprint); the first carries the row's own, so importing it again is recognised (IM8).
+        for ((n, o) in hit.withIndex()) {
+            val cancel = o.slot.copy(date = r.date, cancelled = true, notes = "imported replace")
+            overlay += OverlayItem(cancel, if (n == 0) h else "$h#${n + 1}"); cur = cur + cancel; replaced++
+        }
+        if (hit.isNotEmpty()) loosening += "Replaces ${hit.joinToString(", ") { it.slot.title.substringBefore(" - ") }} on ${DAY.format(r.date)}, ${minutesText(r.startMin)} to ${minutesText(r.endMin)}"
+        else warnings += ImportIssue(r.line, "start", "Nothing is planned in that time, so nothing is replaced.")
+    }
     // Cancels first, so a moved lecture can be one file: cancel the old time, add the new one (IM6).
     for (r in events.filter { it.cancel }) {
         val h = r.hash()
@@ -67,7 +82,7 @@ fun verifyImport(
             warnings += ImportIssue(r.line, "start", "${r.title} is already in your weekly pattern at that time, skipped."); continue
         }
         var bad = false
-        for (o in here.filter { it.slot.startMin < r.endMin && it.slot.endMin > r.startMin }) {
+        for (o in here.filter { r.type != REMINDER_TYPE && it.slot.type != REMINDER_TYPE && it.slot.startMin < r.endMin && it.slot.endMin > r.startMin }) {
             when {
                 o.slot.type == "free" -> {}
                 o.slot.type in CUTTABLE_WORK -> loosening += "${r.title} on ${DAY.format(r.date)} takes time from ${o.slot.title}"
@@ -101,7 +116,7 @@ fun verifyImport(
     val after = if (errors.isNotEmpty()) before else bufferNow(now, studyCycles(cur, now) + work + extra, cur, shortSleep = false)
     return Verification(
         errors, warnings, overlay, newWork, periods, periodHashes, already, parsed.skippedPast, loosening.distinct(),
-        before, after, adds, cancels,
+        before, after, adds, cancels, replaced,
     )
 }
 
@@ -109,6 +124,7 @@ fun verifyImport(
 fun Verification.summaryLines(): List<String> = buildList {
     if (adds > 0) add("$adds event${if (adds == 1) "" else "s"} added")
     if (cancels > 0) add("$cancels cancelled")
+    if (replaced > 0) add("$replaced planned block${if (replaced == 1) "" else "s"} replaced")
     val deadlines = work.count { it.source == "import" }
     val cycles = work.count { it.source == "import-cycle" }
     if (deadlines > 0) add("$deadlines deadline${if (deadlines == 1) "" else "s"} added")

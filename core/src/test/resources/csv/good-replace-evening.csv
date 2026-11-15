@@ -1,0 +1,4 @@
+kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
+replace,2026-11-15,,20:00,23:59,Tonight's plan,,,,,,
+event,2026-11-15,,20:00,20:20,Sort the clothes and make the bed,errand,,,none,,Bed made and machine running
+event,2026-11-15,,23:00,23:05,Melatonin 3mg,reminder,,,none,,

@@ -139,6 +139,8 @@
         <receiver android:name=".AlarmReceiver" android:exported="false" />
         <receiver android:name=".FreeSlotReceiver" android:exported="false" />
         <receiver android:name=".LectureCodeReceiver" android:exported="false" />
+        <receiver android:name=".PhotoReceiver" android:exported="false" />
+        <receiver android:name=".EventReminderReceiver" android:exported="false" />
         <service android:name=".AlarmService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <activity
             android:name=".AlarmActivity"

@@ -69,7 +69,10 @@ data class HomeState(
     val earnedOn: Boolean = false,       // R2: earned phone access is open right now
     val schedule: List<efa.ScheduleDay> = emptyList(),   // SC1: the second page, the whole calendar day by day
     val nowFraction: Float? = null,      // how far through the running block it is, drawn as a bar
-    val progressFraction: Float? = null, // the week's confirmed share of planned work, drawn as a bar
+    val progressFraction: Float? = null, // the week's confirmed share of planned work, drawn as a ring
+    val photo: efa.PhotoDue? = null,     // PH1: the photo to take now, or the next one, shown first
+    val photoLeft: Int? = null,          // minutes left to take it in full
+    val nowLeftMin: Int? = null,         // minutes left in the running block, shown inside its ring
 )
 
 /**
@@ -80,22 +83,22 @@ data class HomeState(
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
     onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {}, onNewRoom: () -> Unit = {},
-    homeTick: Int = 0,
+    homeTick: Int = 0, onPhoto: () -> Unit = {},
 ) {
     val c = LocalColors.current
     val pager = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
-    BackHandler(enabled = pager.currentPage != 0) { scope.launch { pager.scrollToPage(0) } }       // back from the schedule goes to the first page
-    LaunchedEffect(homeTick) { if (homeTick > 0) pager.scrollToPage(0) }                              // the home button always lands on the first page
+    BackHandler(enabled = pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0) } }       // back from the schedule goes to the first page
+    LaunchedEffect(homeTick) { if (homeTick > 0) pager.animateScrollToPage(0) }                              // the home button always lands on the first page
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), pageSpacing = 20.dp, key = { it }) { page ->
-            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom)
+            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto)
             else ScheduleScreen(s.schedule)
         }
-        PageDots(pager.currentPage) { page -> scope.launch { pager.scrollToPage(page) } }
+        PageDots(pager.currentPage) { page -> scope.launch { pager.animateScrollToPage(page) } }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // U6, LA5: apps are reached by typing, not by browsing a grid.
             Box(Modifier.weight(1f).heightIn(min = 54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSearch).padding(horizontal = 16.dp).semantics { contentDescription = "Type to open an app" }, contentAlignment = Alignment.CenterStart) {
@@ -122,7 +125,7 @@ private fun PageDots(page: Int, onPage: (Int) -> Unit) {
             Box(
                 Modifier.heightIn(min = 32.dp).widthIn(min = 48.dp).clickable(role = Role.Tab) { onPage(i) }.semantics { contentDescription = "$name page" + if (page == i) ", showing" else "" },
                 contentAlignment = Alignment.Center,
-            ) { Box(Modifier.size(width = if (page == i) 22.dp else 8.dp, height = 8.dp).background(if (page == i) c.accent else c.track, CircleShape)) }
+            ) { Box(Modifier.size(width = androidx.compose.animation.core.animateDpAsState(if (page == i) 22.dp else 8.dp, motion(Motion.STANDARD), label = "dot").value, height = 8.dp).background(if (page == i) c.accent else c.track, CircleShape)) }
         }
     }
 }
@@ -130,7 +133,7 @@ private fun PageDots(page: Int, onPage: (Int) -> Unit) {
 @Composable
 private fun HomePage(
     s: HomeState, onBuffer: () -> Unit, onNow: () -> Unit, onProofDue: () -> Unit, onSetup: () -> Unit, onHeld: () -> Unit, onEssential: (String) -> Unit,
-    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit,
+    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit,
 ) {
     val c = LocalColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -146,6 +149,7 @@ private fun HomePage(
             SparkLogo(44.dp)
         }
         s.period?.let { Label(it) }
+        s.photo?.let { PhotoCard(it, s.photoLeft, onPhoto) }
         if (s.launcherPaused) InfoCard("LAUNCHER PAUSED", "Put Spark back as a home choice", onRestoreLauncher, "Spark crashed 3 times in 10 minutes. Blocking kept running.")
         s.morning?.let { InfoCard("MORNING", "Ready photo needed", onReady, it) }
         BufferCard(s.buffer, onBuffer)
@@ -153,7 +157,7 @@ private fun HomePage(
         if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read.")
         else if (efa.WidgetKind.NOW_NEXT !in s.widgets) {}
         else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null, efa.CardKind.NOW)
-        else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() }, efa.CardKind.NOW, s.nowFraction)
+        else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() }, efa.CardKind.NOW, s.nowFraction, s.nowLeftMin)
         s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
         if (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets) InfoCard("SHOPPING", "Shopping list", onShopping, null)
         s.newRoom?.let { InfoCard("WHERE IS IT?", "Where is $it?", onNewRoom, "Put it on the map so attendance can be checked.") }
@@ -178,22 +182,53 @@ private fun HomePage(
     }
 }
 
+/**
+ * PH1: the photo to take. When one is open it is the loudest thing on the home screen: a filled card that says to take it now, what it is for, by when,
+ * and shows how much of the time to take it in full is left. Otherwise it is a quiet card for the next one, with when it opens. Tap it to go and take it.
+ */
+@Composable
+private fun PhotoCard(p: efa.PhotoDue, left: Int?, onClick: () -> Unit) {
+    val c = LocalColors.current
+    val open = p.open
+    val fg = if (open) c.onAccent else c.text
+    val sub = if (open) c.onAccent else c.muted
+    val window = java.time.Duration.between(p.opens, p.dueBy).toMinutes().coerceAtLeast(1)
+    Row(
+        Modifier.fillMaxWidth().then(if (open) Modifier.background(c.accent, CardShape) else Modifier.card()).clip(CardShape).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp)
+            .semantics { contentDescription = (if (open) "Photo due. " else "Next photo. ") + p.headline() + ". " + p.detail() + " Tap to open." },
+        horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            BasicText((if (open) (if (p.kind == efa.PhotoKind.COMMIT) "COMMIT DUE" else "PHOTO DUE") else (if (p.kind == efa.PhotoKind.COMMIT) "NEXT COMMIT" else "NEXT PHOTO")), style = Ts(sub, 11.sp, fontFamily = Mono, letterSpacing = 0.9.sp))
+            BasicText(p.headline(), style = Ts(fg, 24.sp, FontWeight.Bold, letterSpacing = (-0.5).sp))
+            BasicText(p.detail(), style = Ts(sub, 13.sp))
+        }
+        if (open && left != null) Donut(listOf(Slice(left.toFloat() / window, c.onAccent)), 64.dp, 8.dp, track = c.onAccent.copy(alpha = 0.25f)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                BasicText("$left", style = Ts(c.onAccent, 18.sp, FontWeight.Bold))
+                BasicText("min", style = Ts(c.onAccent, 10.sp, fontFamily = Mono))
+            }
+        }
+    }
+}
+
 /** Money: the amount, and under it a bar of how much of the week's planned work is confirmed. Both come from the same week (R4, R7). */
 @Composable
 private fun MoneyCard(s: HomeState, onMoney: () -> Unit) {
     val c = LocalColors.current
-    Column(
+    Row(
         Modifier.fillMaxWidth().card(efa.CardKind.SPEND).clip(CardShape).clickable(role = Role.Button, onClick = onMoney).padding(horizontal = 16.dp, vertical = 14.dp)
             .semantics { contentDescription = "Free to spend this week. " + (s.freeToSpendPence?.let { pounds(it) } ?: "Recording") + ". Tap for the working." },
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        // The share of the week's planned work that is confirmed is a part of a whole, so it is a ring, not a bar.
+        s.progressFraction?.let { f -> Donut(listOf(Slice(f, c.accent)), 72.dp, 10.dp) { BasicText("${Math.round(f * 100)}%", style = Ts(c.text, 16.sp, FontWeight.Bold)) } }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Label("Free to spend this week")
-            BasicText(s.freeToSpendPence?.let { pounds(it) } ?: "Recording", style = Ts(c.text, 26.sp, FontWeight.Bold, letterSpacing = (-0.5).sp))
+            BasicText(s.freeToSpendPence?.let { pounds(it) } ?: "Recording", style = Ts(c.text, 28.sp, FontWeight.Bold, letterSpacing = (-0.5).sp))
+            s.progress?.let { BasicText(it, style = Ts(c.muted, 12.sp, fontFamily = Mono)) }
+            if (s.freeToSpendPence == null) BasicText(s.moneyNote ?: "Recorded for the first 14 days.", style = Ts(c.muted, 12.sp))
         }
-        s.progressFraction?.let { Bar(it) }
-        s.progress?.let { BasicText(it, style = Ts(c.muted, 12.sp, fontFamily = Mono)) }
-        if (s.freeToSpendPence == null) BasicText(s.moneyNote ?: "Recorded for the first 14 days.", style = Ts(c.muted, 12.sp))
     }
 }
 
@@ -241,11 +276,12 @@ private fun BufferCard(b: BufferState, onClick: () -> Unit) {
 @Composable
 private fun Dial(size: Dp, fillDegrees: Float, big: String, small: String) {
     val c = LocalColors.current
+    val sweep = animatedFraction(fillDegrees / 360f, 700) * 360f           // the dial sweeps round to its value when it appears (AN1)
     Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
             val w = 16.dp.toPx(); val tl = Offset(w / 2, w / 2); val sz = Size(this.size.width - w, this.size.height - w)
             drawArc(c.track, 0f, 360f, false, tl, sz, style = Stroke(w))
-            if (fillDegrees > 0f) drawArc(c.accent, -90f, fillDegrees, false, tl, sz, style = Stroke(w, cap = StrokeCap.Butt))
+            if (sweep > 0f) drawArc(c.accent, -90f, sweep, false, tl, sz, style = Stroke(w, cap = StrokeCap.Butt))
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             BasicText(big, style = Ts(c.text, 26.sp, FontWeight.Bold, letterSpacing = (-0.8).sp))
@@ -255,18 +291,28 @@ private fun Dial(size: Dp, fillDegrees: Float, big: String, small: String) {
 }
 
 @Composable
-private fun InfoCard(label: String, value: String, onClick: (() -> Unit)?, detail: String?, kind: efa.CardKind? = null, fraction: Float? = null) {
+private fun InfoCard(label: String, value: String, onClick: (() -> Unit)?, detail: String?, kind: efa.CardKind? = null, fraction: Float? = null, leftMin: Int? = null) {
     val c = LocalColors.current
     val tap = if (onClick != null) Modifier.clip(CardShape).clickable(role = Role.Button, onClick = onClick) else Modifier
-    Column(
+    Row(
         Modifier.fillMaxWidth().card(kind).then(tap).padding(horizontal = 16.dp, vertical = 14.dp)
             .semantics { contentDescription = "$label. $value." + (detail?.let { " $it" } ?: "") + if (onClick != null) " Tap to open." else "" },
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
-        Label(label)
-        BasicText(value, style = Ts(c.text, 21.sp, FontWeight.Bold))
-        fraction?.let { Bar(it, Modifier.padding(vertical = 2.dp)) }
-        detail?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Label(label)
+            BasicText(value, style = Ts(c.text, 21.sp, FontWeight.Bold))
+            detail?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
+        }
+        // How much of the running block has gone is a part of a whole: a ring with the minutes left in it.
+        fraction?.let { f ->
+            Donut(listOf(Slice(f, c.accent)), 60.dp, 8.dp) {
+                if (leftMin != null) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    BasicText(if (leftMin >= 100) "${leftMin / 60}h" else "$leftMin", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                    BasicText(if (leftMin >= 100) "left" else "min", style = Ts(c.muted, 10.sp, fontFamily = Mono))
+                }
+            }
+        }
     }
 }
 

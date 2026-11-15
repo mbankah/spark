@@ -33,10 +33,14 @@ fun MoneyScreen(v: MoneyView, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Label("Money, a guide only")
-        Column(Modifier.fillMaxWidth().card(efa.CardKind.SPEND).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            BasicText(if (v.live) pounds(w.money.freeToSpendPence) + " free to spend" else "Recording", style = Ts(c.text, 34.sp, FontWeight.Bold, letterSpacing = (-1).sp))
-            Bar(if (w.plannedHours > 0) (w.verifiedHours / w.plannedHours).toFloat() else 0f, height = 10.dp)
-            BasicText(w.progress() + " this week", style = Ts(c.muted, 14.sp, fontFamily = Mono))
+        Row(Modifier.fillMaxWidth().card(efa.CardKind.SPEND).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Confirmed work is a share of the week's planned work, so it is a ring.
+            val done = if (w.plannedHours > 0) (w.verifiedHours / w.plannedHours).toFloat().coerceIn(0f, 1f) else 0f
+            Donut(listOf(Slice(done, c.accent)), 100.dp, 14.dp) { BasicText("${Math.round(done * 100)}%", style = Ts(c.text, 22.sp, FontWeight.Bold)) }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                BasicText(if (v.live) pounds(w.money.freeToSpendPence) + " free to spend" else "Recording", style = Ts(c.text, 28.sp, FontWeight.Bold, letterSpacing = (-0.8).sp))
+                BasicText(w.progress() + " this week", style = Ts(c.muted, 13.sp, fontFamily = Mono))
+            }
         }
         if (!v.live) Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             BasicText("Money starts on ${DateTimeFormatter.ofPattern("EEE d MMM").format(v.liveFrom)}.", style = Ts(c.text, 16.sp, FontWeight.Bold))

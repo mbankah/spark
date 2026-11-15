@@ -54,14 +54,25 @@ fun WallField(target: String, onDone: () -> Unit) {
     var slips by remember(target) { mutableIntStateOf(0) }
     var done by remember(target) { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(target) { focus.requestFocus() }          // the keyboard opens at once: starting the wall is not made harder
+    LaunchedEffect(target) { focus.requestFocus() }
+    // AN1: a short shake when a character is wrong, so a slip is felt without looking. None when animations are off.
+    val shake = remember { androidx.compose.animation.core.Animatable(0f) }
+    val motionOn = LocalMotion.current
+    LaunchedEffect(slips, restarts) {
+        if (motionOn && (slips > 0 || restarts > 0)) {
+            repeat(2) { shake.animateTo(8f, androidx.compose.animation.core.tween(45)); shake.animateTo(-8f, androidx.compose.animation.core.tween(45)) }
+            shake.animateTo(0f, androidx.compose.animation.core.tween(45))
+        }
+    }          // the keyboard opens at once: starting the wall is not made harder
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Label("Type this by hand")
-            BasicText("$typed / ${target.length}", style = Ts(c.text, 14.sp, FontWeight.Bold, fontFamily = Mono), modifier = Modifier.semantics { contentDescription = "$typed of ${target.length} typed" })
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                BasicText("$typed / ${target.length}", style = Ts(c.text, 14.sp, FontWeight.Bold, fontFamily = Mono), modifier = Modifier.semantics { contentDescription = "$typed of ${target.length} typed" })
+                Donut(listOf(Slice(typed.toFloat() / target.length, c.accent)), 28.dp, 5.dp)
+            }
         }
-        Bar(typed.toFloat() / target.length)
         // The string, in lines of 15, with the part already typed in full colour.
         Column(Modifier.fillMaxWidth().background(c.bg, CardShape).padding(12.dp).semantics { contentDescription = "Characters to type: $target" }) {
             target.chunked(15).forEachIndexed { i, line ->
@@ -96,12 +107,12 @@ fun WallField(target: String, onDone: () -> Unit) {
                 textStyle = Ts(c.text, 18.sp, fontFamily = Mono),
                 cursorBrush = SolidColor(c.text),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, keyboardType = KeyboardType.Password, imeAction = ImeAction.None),
-                modifier = Modifier.fillMaxWidth().focusRequester(focus).card().padding(14.dp).semantics { contentDescription = "Type the characters here" },
+                modifier = Modifier.fillMaxWidth().offset { androidx.compose.ui.unit.IntOffset(shake.value.dp.roundToPx(), 0) }.focusRequester(focus).card().padding(14.dp).semantics { contentDescription = "Type the characters here" },
             )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.semantics { contentDescription = "${WALL_SLIPS - slips} of $WALL_SLIPS slips left" }) {
-                repeat(WALL_SLIPS) { i -> Box(Modifier.size(10.dp).background(if (i < WALL_SLIPS - slips) c.accent else c.track, CircleShape)) }
+                repeat(WALL_SLIPS) { i -> Box(Modifier.size(10.dp).background(androidx.compose.animation.animateColorAsState(if (i < WALL_SLIPS - slips) c.accent else c.track, motion(Motion.QUICK), label = "slip").value, CircleShape)) }
             }
             BasicText(
                 when {

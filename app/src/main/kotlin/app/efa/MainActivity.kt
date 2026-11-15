@@ -254,6 +254,8 @@ class MainActivity : ComponentActivity() {
                 var voiceDraft by remember { mutableStateOf<Pair<NewTask, String>?>(null) }
                 var voiceQuietOff by remember { mutableStateOf(true) }
                 var codeReminders by remember { mutableStateOf(true) }
+                var photoReminders by remember { mutableStateOf(true) }
+                var nightPhotoMs by remember { mutableStateOf<Long?>(null) }
                 var widgetRows by remember { mutableStateOf<List<WidgetRowUi>>(emptyList()) }
                 var widgetMessage by remember { mutableStateOf<String?>(null) }
                 var shownWidgets by remember { mutableStateOf<Set<WidgetKind>>(WidgetKind.entries.filter { it.byDefault }.toSet()) }
@@ -266,7 +268,7 @@ class MainActivity : ComponentActivity() {
                 }
                 var shopping by remember { mutableStateOf<List<app.efa.data.ShoppingRow>>(emptyList()) }
                 LaunchedEffect(screen, reload) { if (screen == Screen.SHOPPING) shopping = withContext(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).items() } }
-                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" }; codeReminders = withContext(Dispatchers.IO) { LectureCodeAlarm.enabled(db) } }
+                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" }; codeReminders = withContext(Dispatchers.IO) { LectureCodeAlarm.enabled(db) }; photoReminders = withContext(Dispatchers.IO) { PhotoAlarm.enabled(db) }; nightPhotoMs = withContext(Dispatchers.IO) { app.efa.data.SleepRepo(db).shutdownPhotoMs() } }
                 /** V1, V3, V4: what was heard becomes a card to check, or opens a screen. A loosening only opens its request screen, where the typed wall is. */
                 var reviewRow by remember { mutableStateOf<app.efa.data.TaskRow?>(null) }
                 /** B5, E9: the estimates are corrected from finished tasks, and the newest finished task not yet asked about is offered on home. */
@@ -364,6 +366,7 @@ class MainActivity : ComponentActivity() {
                         "widget_shopping" -> { screen = Screen.SHOPPING; pendingAction.value = null }
                         "widget_money" -> { screen = Screen.MONEY; pendingAction.value = null }
                         "widget_working", "widget_day", "widget_week" -> { screen = Screen.HOME; pendingAction.value = null }
+                        PhotoAlarm.ACTION_OPEN -> { screen = Screen.HOME; homeTick.intValue++; pendingAction.value = null }       // PH1: the photo card is the first thing on the home screen
                     }
                 }
 
@@ -380,6 +383,8 @@ class MainActivity : ComponentActivity() {
                             BlockingState.refresh(applicationContext)       // the blocking service sees the change at once
                             try { AlarmScheduler.refresh(applicationContext) } catch (e: Exception) { /* the last alarm stays set (X7) */ }
                             try { LectureCodeAlarm.refresh(applicationContext) } catch (e: Exception) { /* the minute loop sets it again (X7) */ }
+                            try { PhotoAlarm.refresh(applicationContext) } catch (e: Exception) { /* the minute loop sets it again (X7) */ }
+                            try { EventReminderAlarm.refresh(applicationContext) } catch (e: Exception) { /* the minute loop sets it again (X7) */ }
                             heldWaiting = HeldRepo(db).anyUnreviewed()
                             BufferNotifier.update(applicationContext)
                             // U1, U4: which setup steps are done right now, and a log entry once when one that was done goes off.
@@ -489,6 +494,8 @@ class MainActivity : ComponentActivity() {
                         val hhmm = DateTimeFormatter.ofPattern("HH:mm")
                         val period = l?.let { activePeriod(it.periods, clock.toLocalDate()) }
                         val openTasks = l?.tasks?.map { it.toOpen(period) }.orEmpty()
+                        val photos = l?.pattern?.let { p -> photoPlan(p, clock, l.verified, nightPhotoMs) }.orEmpty()
+                        val photoFocus = photoFocus(photos)?.takeIf { it.open || it.opens.isBefore(clock.plusHours(12)) }
                         val alloc = l?.pattern?.let { p -> allocateTasks(p, openTasks, clock) }
                         // RS2, RS8: what is placed in a block is said in the block's own line, split across blocks when it is big.
                         val includes: (DatedSlot) -> String = { ds -> alloc?.inSlot(ds).orEmpty().takeIf { it.isNotEmpty() }?.joinToString(", ", "Includes: ") { "${it.task.title} (${it.minutes} min)" }.orEmpty() }
@@ -502,16 +509,17 @@ class MainActivity : ComponentActivity() {
                                 nowLabel = nn?.now?.let { "Now, until ${hhmm.format(it.end)}" },
                                 nowTitle = nn?.now?.slot?.title,
                                 nowDetail = nn?.now?.let { listOf(it.detail(), includes(it), proofHint(proofFor(it.slot))).filter { s -> s.isNotBlank() }.joinToString(". ") },
+                                nowLeftMin = nn?.now?.let { n -> java.time.Duration.between(clock, n.end).toMinutes().coerceAtLeast(0).toInt() },
                                 nowFraction = nn?.now?.let { n -> (java.time.Duration.between(n.start, clock).toMillis().toFloat() / java.time.Duration.between(n.start, n.end).toMillis().coerceAtLeast(1)).coerceIn(0f, 1f) },
                                 progressFraction = l?.money?.week?.takeIf { it.plannedHours > 0 }?.let { (it.verifiedHours / it.plannedHours).toFloat() },
-                                schedule = l?.pattern?.let { p -> scheduleView(p, openTasks, alloc, clock) }.orEmpty(),
+                                schedule = l?.pattern?.let { p -> scheduleView(p, openTasks, alloc, clock, days = 35, from = weekStart(clock.toLocalDate()), verified = l.verified) }.orEmpty(),
                                 nowOpensBlock = nn?.now?.let { proofFor(it.slot) != Proof.NONE } == true,
                                 next = l?.pattern?.let { p -> upcoming(p, clock, 2).map { NextRow(hhmm.format(it.start), it.slot.title, listOf(it.detail(), includes(it)).filter { s -> s.isNotBlank() }.joinToString(". ")) } }.orEmpty(),
                                 freeToSpendPence = l?.money?.takeIf { it.live }?.week?.money?.freeToSpendPence,      // G6: record-only for the first 14 days
                                 progress = l?.money?.week?.takeIf { it.plannedHours > 0 }?.progress(),
                                 moneyNote = l?.money?.takeIf { !it.live }?.let { "Money starts ${DateTimeFormatter.ofPattern("EEE d MMM").format(it.liveFrom)}. Recorded until then." },
                                 earnedOn = l?.pattern?.let { p -> earnedAccessActive(clock, l.earnings, p) } == true,
-                                proofDue = l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { "${it.slot.title}, ended ${hhmm.format(it.end)}. Take its photo." },
+                                photo = photoFocus, photoLeft = photoFocus?.minutesLeft(clock)?.toInt(),
                                 heldWaiting = heldWaiting,
                                 unavailable = l != null && l.pattern == null,
                                 launcherPaused = launcherPaused,
@@ -542,6 +550,7 @@ class MainActivity : ComponentActivity() {
                             onMoney = { screen = Screen.MONEY },
                             onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
+                            onPhoto = { photoFocus?.slot?.let { selected = it; screen = Screen.BLOCK } ?: run { screen = Screen.MORNING } },
                             onBuffer = { if (buffer is BufferState.Value) screen = Screen.WORKING },
                             onQuickAdd = { screen = Screen.QUICK_ADD },
                             onSetup = { screen = Screen.SETUP },
@@ -608,6 +617,8 @@ class MainActivity : ComponentActivity() {
                         voiceQuietOff = voiceQuietOff,
                         onVoiceQuiet = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_VOICE_QUIET_OFF, if (v) "1" else "0")); reload++ } },
                         codeReminders = codeReminders,
+                        photoReminders = photoReminders,
+                        onPhotoReminders = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_PHOTO_REMINDERS, if (v) "1" else "0")); PhotoAlarm.refresh(applicationContext); reload++ } },
                         onCodeReminders = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_CODE_REMINDERS, if (v) "1" else "0")); LectureCodeAlarm.refresh(applicationContext); reload++ } },
                         onShopping = { screen = Screen.SHOPPING },
                         morningText = when { morningUi.night != null && morningUi.ready != null -> "Set up: tonight's photo and the ready spot."; morningUi.ready != null -> "Ready spot set. Take tonight's setup photo."; morningUi.night != null -> "Tonight's photo set. Take the ready spot photo."; else -> "" },

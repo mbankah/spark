@@ -75,3 +75,13 @@ test('IM1: the page buttons work: copy, example, check and save', async () => {
   els.csv.value = 'kind,date\nevent,2026-11-02'; els.check.onclick(); assert.equal(els.result.className, 'bad'); assert.match(els.result.textContent, /problem/);
   els.save.onclick(); assert.equal(saved, 'timetable.csv');
 });
+
+test('RP2: a replace row is read, and one that ends before it starts is an error at that line and column', () => {
+  assert.deepEqual(checkCsv(`${H}\nreplace,2026-11-15,,20:00,23:59,Tonight,,,,,,\n`).errors, []);
+  const bad = checkCsv(`${H}\nreplace,2026-11-15,,23:59,20:00,Backwards,,,,,,\n`).errors;
+  assert.ok(bad.some((e) => e.line === 2 && e.column === 'end'));
+});
+
+test('RP1: a reminder is an event type', () => {
+  assert.deepEqual(checkCsv(`${H}\nevent,2026-11-15,,23:00,23:05,Melatonin 3mg,reminder,,,none,,\n`).errors, []);
+});

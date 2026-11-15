@@ -94,6 +94,23 @@ class PlanStorageTest {
         assertEquals(listOf(deadline.id), db.tasks().open().map { it.id }, "the cycle went; the deadline with 30 proven minutes stays")
     }
 
+    @Test fun RP2_a_replace_row_stores_the_evening_plan_in_place_of_the_old_evening_and_removing_it_brings_the_old_one_back() = runBlocking {
+        val sunday = LocalDate.of(2026, 11, 15)
+        val text = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets.open("tonight-plan.csv").bufferedReader().readText()
+        val now = at(sunday, LocalTime.of(19, 0))
+        val old = slotsFor(plan.slots(), sunday).map { it.slot.title }
+        val v = verifyImport(parseTimetableCsv(text, sunday), plan.slots(), plan.known(), emptyList(), now)
+        assertTrue(v.ok, v.errors.joinToString { it.text() }); assertTrue(v.needsWall)
+        val a = plan.apply(v, "tonight.csv", fileHash(text), 1L, LONDON.id, "x")
+        val after = slotsFor(plan.slots(), sunday)
+        assertTrue(after.none { it.slot.title == "Shutdown" || it.slot.title.startsWith("Student Dinner") || it.slot.title == "Plan Monday" }, "the old evening is gone: " + after.filter { it.start.hour >= 19 }.joinToString { "${it.start.toLocalTime()} ${it.slot.title} [${it.slot.type}] date=${it.slot.date}" } + " | overlay=" + db.overlay().all().joinToString { "${it.title}/${it.cancelled}/${it.date}" })
+        assertTrue(after.any { it.slot.title == "Eat and film" } && after.any { it.slot.title == "Melatonin 3mg" && it.slot.type == REMINDER_TYPE })
+        assertEquals(at(sunday, LocalTime.of(23, 0)), nextEventReminder(plan.slots(), at(sunday, LocalTime.of(20, 0)))?.at)
+        assertTrue(after.any { it.slot.title == "Church" }, "what ended before 20:00 stays")
+        plan.removeImport(a.importId)
+        assertEquals(old, slotsFor(plan.slots(), sunday).map { it.slot.title }, "removing the import gives back the old evening")
+    }
+
     @Test fun IM12_after_removing_the_same_file_can_be_imported_again() = runBlocking {
         val a = plan.apply(verify(file), "term.csv", fileHash(file), 1L, LONDON.id, "x"); plan.removeImport(a.importId)
         val v = verify(file); assertEquals(0, v.alreadyImported); assertFalse(v.changesNothing)

@@ -104,4 +104,37 @@ class ScheduleViewTest {
         assertEquals("Seminar", rows[0].title); assertEquals("Room 2.14", rows[0].detail)          // the room moves out of the title, and is said once
         assertEquals("Seminar", rows[1].title); assertEquals("Room 2.14", rows[1].detail)
     }
+
+    @Test fun `AN1 SC1 the days group into Monday to Sunday weeks named This week and Next week`() {
+        val days = scheduleView(base, emptyList(), null, now, days = 35, from = today)          // 2 Nov 2026 is a Monday
+        val weeks = scheduleWeeks(days)
+        assertEquals(5, weeks.size)
+        assertEquals(listOf("This week", "Next week", "Week of 16 Nov", "Week of 23 Nov", "Week of 30 Nov"), weeks.map { it.label })
+        assertTrue(weeks.all { it.monday.dayOfWeek == java.time.DayOfWeek.MONDAY && it.days.size == 7 })
+        assertEquals("2 to 8 Nov", weeks[0].range); assertEquals("30 Nov to 6 Dec", weeks[4].range)
+        assertEquals(days.map { it.date }, weeks.flatMap { it.days }.map { it.date }, "every day is in exactly one week, in order")
+    }
+
+    @Test fun `AN1 SC1 a week that starts before today holds the days from its Monday and marks Today`() {
+        val wed = at(today.plusDays(2), LocalTime.of(10, 30))
+        val days = scheduleView(base, emptyList(), null, wed, days = 14, from = today)           // the page starts on the Monday of this week
+        assertEquals(today.plusDays(2), days.single { it.today }.date); assertEquals("Today", days.single { it.today }.tag)
+        assertEquals(today.plusDays(3), days.single { it.tag == "Tomorrow" }.date)
+        assertTrue(days.first { it.date == today }.rows.all { it.state == RowState.PAST }, "Monday is over by Wednesday")
+        assertEquals("This week", scheduleWeeks(days).first().label)
+    }
+
+    @Test fun `AN1 SC1 a week's summary counts its work, lectures and days off`() {
+        val off = today.plusDays(1)
+        val weeks = scheduleWeeks(scheduleView(base + dayOffMarker(off), emptyList(), null, now, days = 14))
+        val w = weeks.first()
+        assertEquals(w.days.sumOf { it.workMin }, w.workMin); assertEquals(1, w.daysOff)
+        assertTrue(w.summary().contains("h work") && w.summary().contains("lecture") && w.summary().endsWith("1 day off"), w.summary())
+        assertEquals("", ScheduleWeek(today, "x", "y", emptyList()).summary())
+    }
+
+    @Test fun `AN1 SC1 a day counts its lectures from the slot types`() {
+        val d = scheduleView(base, emptyList(), null, now, days = 1).single()
+        assertEquals(slotsFor(base, today).count { it.slot.type == "lecture" }, d.lectures)
+    }
 }

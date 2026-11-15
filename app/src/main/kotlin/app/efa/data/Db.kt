@@ -584,6 +584,7 @@ const val META_PC_ADDRESS = "pc_address"
 const val META_PC_CODE = "pc_code"
 const val META_PC_LAST = "pc_last"
 const val META_VOICE_QUIET_OFF = "voice_quiet_off"
+const val META_PHOTO_REMINDERS = "photo_reminders"         // "0" switches the photo reminders off; anything else is on
 const val META_CODE_REMINDERS = "code_reminders"           // "0" switches the lecture attendance code reminders off; anything else is on
 const val META_BLOCKLIST = "blocklist"
 const val META_GITHUB_USER = "github_user"

@@ -17,13 +17,13 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 
 | Column | Used by | Meaning |
 | --- | --- | --- |
-| kind | all | `event`, `deadline` or `period` |
+| kind | all | `event`, `deadline`, `period` or `replace` |
 | date | all | `2026-11-02` or `02/11/2026`. For a period, the first day. |
 | end_date | period | The last day. A period is 1 to 14 days. |
-| start | event, deadline | `09:00`, 24-hour UK time. For a deadline, the time it is due. |
-| end | event | `10:00`. After the start, on the same day. |
+| start | event, deadline, replace | `09:00`, 24-hour UK time. For a deadline, the time it is due. |
+| end | event, replace | `10:00`. After the start, on the same day. |
 | title | all | Up to 120 characters. Required for event and deadline. |
-| type | event, period | Event: lecture, tutorial, mytutor, training, match, gym, church, errand, travel. Period: `assignment_week` or `catch_up_week`. |
+| type | event, period | Event: lecture, tutorial, mytutor, training, match, gym, church, errand, travel, reminder. Period: `assignment_week` or `catch_up_week`. |
 | venue | event | The building and room, as on the timetable. Spark matches it to its venue directory (L4). |
 | heaviness | deadline | A whole number 1 to 10. Empty means 5 (D2). |
 | study | event | `standard`, `light` or `none`. Empty means standard for an added lecture or tutorial, otherwise none (D1). |
@@ -35,8 +35,13 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 - **Add** events, deadlines and periods freely. Adding only tightens.
 - **Cancel** a fixed commitment, or add an event that takes time from a study or code block, and Spark asks for the typed wall once for the
   whole file (IM6).
-- A file **cannot** create, shorten or remove a study block, a meal, sleep or a day off. Those types are refused. A day off and a library
-  period are planned in the app (PW1, H1).
+- **Replace** (`kind` replace, with a date, start and end) takes away everything planned in that time on that day, meals, walks, planning and sleep
+  included, and the events of the same file stand in its place. It asks for the typed wall, and the preview names what it removes (RP2). It cannot
+  take in the wake, and it works on one day at a time.
+- A **reminder** is an event of type `reminder`: it sounds a notification at its start, may sit on top of anything and takes no time from
+  anything (RP1).
+- A file **cannot** create, shorten or remove a study block, a meal, sleep or a day off as an event type. Those types are refused. A day off and a
+  library period are planned in the app (PW1, H1). Only a replace row takes a meal or sleep away, behind the wall.
 - An event on top of sleep, a meal, a walk or another commitment is an error that names it. To move a lecture, cancel the old row and its
   walk, then add the new rows (the same file).
 - A lecture or tutorial that is added brings its study block with it (D1), unless `study` is `none`.
@@ -54,13 +59,14 @@ Rules
 - The first line is exactly: kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
 - One row per line, with every cell present. Leave a cell empty if it is not used. Put a cell in double quotes if it has a comma in it.
 - Dates are year-month-day, like 2026-11-02. Times are 24-hour, like 09:00. All times are UK time.
-- kind is event, deadline or period.
+- kind is event, deadline, period or replace.
 
 event: a fixed commitment on one date
 - Needs: date, start, end, title, type. Optional: venue, study, action, notes.
-- type is one of: lecture, tutorial, mytutor, training, match, gym, church, errand, travel.
+- type is one of: lecture, tutorial, mytutor, training, match, gym, church, errand, travel, reminder.
 - action is empty or add to add it, or cancel to remove the commitment of that type that starts at that time on that date.
 - A moved lecture is two rows: cancel at the old time, add at the new time. Moving a lecture also moves its walk, so cancel and add the travel rows too.
+- A reminder is an event of type reminder: it sounds a notification at its start, may sit on top of anything and takes no time from anything. Give it any short end.
 - study is standard, light or none. Empty means standard for a lecture or tutorial that is added, and none for everything else. Use none when the lecture only replaces one that was already there.
 
 deadline: work that is due
@@ -68,6 +74,9 @@ deadline: work that is due
 
 period: an assignment week or a catch-up week, 1 to 14 days
 - Needs: date (first day), end_date (last day), type (assignment_week or catch_up_week). Optional: title.
+
+replace: take everything planned in a time away and put this file's events there instead
+- Needs: date, start, end (the same day, end after start). Optional: title. The events of the same file stand in its place. It needs the typed wall in the app, so use it only when I ask to replace part of a day.
 
 Do not guess. If a date, time or type is not in what I give you, leave that row out.
 ```

@@ -31,7 +31,8 @@ fun slotsFor(pattern: List<PatternSlot>, date: LocalDate, zone: ZoneId = LONDON)
     val added = dated.filter { !it.cancelled }
     val weekly = pattern.filter { it.date == null && it.day == date.dayOfWeek }
         .filter { w -> cancels.none { it.startMin == w.startMin && it.type == w.type } }
-    val kept = weekly.flatMap { w -> if (added.isEmpty()) listOf(w) else cutBy(w, added) }
+    val cutters = added.filter { it.type != REMINDER_TYPE }          // a reminder sits on top of things and takes no time from them
+    val kept = weekly.flatMap { w -> if (cutters.isEmpty()) listOf(w) else cutBy(w, cutters) }
     // C5: a day off takes the day's work, lectures and planning away and keeps everything else. The marker itself is never a block.
     val off = added.any { it.type == DAY_OFF_TYPE }
     val midnight = LocalDateTime.of(date, LocalTime.MIDNIGHT)
@@ -59,7 +60,7 @@ data class NowNext(val now: DatedSlot?, val next: DatedSlot?)
 /** The slot running at [at] and the one after it. Looks at yesterday's planned day too, for slots after midnight. */
 fun nowAndNext(pattern: List<PatternSlot>, at: ZonedDateTime): NowNext {
     val d = at.toLocalDate()
-    val all = (-1L..1L).flatMap { slotsFor(pattern, d.plusDays(it), at.zone) }.sortedBy { it.start }
+    val all = (-1L..1L).flatMap { slotsFor(pattern, d.plusDays(it), at.zone) }.filter { it.slot.type != REMINDER_TYPE }.sortedBy { it.start }
     val now = all.lastOrNull { !it.start.isAfter(at) && at.isBefore(it.end) }
     val next = all.firstOrNull { it.start.isAfter(at) }
     return NowNext(now, next)
@@ -71,7 +72,7 @@ fun DatedSlot.window(): String = "${HM.format(start)} to ${HM.format(end)}"
 
 /** The next [n] blocks that start after [at], in order. The block running now is not among them. */
 fun upcoming(pattern: List<PatternSlot>, at: ZonedDateTime, n: Int): List<DatedSlot> =
-    (0L..2L).flatMap { slotsFor(pattern, at.toLocalDate().plusDays(it - 1), at.zone) }.filter { it.start.isAfter(at) }.sortedBy { it.start }.take(n)
+    (0L..2L).flatMap { slotsFor(pattern, at.toLocalDate().plusDays(it - 1), at.zone) }.filter { it.start.isAfter(at) && it.slot.type != REMINDER_TYPE }.sortedBy { it.start }.take(n)
 
 /** The place a block happens, for the second line of a card. */
 fun DatedSlot.detail(): String = slot.venue

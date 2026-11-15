@@ -26,6 +26,12 @@ class Colors(t: Tokens, val colourful: Boolean = false) {
 
 val LocalColors = staticCompositionLocalOf { Colors(Palettes.coldLight) }
 
+/** AN1: whether the app moves things. It follows Android's animation setting (Developer options, or Remove animations in Accessibility), so with that off nothing animates. */
+val LocalMotion = staticCompositionLocalOf { true }
+
+fun animationsOn(ctx: android.content.Context): Boolean =
+    try { android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f } catch (e: Exception) { true }
+
 /** Cold is the default palette (Michael, 23 Oct 2026). Auto follows the system. */
 fun tokensFor(mode: Mode, systemDark: Boolean): Tokens = when (mode) {
     Mode.LIGHT -> Palettes.coldLight
@@ -38,5 +44,6 @@ fun tokensFor(mode: Mode, systemDark: Boolean): Tokens = when (mode) {
 @Composable
 fun EfaTheme(mode: Mode = Mode.AUTO, content: @Composable () -> Unit) {
     val colors = Colors(tokensFor(mode, isSystemInDarkTheme()), colourful = mode == Mode.COLOURFUL)
-    CompositionLocalProvider(LocalColors provides colors, content = content)
+    val motion = animationsOn(androidx.compose.ui.platform.LocalContext.current)
+    CompositionLocalProvider(LocalColors provides colors, LocalMotion provides motion, content = content)
 }

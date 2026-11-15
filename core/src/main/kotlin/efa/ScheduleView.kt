@@ -21,6 +21,10 @@ data class ScheduleRow(
     val kind: RowKind, val state: RowState,
     /** Starts after midnight, on the next calendar day, though it belongs to this planned day (shown as +1). */
     val nextDay: Boolean = false,
+    /** The slot type (lecture, study-standard, travel ...), so a day can count its lectures. */
+    val type: String = "",
+    /** What photo or commit this block needs and when, or null (PH1). */
+    val photo: PhotoDue? = null,
 )
 
 /** A deadline falling on a day, shown above its blocks. */
@@ -31,6 +35,8 @@ data class ScheduleDay(
     val rows: List<ScheduleRow>, val due: List<DueRow>,
     val workMin: Int, val fixedMin: Int, val freeMin: Int,
 ) {
+    val lectures: Int get() = rows.count { it.type == "lecture" }
+
     /** "5.0h work, 2 fixed" for the day's header; empty when there is nothing to count. */
     fun summary(): String = listOfNotNull(
         if (workMin > 0) "${fmt1(workMin / 60.0)}h work" else null,
@@ -53,7 +59,7 @@ private val HEADING = DateTimeFormatter.ofPattern("EEE d MMM", Locale.UK)
  * deadlines that fall on it. A day off is marked and shows only what a day off keeps. A block that has finished is PAST and the one running is NOW.
  */
 fun scheduleView(
-    slots: List<PatternSlot>, tasks: List<OpenTask>, alloc: Allocation?, now: ZonedDateTime, days: Int = 28, from: LocalDate = now.toLocalDate(),
+    slots: List<PatternSlot>, tasks: List<OpenTask>, alloc: Allocation?, now: ZonedDateTime, days: Int = 28, from: LocalDate = now.toLocalDate(), verified: Set<String> = emptySet(),
 ): List<ScheduleDay> = (0L until days.toLong()).map { i ->
     val date = from.plusDays(i)
     val rows = slotsFor(slots, date, now.zone).map { ds ->
@@ -67,13 +73,39 @@ fun scheduleView(
             HHMM.format(ds.start), HHMM.format(ds.end), minutes, title,
             listOf(ds.slot.venue.takeUnless { v -> v.isBlank() || title.contains(v) }.orEmpty(), placed).filter { it.isNotBlank() }.joinToString(". "), kind,
             when { !ds.end.isAfter(now) -> RowState.PAST; !ds.start.isAfter(now) -> RowState.NOW; else -> RowState.LATER },
-            ds.start.toLocalDate() != date,
+            ds.start.toLocalDate() != date, ds.slot.type, photoForSlot(ds, slots, now, verified),
         )
     }
     val due = tasks.filter { it.due.withZoneSameInstant(now.zone).toLocalDate() == date }.sortedBy { it.due }
         .map { DueRow(HHMM.format(it.due.withZoneSameInstant(now.zone)), it.title) }
     ScheduleDay(
-        date, HEADING.format(date), if (i == 0L) "Today" else if (i == 1L) "Tomorrow" else null, i == 0L, isDayOff(slots, date), rows, due,
+        date, HEADING.format(date), when (date) { now.toLocalDate() -> "Today"; now.toLocalDate().plusDays(1) -> "Tomorrow"; else -> null }, date == now.toLocalDate(), isDayOff(slots, date), rows, due,
         rows.filter { it.kind == RowKind.WORK }.sumOf { it.minutes }, rows.filter { it.kind == RowKind.FIXED }.sumOf { it.minutes }, rows.filter { it.kind == RowKind.FREE }.sumOf { it.minutes },
     )
+}
+
+/** One Monday-to-Sunday week of the page, for the carousel. A week at the edge holds only the days that were asked for. */
+data class ScheduleWeek(val monday: LocalDate, val label: String, val range: String, val days: List<ScheduleDay>) {
+    val workMin: Int get() = days.sumOf { it.workMin }
+    val lectures: Int get() = days.sumOf { it.lectures }
+    val daysOff: Int get() = days.count { it.dayOff }
+    /** "21.5h work, 12 lectures", leaving out what is zero. */
+    fun summary(): String = listOfNotNull(
+        if (workMin > 0) "${fmt1(workMin / 60.0)}h work" else null,
+        if (lectures > 0) "$lectures lecture${if (lectures == 1) "" else "s"}" else null,
+        if (daysOff > 0) "$daysOff day${if (daysOff == 1) "" else "s"} off" else null,
+    ).joinToString(", ")
+}
+
+private val SHORT = DateTimeFormatter.ofPattern("d MMM", Locale.UK)
+
+/** Groups [days] into weeks that start on a Monday. The week holding [today] is "This week", the next "Next week", then "Week of 30 Nov". */
+fun scheduleWeeks(days: List<ScheduleDay>, today: LocalDate? = days.firstOrNull { it.today }?.date): List<ScheduleWeek> {
+    val thisMonday = today?.with(java.time.DayOfWeek.MONDAY)
+    return days.groupBy { it.date.with(java.time.DayOfWeek.MONDAY) }.toSortedMap().map { (monday, ds) ->
+        val sunday = monday.plusDays(6)
+        val range = if (monday.month == sunday.month) "${monday.dayOfMonth} to ${SHORT.format(sunday)}" else "${SHORT.format(monday)} to ${SHORT.format(sunday)}"
+        val label = when (monday) { thisMonday -> "This week"; thisMonday?.plusDays(7) -> "Next week"; thisMonday?.minusDays(7) -> "Last week"; else -> "Week of ${SHORT.format(monday)}" }
+        ScheduleWeek(monday, label, range, ds.sortedBy { it.date })
+    }
 }

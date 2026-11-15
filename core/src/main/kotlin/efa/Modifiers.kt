@@ -103,7 +103,10 @@ object ModDefs {
             d("weekend", "Weekend", SettingKind.CHOICE, "same", choices = listOf("same", "lower", "none")),
             d("stretch_if_negative", "If the stretch does not fit", SettingKind.CHOICE, "drop", choices = listOf("drop", "show")),
         )
-        Preset.PERIOD_OFF -> emptyList()
+        Preset.PERIOD_OFF -> listOf(
+            d("lectures", "Lectures during the period", SettingKind.CHOICE, "auto", choices = listOf("auto", "running", "none"),
+                help = "Running: skipped lectures and study cycles come back as work. None (a holiday): nothing comes back. Auto: none for 7 days or more."),
+        )
         Preset.LECTURE_FREE -> listOf(
             d("work_h_max", "Most work hours a day", SettingKind.DECIMAL, "5.0", 1.0, 10.0, help = "Work beyond this becomes free time"),
             d("cycles_per_day", "Study slots a day", SettingKind.INT, "1", 0.0, 4.0),
@@ -142,7 +145,11 @@ fun itemStr(item: Map<String, String>, kind: String, preset: Preset, key: String
 data class Compiled(
     val slots: List<PatternSlot> = emptyList(), val tasks: List<DueWork> = emptyList(), val dayOffDates: List<LocalDate> = emptyList(),
     val lines: List<String> = emptyList(), val loosening: List<String> = emptyList(), val problems: List<String> = emptyList(), val lightened: Int = 0,
+    val noDemand: Boolean = false,   // a holiday: the lectures are not running, so a day off has nothing to bring back
 )
+
+/** Whether lectures are running during a period off. Auto reads a week or more as a holiday. */
+fun lecturesRunning(inst: Instance): Boolean = when (inst.str("lectures")) { "running" -> true; "none" -> false; else -> inst.days < 7 }
 
 /** MG8: real dates, a period of 1 to 14 days, nothing in the past, every setting inside its range. */
 fun validate(inst: Instance, today: LocalDate): List<String> {
@@ -393,7 +400,7 @@ private fun compilePeriodOff(inst: Instance, base: List<PatternSlot>, zone: Zone
     val loosening = listOf("Work blocks, lectures and planning are paused on ${dates.joinToString(", ") { label(it) }}")
     val lines = listOf("Period off ${label(inst.start)}${if (inst.days > 1) " to ${label(inst.end)}" else ""}: ${inst.days} day${if (inst.days == 1) "" else "s"}.",
         "Sleep, meals, the daily routine and chores stay. $pinned important block${if (pinned == 1) "" else "s"} placed.")
-    return Compiled(slots, emptyList(), dates, lines, loosening, problems)
+    return Compiled(slots, emptyList(), dates, lines + (if (lecturesRunning(inst)) emptyList() else listOf("No lectures are running, so nothing comes back as catch-up.")), loosening, problems, noDemand = !lecturesRunning(inst))
 }
 
 // ---------- Lecture-free lighter period ----------
@@ -486,7 +493,7 @@ fun previewOf(inst: Instance, base: List<PatternSlot>, work: List<DueWork>, now:
     val cap = when (inst.preset) { Preset.ASSIGNMENT, Preset.FOCUS -> (inst.dbl("daily_cap_h") * 60).toInt(); else -> null }
     val rails = checkPlan(base, c, inst, cap, zone)
     val after = applied(base, c)
-    val demand = dayOffDemand(base, c.dayOffDates, now, zone).map { DueWork(it.title, it.hours, it.heaviness, it.due) }
+    val demand = (if (c.noDemand) emptyList() else dayOffDemand(base, c.dayOffDates, now, zone)).map { DueWork(it.title, it.hours, it.heaviness, it.due) }
     val before = bufferNow(now, studyCycles(base, now) + work, base, false)
     val afterBuffer = bufferNow(now, studyCycles(after, now) + work + c.tasks + demand, after, false)
     val negative = afterBuffer is BufferState.Value && afterBuffer.result.negative

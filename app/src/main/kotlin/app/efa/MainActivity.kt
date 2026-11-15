@@ -653,7 +653,7 @@ class MainActivity : ComponentActivity() {
                             modDraft = Instance(p, today, if (p == Preset.ASSIGNMENT) today.plusDays(60) else today.plusDays(if (p == Preset.FOCUS) 4 else 1), emptyMap(), if (p == Preset.ASSIGNMENT || p == Preset.FOCUS) listOf(mapOf("title" to "")) else emptyList())
                             modPreview = null; modRec = emptyMap(); modMessage = null; screen = Screen.MOD_FORM
                         },
-                        onRemove = { r -> scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).remove(r.id); BlockingState.refresh(applicationContext); reload++; modMessage = "Removed." } },
+                        onRemove = { r -> scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).remove(r.id); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++; modMessage = "Removed." } },
                         onAdmin = { screen = Screen.ADMIN }, onEssentials = { essUi = essUi.copy(message = null); screen = Screen.ESSENTIALS }, message = modMessage, onBack = { screen = Screen.SETUP })
                     Screen.MOD_FORM -> modDraft?.let { draft ->
                         ModifyFormScreen(draft, clock.toLocalDate(), modPreview, modRec, modMessage,

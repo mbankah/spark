@@ -32,7 +32,7 @@ class ModifierRepo(private val db: EfaDb) {
             db.tasks().insertOnce(TaskRow(title = w.title, dueMs = w.due.toInstant().toEpochMilli(), dueZone = w.due.zone.id, heaviness = w.heaviness, hoursEstimate = w.hours,
                 createdMs = nowMs, source = "modifier", sourceKey = "mod:$id:$n", reason = "${inst.preset.label}"))
         }
-        if (c.dayOffDates.isNotEmpty()) PlanRepo(db).addDaysOff(db, c.dayOffDates, "period_off", wallLength, now, sameDay = c.dayOffDates.first() == now.toLocalDate())
+        if (c.dayOffDates.isNotEmpty()) PlanRepo(db).addDaysOff(db, c.dayOffDates, "period_off", wallLength, now, sameDay = c.dayOffDates.first() == now.toLocalDate(), withDemand = !c.noDemand)
         id
     }
 

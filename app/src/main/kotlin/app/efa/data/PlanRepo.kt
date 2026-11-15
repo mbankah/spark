@@ -157,14 +157,14 @@ suspend fun PlanRepo.uses(db: EfaDb): List<DayOffUse> = db.daysOff().all().filte
  * lectures a day takes away come back as work due by the end of the next working day, so a day off cannot make work disappear (C4). Days that already
  * are days off are skipped. A claim (H6) adds no work: the work already came back when the day was missed, and the claim waits on it.
  */
-suspend fun PlanRepo.addDaysOff(db: EfaDb, dates: List<LocalDate>, source: String, wallLength: Int, now: ZonedDateTime, sameDay: Boolean): Int = db.withTransaction {
+suspend fun PlanRepo.addDaysOff(db: EfaDb, dates: List<LocalDate>, source: String, wallLength: Int, now: ZonedDateTime, sameDay: Boolean, withDemand: Boolean = true): Int = db.withTransaction {
     val nowMs = now.toInstant().toEpochMilli()
     val fresh = dates.filter { db.daysOff().get(it.toString()) == null }
     if (fresh.isEmpty()) return@withTransaction 0
     val slots = slots()
     val claim = source == "claim"
     for (d in fresh) db.daysOff().insert(DayOffRow(date = d.toString(), groupId = nowMs, usedAtMs = nowMs, sameDay = sameDay, source = source, wallLength = wallLength, state = if (claim) "pending" else "active"))
-    if (!claim) for (w in dayOffDemand(slots, fresh, now)) {
+    if (!claim && withDemand) for (w in dayOffDemand(slots, fresh, now)) {
         db.tasks().insertOnce(TaskRow(title = w.title, dueMs = w.due.toInstant().toEpochMilli(), dueZone = w.due.zone.id, heaviness = w.heaviness, hoursEstimate = w.hours,
             createdMs = nowMs, source = "dayoff", sourceKey = w.key, reason = w.reason))
     }

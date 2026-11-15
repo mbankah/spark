@@ -491,15 +491,16 @@ class MainActivity : ComponentActivity() {
                         onEssential = { launchEssential(it) }, onOpenSetup = { screen = Screen.SETUP },
                         crashNotice = launcherPaused, onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ })
                     else {
-                        val nn = l?.pattern?.let { nowAndNext(it, clock) }
                         val hhmm = DateTimeFormatter.ofPattern("HH:mm")
                         val period = l?.let { activePeriod(it.periods, clock.toLocalDate()) }
                         val openTasks = l?.tasks?.map { it.toOpen(period) }.orEmpty()
                         val photos = l?.pattern?.let { p -> photoPlan(p, clock, l.verified, nightPhotoMs) }.orEmpty()
                         val photoFocus = photoFocus(photos)?.takeIf { it.open || it.opens.isBefore(clock.plusHours(12)) }
                         val alloc = l?.pattern?.let { p -> allocateTasks(p, openTasks, clock) }
-                        // RS2, RS8: what is placed in a block is said in the block's own line, split across blocks when it is big.
-                        val includes: (DatedSlot) -> String = { ds -> alloc?.inSlot(ds).orEmpty().takeIf { it.isNotEmpty() }?.joinToString(", ", "Includes: ") { "${it.task.title} (${it.minutes} min)" }.orEmpty() }
+                        // SC3: the schedule page, and the Now and Next cards, are read from the same rows, so they cannot disagree. RS2, RS8: what is placed in a block is said in the block's own line.
+                        val sched = l?.pattern?.let { p -> scheduleView(p, openTasks, alloc, clock, days = 36, verified = l.verified) }.orEmpty()
+                        val hb = homeBlocks(sched)
+                        val nowRow = hb.now
                         val phoneDecision = blockList?.takeIf { it.isNotEmpty() }?.let { BlockingState.decide(it.first()) }
                         HomeScreen(
                             HomeState(
@@ -507,15 +508,15 @@ class MainActivity : ComponentActivity() {
                                 phone = if (blockList.isNullOrEmpty()) null else if (phoneDecision is Decision.Block) "Phone closed" else "Phone open",
                                 phoneOpen = phoneDecision !is Decision.Block,
                                 time = hhmm.format(clock), buffer = buffer,
-                                nowLabel = nn?.now?.let { "Now, until ${hhmm.format(it.end)}" },
-                                nowTitle = nn?.now?.slot?.title,
-                                nowDetail = nn?.now?.let { listOf(it.detail(), includes(it), proofHint(proofFor(it.slot))).filter { s -> s.isNotBlank() }.joinToString(". ") },
-                                nowLeftMin = nn?.now?.let { n -> java.time.Duration.between(clock, n.end).toMinutes().coerceAtLeast(0).toInt() },
-                                nowFraction = nn?.now?.let { n -> (java.time.Duration.between(n.start, clock).toMillis().toFloat() / java.time.Duration.between(n.start, n.end).toMillis().coerceAtLeast(1)).coerceIn(0f, 1f) },
+                                nowLabel = nowRow?.let { "Now, until ${it.end}" },
+                                nowTitle = nowRow?.title,
+                                nowDetail = nowRow?.let { listOf(it.detail, proofHint(it.photo?.slot?.let { ds -> proofFor(ds.slot) } ?: Proof.NONE)).filter { s -> s.isNotBlank() }.joinToString(". ") },
+                                nowLeftMin = nowRow?.endAt?.let { e -> java.time.Duration.between(clock, e).toMinutes().coerceAtLeast(0).toInt() },
+                                nowFraction = nowRow?.let { r -> if (r.startAt == null || r.endAt == null) null else (java.time.Duration.between(r.startAt, clock).toMillis().toFloat() / java.time.Duration.between(r.startAt, r.endAt).toMillis().coerceAtLeast(1)).coerceIn(0f, 1f) },
                                 progressFraction = l?.money?.week?.takeIf { it.plannedHours > 0 }?.let { (it.verifiedHours / it.plannedHours).toFloat() },
-                                schedule = l?.pattern?.let { p -> scheduleView(p, openTasks, alloc, clock, days = 35, verified = l.verified) }.orEmpty(),
-                                nowOpensBlock = nn?.now?.let { proofFor(it.slot) != Proof.NONE } == true,
-                                next = l?.pattern?.let { p -> upcoming(p, clock, 2).map { NextRow(hhmm.format(it.start), it.slot.title, listOf(it.detail(), includes(it)).filter { s -> s.isNotBlank() }.joinToString(". ")) } }.orEmpty(),
+                                schedule = sched,
+                                nowOpensBlock = nowRow?.photo != null,
+                                next = hb.next.map { NextRow(it.start, it.title, it.detail) },
                                 freeToSpendPence = l?.money?.takeIf { it.live }?.week?.money?.freeToSpendPence,      // G6: record-only for the first 14 days
                                 progress = l?.money?.week?.takeIf { it.plannedHours > 0 }?.progress(),
                                 moneyNote = l?.money?.takeIf { !it.live }?.let { "Money starts ${DateTimeFormatter.ofPattern("EEE d MMM").format(it.liveFrom)}. Recorded until then." },
@@ -549,7 +550,7 @@ class MainActivity : ComponentActivity() {
                             onVoice = { voiceDraft = null; startVoice(emptyList()) },
                             onNewRoom = { mapVenue = newRoom; venueBack = Screen.HOME; screen = Screen.MAP_VENUE },
                             onMoney = { screen = Screen.MONEY },
-                            onNow = { nn?.now?.let { selected = it; screen = Screen.BLOCK } },
+                            onNow = { nowRow?.photo?.slot?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
                             onPhoto = { photoFocus?.slot?.let { selected = it; screen = Screen.BLOCK } ?: run { screen = Screen.MORNING } },
                             onBuffer = { if (buffer is BufferState.Value) screen = Screen.WORKING },

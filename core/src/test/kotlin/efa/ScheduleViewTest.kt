@@ -105,34 +105,38 @@ class ScheduleViewTest {
         assertEquals("Seminar", rows[1].title); assertEquals("Room 2.14", rows[1].detail)
     }
 
-    @Test fun `AN1 SC1 the carousel pages are the next 7 days from today, the 7 after, and so on, whatever the weekday`() {
+    @Test fun `AN1 SC1 today is shown on its own and the carousel pages are the next 7 days after it, then the 7 after, whatever the weekday`() {
         for (todayOffset in 0L..6L) {
             val start = today.plusDays(todayOffset); val n = at(start, LocalTime.of(10, 30))
-            val weeks = scheduleWeeks(scheduleView(base, emptyList(), null, n, days = 35, from = start))
-            assertEquals(5, weeks.size, "from ${start.dayOfWeek}")
-            assertTrue(weeks.all { it.days.size == 7 })
-            assertEquals(start, weeks[0].days.first().date); assertEquals(start.plusDays(7), weeks[1].days.first().date)
+            val days = scheduleView(base, emptyList(), null, n, days = 36, from = start)
+            val weeks = scheduleWeeks(days)
+            assertEquals(start, scheduleToday(days)?.date); assertEquals("Today", scheduleToday(days)?.tag)
+            assertEquals(5, weeks.size, "from ${start.dayOfWeek}"); assertTrue(weeks.all { it.days.size == 7 })
+            assertEquals(start.plusDays(1), weeks[0].days.first().date); assertEquals("Tomorrow", weeks[0].days.first().tag)
+            assertEquals(start.plusDays(8), weeks[1].days.first().date)
             assertEquals(listOf("Next 7 days", "The 7 days after"), weeks.take(2).map { it.label })
-            assertEquals("From ${java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.UK).format(start.plusDays(14))}", weeks[2].label)
-            assertEquals("Today", weeks[0].days.first().tag); assertTrue(weeks[0].days.first().today)
+            assertEquals("From ${java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.UK).format(start.plusDays(15))}", weeks[2].label)
+            assertTrue(weeks.flatMap { it.days }.none { it.today }, "today is on its own at the top, in no window")
         }
     }
 
-    @Test fun `AN1 SC1 the windows hold every day once, in order, with the ranges named`() {
-        val days = scheduleView(base, emptyList(), null, now, days = 35, from = today)
+    @Test fun `AN1 SC1 every day after today is in exactly one window, in order, with the ranges named`() {
+        val days = scheduleView(base, emptyList(), null, now, days = 36, from = today)
         val weeks = scheduleWeeks(days)
-        assertEquals(days.map { it.date }, weeks.flatMap { it.days }.map { it.date })
-        assertEquals("2 to 8 Nov", weeks[0].range); assertEquals("30 Nov to 6 Dec", weeks[4].range)
+        assertEquals(days.drop(1).map { it.date }, weeks.flatMap { it.days }.map { it.date })
+        assertEquals("3 to 9 Nov", weeks[0].range); assertEquals("1 to 7 Dec", weeks[4].range)
         assertEquals(emptyList(), scheduleWeeks(emptyList()))
-        assertEquals(1, scheduleWeeks(scheduleView(base, emptyList(), null, now, days = 3, from = today)).size)
+        assertEquals(emptyList(), scheduleWeeks(scheduleView(base, emptyList(), null, now, days = 1, from = today)), "a page of only today has no windows")
+        assertEquals(1, scheduleWeeks(scheduleView(base, emptyList(), null, now, days = 4, from = today)).size)
     }
 
-    @Test fun `AN1 SC1 a window that starts on a Wednesday starts with Wednesday, which is Today`() {
+    @Test fun `AN1 SC1 from a Wednesday, Wednesday is on top and the windows start on Thursday`() {
         val wed = at(today.plusDays(2), LocalTime.of(10, 30))
-        val days = scheduleView(base, emptyList(), null, wed, days = 14, from = wed.toLocalDate())
+        val days = scheduleView(base, emptyList(), null, wed, days = 15, from = wed.toLocalDate())
         val weeks = scheduleWeeks(days)
-        assertEquals(today.plusDays(2), weeks[0].days.first().date); assertEquals("Today", weeks[0].days.first().tag); assertEquals("Tomorrow", weeks[0].days[1].tag)
-        assertEquals("4 to 10 Nov", weeks[0].range)
+        assertEquals(today.plusDays(2), scheduleToday(days)?.date)
+        assertEquals(today.plusDays(3), weeks[0].days.first().date); assertEquals("Tomorrow", weeks[0].days.first().tag)
+        assertEquals("5 to 11 Nov", weeks[0].range)
     }
 
     @Test fun `AN1 SC1 a week's summary counts its work, lectures and days off`() {
@@ -148,4 +152,48 @@ class ScheduleViewTest {
         val d = scheduleView(base, emptyList(), null, now, days = 1).single()
         assertEquals(slotsFor(base, today).count { it.slot.type == "lecture" }, d.lectures)
     }
+
+    @Test fun `SC3 what is running past midnight from yesterday's plan is on today's page and is the block you are in`() {
+        val sat = today.plusDays(5)                                            // Friday's Shutdown starts at 24:00, so at 00:10 it is Saturday's calendar day
+        val n = at(sat, LocalTime.of(0, 10))
+        val days = scheduleView(base, emptyList(), null, n, days = 2, from = sat)
+        val running = days.first().rows.firstOrNull { it.state == RowState.NOW }
+        assertNotNull(running, "the block running at 00:10 belongs to Friday's plan"); assertEquals("Shutdown", running.title)
+        assertEquals(running.title, homeBlocks(days).now?.title)
+        assertEquals(nowAndNext(base, n).now?.slot?.title, running.title)
+    }
+
+    @Test fun `SC3 the home screen's Now and Next are the schedule's own rows, at every time of the week`() {
+        var checked = 0
+        for (d in 0L..6L) for (minute in 0 until 24 * 60 step 17) {
+            val n = at(today.plusDays(d), LocalTime.of(minute / 60, minute % 60))
+            val days = scheduleView(base, emptyList(), null, n, days = 3, from = n.toLocalDate())
+            val hb = homeBlocks(days, 3)
+            val nn = nowAndNext(base, n); val up = upcoming(base, n, 3)
+            assertEquals(nn.now?.start, hb.now?.startAt, "now at $n"); assertEquals(nn.now?.end, hb.now?.endAt, "now end at $n")
+            if (nn.now != null) assertTrue(nn.now!!.slot.title.startsWith(hb.now!!.title), "title at $n: ${nn.now!!.slot.title} / ${hb.now!!.title}")
+            assertEquals(up.map { it.start }, hb.next.map { it.startAt }, "next at $n")
+            assertEquals(up.map { it.slot.title.substringBefore(" - ") }, hb.next.map { it.title.substringBefore(" - ") }, "next titles at $n")
+            checked++
+        }
+        assertTrue(checked > 500, "checked $checked times")
+    }
+
+    @Test fun `SC3 Now and Next leave out a reminder, which sits on top of a block and is never the block you are in`() {
+        val slot = slotsFor(base, today).first { it.slot.type.startsWith("study") }
+        val rem = PatternSlot(today.dayOfWeek, slot.slot.startMin + 5, slot.slot.startMin + 10, "Take the tablet", REMINDER_TYPE, "", false, "", date = today)
+        val n = slot.start.plusMinutes(6)
+        val hb = homeBlocks(scheduleView(base + rem, emptyList(), null, n, days = 1, from = today))
+        assertEquals(slot.slot.title, hb.now?.title); assertTrue(hb.next.none { it.type == REMINDER_TYPE })
+    }
+
+    @Test fun `SC3 the work placed in a block reads the same on the schedule and on the home screen`() {
+        val tasks = listOf(OpenTask(1, "GT report", at(today.plusDays(4), LocalTime.of(17, 0)), 120))
+        val alloc = allocateTasks(base, tasks, now)
+        val days = scheduleView(base, tasks, alloc, now, days = 5, from = today)
+        val withTask = days.flatMap { it.rows }.filter { it.detail.contains("GT report") }
+        assertTrue(withTask.isNotEmpty() && withTask.all { it.detail.contains("Includes: ") && Regex("GT report \\(\\d+ min\\)").containsMatchIn(it.detail) }, withTask.map { it.detail }.toString())
+        assertEquals(120, alloc.placed.sumOf { it.minutes })
+    }
 }
+

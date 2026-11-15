@@ -25,6 +25,8 @@ data class ScheduleRow(
     val type: String = "",
     /** What photo or commit this block needs and when, or null (PH1). */
     val photo: PhotoDue? = null,
+    /** When it starts and ends, so Now and Next on the home screen can be read from these same rows. */
+    val startAt: ZonedDateTime? = null, val endAt: ZonedDateTime? = null,
 )
 
 /** A deadline falling on a day, shown above its blocks. */
@@ -62,9 +64,11 @@ fun scheduleView(
     slots: List<PatternSlot>, tasks: List<OpenTask>, alloc: Allocation?, now: ZonedDateTime, days: Int = 28, from: LocalDate = now.toLocalDate(), verified: Set<String> = emptySet(),
 ): List<ScheduleDay> = (0L until days.toLong()).map { i ->
     val date = from.plusDays(i)
-    val rows = slotsFor(slots, date, now.zone).map { ds ->
+    // The first day also holds what yesterday's plan spills past midnight (a Shutdown at 00:10, an app block after midnight), because that is what is running now.
+    val spill = if (i == 0L) slotsFor(slots, date.minusDays(1), now.zone).filter { it.start.toLocalDate() == date } else emptyList()
+    val rows = (spill + slotsFor(slots, date, now.zone)).sortedBy { it.start }.map { ds ->
         val kind = rowKindOf(ds.slot.type)
-        val placed = if (kind == RowKind.WORK) alloc?.inSlot(ds).orEmpty().joinToString(", ") { "${it.task.title} ${it.minutes} min" } else ""
+        val placed = if (kind == RowKind.WORK) alloc?.inSlot(ds).orEmpty().takeIf { it.isNotEmpty() }?.joinToString(", ", "Includes: ") { "${it.task.title} (${it.minutes} min)" }.orEmpty() else ""
         val minutes = Duration.between(ds.start, ds.end).toMinutes().toInt()
         // An imported lecture is titled "Module lecture - Room"; the room is the detail, so the title stays short.
         val cut = ds.slot.title.indexOf(" - ").takeIf { it > 0 && ds.slot.venue.isNotBlank() && ds.slot.title.substring(it + 3) == ds.slot.venue }
@@ -73,7 +77,7 @@ fun scheduleView(
             HHMM.format(ds.start), HHMM.format(ds.end), minutes, title,
             listOf(ds.slot.venue.takeUnless { v -> v.isBlank() || title.contains(v) }.orEmpty(), placed).filter { it.isNotBlank() }.joinToString(". "), kind,
             when { !ds.end.isAfter(now) -> RowState.PAST; !ds.start.isAfter(now) -> RowState.NOW; else -> RowState.LATER },
-            ds.start.toLocalDate() != date, ds.slot.type, photoForSlot(ds, slots, now, verified),
+            ds.start.toLocalDate() != date, ds.slot.type, photoForSlot(ds, slots, now, verified), ds.start, ds.end,
         )
     }
     val due = tasks.filter { it.due.withZoneSameInstant(now.zone).toLocalDate() == date }.sortedBy { it.due }
@@ -84,7 +88,7 @@ fun scheduleView(
     )
 }
 
-/** Seven days of the page, for the carousel: the next 7 days from today, the 7 days after, and so on. A window at the end holds only the days that were asked for. */
+/** Seven days of the page, for the carousel: the next 7 days after today, the 7 days after those, and so on. A window at the end holds only the days that were asked for. */
 data class ScheduleWeek(val start: LocalDate, val label: String, val range: String, val days: List<ScheduleDay>) {
     val workMin: Int get() = days.sumOf { it.workMin }
     val lectures: Int get() = days.sumOf { it.lectures }
@@ -99,10 +103,27 @@ data class ScheduleWeek(val start: LocalDate, val label: String, val range: Stri
 
 private val SHORT = DateTimeFormatter.ofPattern("d MMM", Locale.UK)
 
-/** Cuts [days] into windows of seven from the first day, which is today: "Next 7 days", "The 7 days after", then "From 23 Nov". */
-fun scheduleWeeks(days: List<ScheduleDay>): List<ScheduleWeek> = days.chunked(7).mapIndexed { i, ds ->
-    val first = ds.first().date; val last = ds.last().date
-    val range = if (first.month == last.month) "${first.dayOfMonth} to ${SHORT.format(last)}" else "${SHORT.format(first)} to ${SHORT.format(last)}"
-    val label = when (i) { 0 -> "Next 7 days"; 1 -> "The 7 days after"; else -> "From ${SHORT.format(first)}" }
-    ScheduleWeek(first, label, range, ds)
+/** The day the page opens on, shown on its own at the top: today. null if the list holds no today. */
+fun scheduleToday(days: List<ScheduleDay>): ScheduleDay? = days.firstOrNull { it.today }
+
+/**
+ * Cuts the days after today into windows of seven: "Next 7 days" is tomorrow to a week on, then "The 7 days after", then "From 23 Nov".
+ * Today is not in any window, since it sits at the top of the page on its own.
+ */
+fun scheduleWeeks(days: List<ScheduleDay>): List<ScheduleWeek> {
+    val todayDate = scheduleToday(days)?.date
+    return days.filter { todayDate == null || it.date.isAfter(todayDate) }.chunked(7).mapIndexed { i, ds ->
+        val first = ds.first().date; val last = ds.last().date
+        val range = if (first.month == last.month) "${first.dayOfMonth} to ${SHORT.format(last)}" else "${SHORT.format(first)} to ${SHORT.format(last)}"
+        val label = when (i) { 0 -> "Next 7 days"; 1 -> "The 7 days after"; else -> "From ${SHORT.format(first)}" }
+        ScheduleWeek(first, label, range, ds)
+    }
+}
+
+/** What the home screen's Now and Next cards show, read from the same rows as the schedule page so the two cannot disagree. */
+data class HomeBlocks(val now: ScheduleRow?, val next: List<ScheduleRow>)
+
+fun homeBlocks(days: List<ScheduleDay>, next: Int = 3): HomeBlocks {
+    val all = days.flatMap { it.rows }.filter { it.type != REMINDER_TYPE }.sortedBy { it.startAt }
+    return HomeBlocks(all.lastOrNull { it.state == RowState.NOW }, all.filter { it.state == RowState.LATER }.take(next))
 }

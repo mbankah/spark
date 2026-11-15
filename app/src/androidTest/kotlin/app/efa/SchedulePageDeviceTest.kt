@@ -164,18 +164,30 @@ class SchedulePageDeviceTest {
         }
     }
 
-    @Test fun AN1_the_weeks_are_a_carousel_and_the_days_listed_are_the_shown_week() {
+    @Test fun AN1_today_is_on_top_and_the_carousel_underneath_starts_with_the_next_7_days() {
         rule.setContent { EfaTheme { ScheduleScreen(days()) } }
-        rule.onNodeWithText("Next 7 days").assertExists(); rule.onNodeWithText("2 to 8 Nov").assertExists()
-        rule.onNodeWithText("Mon 9 Nov").assertDoesNotExist()
+        rule.onNode(header("Today", "Open")).assertExists()
+        rule.onNodeWithContentDescription("Full schedule").performScrollToNode(hasText("Next 7 days"))
+        rule.onNodeWithText("Next 7 days").assertExists(); rule.onNodeWithText("3 to 9 Nov").assertExists()
+        rule.onNodeWithContentDescription("Full schedule").performScrollToNode(hasText("Wed 4 Nov"))
+        rule.onNodeWithText("Wed 4 Nov").assertExists(); rule.onNodeWithText("Tue 10 Nov").assertDoesNotExist()
+    }
+
+    @Test fun AN1_the_weeks_are_a_carousel_and_the_days_listed_are_the_shown_window() {
+        rule.setContent { EfaTheme { ScheduleScreen(days()) } }
+        rule.onNodeWithContentDescription("Full schedule").performScrollToNode(hasText("Next 7 days"))
+        rule.onNodeWithText("Next 7 days").assertExists()
         rule.onNodeWithContentDescription("Week 2 of 2").performClick(); rule.waitForIdle()
-        rule.onNodeWithText("The 7 days after").assertExists(); rule.onNodeWithText("9 to 15 Nov").assertExists()
+        rule.onNodeWithText("The 7 days after").assertExists(); rule.onNodeWithText("10 to 15 Nov").assertExists()
         rule.onNodeWithContentDescription("Week 2 of 2, showing").assertExists()
-        rule.onNodeWithText("Mon 9 Nov").assertExists(); rule.onNodeWithText("Mon 2 Nov").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Full schedule").performScrollToNode(hasText("Tue 10 Nov"))
+        rule.onNodeWithText("Tue 10 Nov").assertExists(); rule.onNodeWithText("Wed 4 Nov").assertDoesNotExist()
+        rule.onNode(header("Today", "Open")).assertExists()           // today stays on top whichever window is showing
     }
 
     @Test fun AN1_swiping_the_week_card_moves_to_the_next_week() {
         rule.setContent { EfaTheme { ScheduleScreen(days()) } }
+        rule.onNodeWithContentDescription("Full schedule").performScrollToNode(hasText("Next 7 days"))
         rule.onNodeWithText("Next 7 days").performTouchInput { swipeLeft() }
         rule.waitUntil(5_000) { rule.onAllNodesWithText("The 7 days after").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Week 2 of 2, showing").assertExists()
@@ -184,7 +196,9 @@ class SchedulePageDeviceTest {
     @Test fun AN1_tapping_a_day_in_the_chart_opens_that_day() {
         rule.setContent { EfaTheme { ScheduleScreen(days(tasks = dues)) } }
         rule.onNodeWithText("Friday essay").assertDoesNotExist()
-        rule.onNode(hasClickAction() and hasContentDescription("Fri 6 Nov", substring = true) and hasContentDescription("Open this day", substring = true)).performClick(); rule.waitForIdle()
+        val column = hasClickAction() and hasContentDescription("Fri 6 Nov", substring = true) and hasContentDescription("Open this day", substring = true)
+        rule.onNodeWithContentDescription("Full schedule").performScrollToNode(column)
+        rule.onNode(column).performClick(); rule.waitForIdle()
         rule.onNode(header("Fri 6 Nov", "Open")).assertExists(); rule.onNodeWithText("Friday essay").assertExists()
     }
 
@@ -258,4 +272,19 @@ class SchedulePageDeviceTest {
         rule.setContent { EfaTheme { HomeScreen(state(days()).copy(progress = "14.0 of 60.0 hours done", progressFraction = 14f / 60f), {}, {}) } }
         rule.onNodeWithText("23%").assertExists(); rule.onNodeWithText("14.0 of 60.0 hours done").assertExists()
     }
+
+    @Test fun SC3_todays_finished_blocks_fold_into_one_line_that_opens_them() {
+        val l = lecture
+        val later = l.end.plusHours(6)                      // by the evening, several blocks are over
+        val v = scheduleView(WeekB.slots, emptyList(), null, later, days = 3, from = later.toLocalDate())
+        val pastCount = v.first().rows.count { it.state == RowState.PAST }
+        assertTrue(pastCount >= 3)
+        rule.setContent { EfaTheme { ScheduleScreen(v) } }
+        rule.onNodeWithContentDescription("Earlier today, $pastCount blocks").assertExists()
+        rule.onNodeWithContentDescription("Wake, shower", substring = true).assertDoesNotExist()
+        rule.onNodeWithContentDescription("Earlier today, $pastCount blocks").performClick(); rule.waitForIdle()
+        rule.onNodeWithContentDescription("Hide the earlier blocks today").assertExists()
+        rule.onNodeWithContentDescription("Wake, shower", substring = true).assertExists()
+    }
 }
+

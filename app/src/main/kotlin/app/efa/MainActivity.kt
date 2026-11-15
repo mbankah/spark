@@ -189,6 +189,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(screen, reload) { look = LauncherLook.decode(withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LOOK) }) }
                 // Modify Schedule: the list, a preset's form, the Admin library and the essentials.
                 var modRows by remember { mutableStateOf<List<app.efa.data.ModifierRow>>(emptyList()) }
+                var modDropped by remember { mutableStateOf(0) }
                 var modDraft by remember { mutableStateOf<Instance?>(null) }
                 var modPreview by remember { mutableStateOf<ModPreview?>(null) }
                 var modRec by remember { mutableStateOf<Map<String, Rec>>(emptyMap()) }
@@ -197,7 +198,7 @@ class MainActivity : ComponentActivity() {
                 var adminProblems by remember { mutableStateOf<List<String>>(emptyList()) }
                 var essUi by remember { mutableStateOf(EssentialsUi(emptyList(), 0, 0, emptyList())) }
                 LaunchedEffect(screen, reload) {
-                    if (screen == Screen.MODIFY) modRows = withContext(Dispatchers.IO) { app.efa.data.ModifierRepo(db).all() }
+                    if (screen == Screen.MODIFY) { modRows = withContext(Dispatchers.IO) { app.efa.data.ModifierRepo(db).all() }; modDropped = withContext(Dispatchers.IO) { PlanRepo(db).droppedByChanges() } }
                     if (screen == Screen.ADMIN) withContext(Dispatchers.IO) {
                         adminState = AdminState.decode(db.meta().get(app.efa.data.META_ADMIN))
                         val plan = PlanRepo(db).slots()
@@ -654,7 +655,7 @@ class MainActivity : ComponentActivity() {
                             modPreview = null; modRec = emptyMap(); modMessage = null; screen = Screen.MOD_FORM
                         },
                         onRemove = { r -> scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).remove(r.id); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++; modMessage = "Removed." } },
-                        onAdmin = { screen = Screen.ADMIN }, onEssentials = { essUi = essUi.copy(message = null); screen = Screen.ESSENTIALS }, message = modMessage, onBack = { screen = Screen.SETUP })
+                        onAdmin = { screen = Screen.ADMIN }, onEssentials = { essUi = essUi.copy(message = null); screen = Screen.ESSENTIALS }, message = modMessage, dropped = modDropped, onBack = { screen = Screen.SETUP })
                     Screen.MOD_FORM -> modDraft?.let { draft ->
                         ModifyFormScreen(draft, clock.toLocalDate(), modPreview, modRec, modMessage,
                             onChange = { modDraft = it; modPreview = null },

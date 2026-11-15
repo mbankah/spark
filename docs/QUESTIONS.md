@@ -163,3 +163,6 @@ A removed period off sets its day-off rows to cancelled: off the calendar and th
 
 ## Q-G123: Not fully planned is shown, not blocking
 When an assignment or project cannot fit all its hours into sessions, the preview says how many hours are short. The work still goes into the Buffer in full, so it shows NEGATIVE if it does not fit (MG10). It does not block the apply, because the person may want the plan and the warning.
+
+## Q-G124: A modifier's stored sessions are checked against the calendar each time
+A modifier is compiled once, when applied. Each time the calendar is read, its sessions are checked again: one that now sits on a day off, or on an event that is not a work block, is left out and counted. The work stays due in the Buffer. A period off (its pinned blocks) and a hybrid focus week are allowed on days off. Chosen over recompiling because a recompile cannot know how much was already done.

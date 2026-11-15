@@ -53,3 +53,15 @@ No violations were found in the stacking, Admin or alarm invariants.
 Results: core 700+ tests, 39 device tests on the emulator (modifier, days off, library), Windows 46, traceability 214+/277.
 
 Still open: the design questions (Admin chore photos, wall +25 per day), expired modifiers still listed as active, and everything on a real phone.
+
+## Third rerun: what happens after a modifier is applied
+
+The earlier passes all tested "apply a modifier now". This pass tested time and change: the calendar changing under an applied modifier, awkward text, daylight-saving dates, Recommended's own output, and long random sequences against a real database.
+
+Found and fixed:
+10. **A modifier's stored sessions were frozen when applied.** A day off planned afterwards, or a file imported afterwards, left the sessions sitting on the day off (MG12) or on top of the new event (MG4). The library periods avoid this by being worked out each time (C2), but a modifier cannot be recompiled safely, because the compile does not know how much work was already done. So the stored sessions are now checked against the calendar each time it is read (`reconcile`): one that now sits on a day off or on a real event is left out, its work stays due and counted in the Buffer, and the Modify screen says how many were left out. Cuts into work blocks, which sessions are meant to make, are not treated as clashes. A stress check confirms reconcile never drops what compile just produced.
+11. **A carriage return in a title** (pasted text) was not escaped, so it split a stored line and could make a modifier unreadable, which would leave its days off behind on removal. Escaped now; all awkward characters round-trip (| = tab newline backslash emoji, 300 characters).
+
+Checked, no fault found: Recommended's output is always valid and applicable for every preset and length; plans across both 2027 clock changes (3000 random plans, 600 stacks, 28,735 Admin placements); 25 random apply, remove and day-off sequences on a real database (87 applies, 87 removals): the tally never fell, nothing was left behind, an ordinary day off was never taken by removing a modifier, and with everything removed the calendar was the original.
+
+Honest limit: the tests prove the rules hold in combination and over time. They cannot show that the plans feel right across a real week.

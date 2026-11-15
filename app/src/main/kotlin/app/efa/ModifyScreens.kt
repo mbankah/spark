@@ -25,7 +25,7 @@ private val DAY = DateTimeFormatter.ofPattern("EEE d MMM")
 
 /** Modify Schedule: what is running, and the presets to start. */
 @Composable
-fun ModifyHomeScreen(active: List<ModifierRow>, today: LocalDate, onPick: (Preset) -> Unit, onRemove: (ModifierRow) -> Unit, onAdmin: () -> Unit, onEssentials: () -> Unit, message: String?, onBack: () -> Unit) {
+fun ModifyHomeScreen(active: List<ModifierRow>, today: LocalDate, onPick: (Preset) -> Unit, onRemove: (ModifierRow) -> Unit, onAdmin: () -> Unit, onEssentials: () -> Unit, message: String?, onBack: () -> Unit, dropped: Int = 0) {
     val c = LocalColors.current
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
@@ -35,6 +35,9 @@ fun ModifyHomeScreen(active: List<ModifierRow>, today: LocalDate, onPick: (Prese
         BasicText("Modify Schedule", style = Ts(c.text, 28.sp, FontWeight.Bold))
         BasicText("Pick a preset. It adapts your schedule, and you see what it does and what it costs before anything changes.", style = Ts(c.muted, 14.sp))
         message?.let { Column(Modifier.fillMaxWidth().card().padding(16.dp)) { BasicText(it, style = Ts(c.text, 15.sp, FontWeight.Bold)) } }
+        if (dropped > 0) Column(Modifier.fillMaxWidth().card().padding(16.dp)) {
+            BasicText("$dropped planned session${if (dropped == 1) "" else "s"} not shown: the calendar changed since (a day off or an import now sits there). The work is still due and counted in the Buffer.", style = Ts(c.text, 14.sp, FontWeight.Bold))
+        }
 
         Label("ACTIVE AND PLANNED")
         if (active.isEmpty()) BasicText("Nothing yet.", style = Ts(c.muted, 14.sp))

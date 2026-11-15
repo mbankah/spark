@@ -22,12 +22,28 @@ class PlanRepo(private val db: EfaDb) {
     suspend fun slots(): List<PatternSlot> {
         val core = slotsCore()
         // MG17: if the modifier or Admin layer cannot be worked out, the base calendar stands and blocking carries on as before (X7).
-        val withMods = try { core + db.modifiers().all().filter { it.state == "active" }.flatMap { decodeSlots(it.compiled) } } catch (e: Exception) { return core }
+        val withMods = try { reconciledMods(core).first } catch (e: Exception) { return core }
         return try {
             val admin = AdminState.decode(db.meta().get(META_ADMIN))
             if (admin.loadSet == null) withMods else withMods + placeAdmin(withMods, admin, java.time.ZonedDateTime.now(LONDON).toLocalDate(), 14).slots
         } catch (e: Exception) { withMods }
     }
+
+    /**
+     * The core calendar with each active modifier's stored slots laid on in the order they were applied, each checked against what is there now (a later day off or
+     * import must not leave a session on top of something). Also returns how many stored slots were left out, so the person can be told.
+     */
+    private suspend fun reconciledMods(core: List<PatternSlot>): Pair<List<PatternSlot>, Int> {
+        var acc = core; var dropped = 0
+        for (row in db.modifiers().all().filter { it.state == "active" }) {
+            val r = reconcile(acc, decodeSlots(row.compiled), allowsDaysOff(decodeInstance(row.instance)))
+            acc = acc + r.kept; dropped += r.dropped
+        }
+        return acc to dropped
+    }
+
+    /** How many stored modifier slots are not shown because the calendar changed under them (MG4, MG12). Their work is still due. */
+    suspend fun droppedByChanges(): Int = try { reconciledMods(slotsCore()).second } catch (e: Exception) { 0 }
 
     private suspend fun slotsCore(): List<PatternSlot> {
         val base = db.pattern().all().map { it.toSlot() } + db.overlay().all().filter { it.kind != "declined" }.map { it.toSlot() } +

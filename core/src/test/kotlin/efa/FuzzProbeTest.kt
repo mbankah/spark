@@ -9,6 +9,9 @@ import kotlin.test.*
  * Randomised checks of Modify Schedule: every preset with random settings, dates and items, alone and stacked, against invariants the rulebook states.
  * Seeds are fixed, so a failure is repeatable. Failures are collected and reported together with the seed and the instance that caused them.
  */
+/** Three starting points: autumn 2026, the spring 2027 clock change, and the autumn 2027 one, so daylight saving is crossed. */
+private fun epoch(seed: Int): LocalDate = when (seed % 3) { 0 -> LocalDate.of(2026, 11, 2); 1 -> LocalDate.of(2027, 3, 15); else -> LocalDate.of(2027, 10, 18) }
+
 class FuzzProbeTest {
     private val zero = WeekB.slots
 
@@ -83,6 +86,9 @@ class FuzzProbeTest {
             val planned = c.slots.filter { it.title.startsWith("${item["title"]}:") && !it.cancelled }.sumOf { it.endMin - it.startMin }
             if (planned - (item["size_h"]!!.toDouble() * 60).toInt() >= MIN_PIECE_MIN) bad += "F12 ${item["title"]} planned ${planned}min, more than asked"
         }
+        // F13 what compile just produced is never thrown away by reconcile (otherwise the two disagree and sessions would vanish)
+        val r = reconcile(base + c.dayOffDates.map { dayOffMarker(it) }, c.slots, allowsDaysOff(inst))
+        if (r.dropped != 0) bad += "F13 reconcile would drop ${r.dropped} of ${c.slots.size} fresh slots"
         // F10 a protected block of the base is untouched on every date involved
         for (d in (range + c.slots.mapNotNull { it.date }).distinct()) {
             val keep = slotsFor(base, d).filter { it.slot.type in setOf("sleep", "meal") || it.slot.hardAlarm }.map { Triple(it.slot.title, it.slot.startMin, it.slot.endMin) }
@@ -94,8 +100,8 @@ class FuzzProbeTest {
 
     @Test fun FUZZ_every_preset_alone_keeps_the_invariants() {
         val failures = ArrayList<String>(); var ran = 0; var applicable = 0; val withSlots = HashMap<Preset, Int>(); val withTasks = HashMap<Preset, Int>(); val refused = HashMap<String, Int>()
-        for (seed in 1..400) {
-            val r = Random(seed); val today = LocalDate.of(2026, 11, 2).plusDays(r.nextLong(0, 40)); val now = at(today, LocalTime.of(6 + r.nextInt(16), 0))
+        for (seed in 1..600) {
+            val r = Random(seed); val today = epoch(seed).plusDays(r.nextLong(0, 40)); val now = at(today, LocalTime.of(6 + r.nextInt(16), 0))
             val base = randomBase(r, today)
             for (preset in Preset.entries) {
                 val inst = randomInstance(r, today, preset)
@@ -118,8 +124,8 @@ class FuzzProbeTest {
 
     @Test fun FUZZ_stacking_presets_in_any_order_keeps_the_invariants() {
         val failures = ArrayList<String>(); var stacks = 0; var applied2 = 0
-        for (seed in 1..400) {
-            val r = Random(1000 + seed); val today = LocalDate.of(2026, 11, 2).plusDays(r.nextLong(0, 40)); val now = at(today, LocalTime.of(6 + r.nextInt(10), 0))
+        for (seed in 1..600) {
+            val r = Random(1000 + seed); val today = epoch(seed).plusDays(r.nextLong(0, 40)); val now = at(today, LocalTime.of(6 + r.nextInt(10), 0))
             val original = randomBase(r, today)
             var base = original; val active = ArrayList<Instance>(); val log = ArrayList<String>()
             for (step in 0 until 2 + r.nextInt(2)) {
@@ -153,8 +159,8 @@ class FuzzProbeTest {
 class AdminFuzzTest {
     @Test fun FUZZ_admin_over_random_calendars_keeps_its_rules() {
         val failures = ArrayList<String>(); var placed = 0
-        for (seed in 1..300) {
-            val r = Random(5000 + seed); val today = LocalDate.of(2026, 11, 2).plusDays(r.nextLong(0, 40)); val now = at(today, LocalTime.of(8, 0))
+        for (seed in 1..450) {
+            val r = Random(5000 + seed); val today = epoch(seed).plusDays(r.nextLong(0, 40)); val now = at(today, LocalTime.of(8, 0))
             var base = WeekB.slots
             repeat(r.nextInt(3)) { base = base + dayOffMarker(today.plusDays(r.nextLong(0, 14))) }
             if (r.nextBoolean()) {   // a modifier underneath

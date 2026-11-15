@@ -588,8 +588,8 @@ fun recommendAssignment(heaviness: Int, calibration: Calibration, freeHoursPerDa
 
 // ---------- storage text ----------
 
-private fun esc(s: String) = s.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
-private fun unesc(s: String): String { val b = StringBuilder(); var i = 0; while (i < s.length) { val c = s[i]; if (c == '\\' && i + 1 < s.length) { b.append(when (s[i + 1]) { 'n' -> '\n'; 't' -> '\t'; else -> s[i + 1] }); i += 2 } else { b.append(c); i++ } }; return b.toString() }
+private fun esc(s: String) = s.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+private fun unesc(s: String): String { val b = StringBuilder(); var i = 0; while (i < s.length) { val c = s[i]; if (c == '\\' && i + 1 < s.length) { b.append(when (s[i + 1]) { 'n' -> '\n'; 'r' -> '\r'; 't' -> '\t'; else -> s[i + 1] }); i += 2 } else { b.append(c); i++ } }; return b.toString() }
 
 fun encodeInstance(i: Instance): String = buildString {
     append("preset=${i.preset.id}\nstart=${i.start}\nend=${i.end}\n")
@@ -636,3 +636,29 @@ fun modifierConflicts(inst: Instance, active: List<Instance>): List<String> {
     }
     return out
 }
+
+/** What is left of a modifier's stored slots after the calendar changed under it. */
+data class Reconciled(val kept: List<PatternSlot>, val dropped: Int)
+
+/**
+ * A modifier is compiled when it is applied, but the calendar can change afterwards: a day off is planned, a file is imported, a library period is added. Its stored
+ * slots must never then sit on a day off (MG12) or on top of something real (MG4). Such a slot is left out when the calendar is read; its hours are still due as work, so
+ * the Buffer stays true, and the person is told how many were left out. Cancellations and free time are kept. [allowOnDayOff] is for a period off (its pinned blocks) and a
+ * hybrid focus week, which are meant to sit on days off.
+ */
+fun reconcile(core: List<PatternSlot>, stored: List<PatternSlot>, allowOnDayOff: Boolean, zone: ZoneId = LONDON): Reconciled {
+    var dropped = 0
+    val cancels = stored.filter { it.cancelled }                                     // this modifier's own cancellations already clear what they cancel
+    val kept = stored.filter { s ->
+        val date = s.date
+        if (s.cancelled || s.type == "free" || date == null) return@filter true
+        if (!allowOnDayOff && isDayOff(core, date)) { dropped++; return@filter false }
+        // work blocks and free time are meant to be cut by a session; anything else (an event, a meal, sleep, a lecture still running) is not
+        val clash = slotsFor(core + cancels, date, zone).any { it.slot.type != "free" && it.slot.type !in CUTTABLE_WORK && s.startMin < it.slot.endMin && it.slot.startMin < s.endMin }
+        if (clash) { dropped++; false } else true
+    }
+    return Reconciled(kept, dropped)
+}
+
+/** Whether a modifier's own slots may sit on days off: a period off's pinned blocks, and a hybrid focus week. */
+fun allowsDaysOff(inst: Instance?): Boolean = inst != null && (inst.preset == Preset.PERIOD_OFF || (inst.preset == Preset.FOCUS && inst.bool("hybrid")))

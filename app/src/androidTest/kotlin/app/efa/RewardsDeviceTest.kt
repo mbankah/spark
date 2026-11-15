@@ -325,6 +325,21 @@ class RewardsE2ETest {
         nm.cancel(FreeSlotAlarm.NOTIFICATION_ID)
     }
 
+    @Test fun LC1_a_lecture_code_reminder_sounds_and_says_which_lecture() {
+        val nm = ctx.getSystemService(NotificationManager::class.java); nm.cancel(LectureCodeAlarm.NOTIFICATION_ID)
+        assertTrue(LectureCodeAlarm.schedule(ctx, System.currentTimeMillis() + 3_000, "Enter the attendance code for Randomness and Computation lecture."))
+        val end = System.currentTimeMillis() + 25_000
+        while (System.currentTimeMillis() < end && nm.activeNotifications.none { it.id == LectureCodeAlarm.NOTIFICATION_ID }) Thread.sleep(500)
+        val n = nm.activeNotifications.firstOrNull { it.id == LectureCodeAlarm.NOTIFICATION_ID } ?: fail("the code reminder did not sound")
+        assertEquals("Attendance code", n.notification.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString())
+        assertEquals("Enter the attendance code for Randomness and Computation lecture.", n.notification.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString())
+        nm.cancel(LectureCodeAlarm.NOTIFICATION_ID)
+    }
+
+    @Test fun LC1_a_code_reminder_for_a_time_already_past_is_never_set() {
+        assertFalse(LectureCodeAlarm.schedule(ctx, System.currentTimeMillis() - 1000, "x"))
+    }
+
     @Test fun X7_a_free_slot_alarm_for_a_time_already_past_is_never_set() {
         assertFalse(FreeSlotAlarm.schedule(ctx, System.currentTimeMillis() - 1000, "x"))
     }

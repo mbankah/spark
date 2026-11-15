@@ -678,12 +678,13 @@ Added on 29 October 2026 at your request. The timetable can adapt from a CSV fil
 
 ## 26. Changes of 15 November 2026
 
-Asked for by you on 15 November 2026: the wall allows for a small keyboard and big thumbs, the home screen gets a second page for the whole schedule, and the screens are redrawn with less text.
+Asked for by you on 15 November 2026: the wall allows for a small keyboard and big thumbs, the home screen gets a second page for the whole schedule, the screens are redrawn with less text, and a reminder to enter the lecture attendance code.
 
 | # | Decision | Status |
 | --- | --- | --- |
 | WS1 | The wall forgives up to 3 wrong characters in one attempt. A forgiven character adds nothing, so every character of the string still has to be typed. The fourth wrong character restarts from the first. The 3 do not come back during an attempt and a restart gives a fresh 3. A paste, autofill or any several-character input restarts at once and uses no allowance. | Locked (Michael, 15 Nov 2026) |
 | SC1 | The home screen has a second page one swipe to the left, or one tap on its dot, showing the whole calendar for the next 28 days: every block in time order, the work placed in each work block, deadlines on their day, days off marked, and the running block marked NOW. It is built from the same slots as the Buffer, the alarms and the blocker, so it cannot disagree with them. The home button returns to the first page. The search bar and the add buttons stay on both pages. | Locked (Michael, 15 Nov 2026) |
 | SC2 | Calculations are drawn as well as written: the Buffer working compares available and work hours as bars, the running block shows how far through it you are, and money shows confirmed against planned work. Every bar is drawn from a number that is also shown in words, and the working lines are kept. | Locked (Michael, 15 Nov 2026) |
+| LC1 | A reminder to enter the lecture attendance code: a notification with the alarm sound at every full hour of a lecture and at its end, saying which lecture. It is the same at home as in the room, since the code is asked for either way. It reads the calendar, so a cancelled lecture or a day off gives none and an imported lecture gives one. On by default, with a switch in Setup. | Locked (Michael, 15 Nov 2026) |
 
 The ledger has no Open items. Lines marked Default here are still to be confirmed by you.

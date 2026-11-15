@@ -255,6 +255,16 @@ class ImportVerifyTest {
         assertTrue(v.summaryLines().last().startsWith("Buffer with this file: ") && v.summaryLines().any { it.startsWith("Buffer now: ") })
     }
 
+    @Test fun `PW2 the catch-up week file for 16 to 22 November applies without the wall and changes no lecture`() {
+        val text = java.io.File("src/test/resources/csv/good-catch-up-week-2026-11-16.csv").readText()
+        val v = verify(text)
+        assertTrue(v.ok, v.errors.joinToString { it.text() })
+        assertFalse(v.needsWall, "adding a period only tightens, so it is free"); assertEquals(0, v.cancels); assertEquals(0, v.adds)
+        assertEquals(PeriodKind.CATCH_UP_WEEK, v.periods.single().kind)
+        assertEquals(LocalDate.of(2026, 11, 16), v.periods.single().start); assertEquals(LocalDate.of(2026, 11, 22), v.periods.single().end)
+        assertTrue(v.overlay.isEmpty(), "no lecture, study block or meal is touched")
+    }
+
     @Test fun `IM5 the preview changes nothing`() {
         val before = slots.toList()
         verify(file(row("event", "2026-11-03", start = "16:30", end = "17:30", title = "x", type = "lecture")))

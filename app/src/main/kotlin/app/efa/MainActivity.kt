@@ -253,6 +253,7 @@ class MainActivity : ComponentActivity() {
                 }
                 var voiceDraft by remember { mutableStateOf<Pair<NewTask, String>?>(null) }
                 var voiceQuietOff by remember { mutableStateOf(true) }
+                var codeReminders by remember { mutableStateOf(true) }
                 var widgetRows by remember { mutableStateOf<List<WidgetRowUi>>(emptyList()) }
                 var widgetMessage by remember { mutableStateOf<String?>(null) }
                 var shownWidgets by remember { mutableStateOf<Set<WidgetKind>>(WidgetKind.entries.filter { it.byDefault }.toSet()) }
@@ -265,7 +266,7 @@ class MainActivity : ComponentActivity() {
                 }
                 var shopping by remember { mutableStateOf<List<app.efa.data.ShoppingRow>>(emptyList()) }
                 LaunchedEffect(screen, reload) { if (screen == Screen.SHOPPING) shopping = withContext(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).items() } }
-                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" } }
+                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" }; codeReminders = withContext(Dispatchers.IO) { LectureCodeAlarm.enabled(db) } }
                 /** V1, V3, V4: what was heard becomes a card to check, or opens a screen. A loosening only opens its request screen, where the typed wall is. */
                 var reviewRow by remember { mutableStateOf<app.efa.data.TaskRow?>(null) }
                 /** B5, E9: the estimates are corrected from finished tasks, and the newest finished task not yet asked about is offered on home. */
@@ -378,6 +379,7 @@ class MainActivity : ComponentActivity() {
                             blockList = BlockingRepo(db).list()
                             BlockingState.refresh(applicationContext)       // the blocking service sees the change at once
                             try { AlarmScheduler.refresh(applicationContext) } catch (e: Exception) { /* the last alarm stays set (X7) */ }
+                            try { LectureCodeAlarm.refresh(applicationContext) } catch (e: Exception) { /* the minute loop sets it again (X7) */ }
                             heldWaiting = HeldRepo(db).anyUnreviewed()
                             BufferNotifier.update(applicationContext)
                             // U1, U4: which setup steps are done right now, and a log entry once when one that was done goes off.
@@ -605,6 +607,8 @@ class MainActivity : ComponentActivity() {
                         pcText = if (pcAddress.isBlank()) "" else "Linked to $pcAddress. $pcStatus",
                         voiceQuietOff = voiceQuietOff,
                         onVoiceQuiet = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_VOICE_QUIET_OFF, if (v) "1" else "0")); reload++ } },
+                        codeReminders = codeReminders,
+                        onCodeReminders = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_CODE_REMINDERS, if (v) "1" else "0")); LectureCodeAlarm.refresh(applicationContext); reload++ } },
                         onShopping = { screen = Screen.SHOPPING },
                         morningText = when { morningUi.night != null && morningUi.ready != null -> "Set up: tonight's photo and the ready spot."; morningUi.ready != null -> "Ready spot set. Take tonight's setup photo."; morningUi.night != null -> "Tonight's photo set. Take the ready spot photo."; else -> "" },
                         sleep = l?.sleep ?: SleepStatus(),

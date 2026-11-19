@@ -23,6 +23,19 @@ object ImportLimits {
 /** The header, in this order when Spark writes it. A file may order the columns differently but must have all of them (IM4). */
 val CSV_COLUMNS = listOf("kind", "date", "end_date", "start", "end", "title", "type", "venue", "heaviness", "study", "action", "notes")
 
+/**
+ * OV1: columns a file may add after the required ones. `override` goes on a cancel row and says "I mean it": the one way a file can cancel a block it otherwise cannot touch
+ * (a study or code block, a planning block, a routine, a chore). It is never a quiet change: it always needs the typed wall, the preview names each block, and a study cycle it
+ * cancels comes back as work, so nothing disappears from the Buffer.
+ */
+val OPTIONAL_COLUMNS = listOf("override")
+
+/** OV1: the block types an override can cancel. Meals, sleep and reminders are not in it: nothing overrides a meal or sleep. */
+val OVERRIDE_TYPES = listOf("study", "study-standard", "study-light", "code", "planning", "routine", "chore")
+
+/** OV1: the wake (the alarm is planned from it) and the Bible study (first, always) are never overridden, whatever the file says. */
+fun neverOverridden(title: String) = title.startsWith("Wake") || title.startsWith("Bible study")
+
 /** Event types: fixed commitments that a university or club sets, and the walk to them (T1). Study blocks are never created by a file (IM6). */
 val EVENT_TYPES = listOf("lecture", "tutorial", "mytutor", "training", "match", "gym", "church", "errand", "travel", "reminder")
 
@@ -42,7 +55,7 @@ enum class Study { STANDARD, LIGHT, NONE }
 sealed interface ImportRow { val line: Int }
 data class EventRow(
     override val line: Int, val date: LocalDate, val startMin: Int, val endMin: Int, val title: String, val type: String,
-    val venue: String, val study: Study, val cancel: Boolean, val notes: String,
+    val venue: String, val study: Study, val cancel: Boolean, val notes: String, val override: Boolean = false,
 ) : ImportRow
 data class DeadlineRow(override val line: Int, val date: LocalDate, val dueMin: Int, val title: String, val heaviness: Int) : ImportRow
 data class PeriodRow(override val line: Int, val start: LocalDate, val end: LocalDate, val kind: PeriodKind, val title: String) : ImportRow
@@ -72,7 +85,7 @@ data class ParsedImport(
 /** A fixed fingerprint of a row's meaning, so importing the same row twice changes nothing (IM8). */
 fun ImportRow.hash(): String {
     val canon = when (this) {
-        is EventRow -> listOf("event", date, startMin, endMin, title.lowercase(), type, if (cancel) "cancel" else "add", study).joinToString("|")
+        is EventRow -> listOf("event", date, startMin, endMin, title.lowercase(), type, if (cancel) "cancel" else "add", study).plus(if (override) listOf("override") else emptyList()).joinToString("|")      // OV1: the flag is part of the meaning, but only when set, so earlier fingerprints stay
         is DeadlineRow -> listOf("deadline", date, dueMin, title.lowercase()).joinToString("|")
         is PeriodRow -> listOf("period", start, end, kind.csv).joinToString("|")
         is ReplaceRow -> listOf("replace", date, startMin, endMin).joinToString("|")
@@ -105,8 +118,8 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
     val header = read.rows[0].map { it.trim().lowercase() }
     val missing = CSV_COLUMNS.filter { it !in header }
     if (missing.isNotEmpty()) return ParsedImport(emptyList(), listOf(ImportIssue(1, "", "The header is missing: ${missing.joinToString(", ")}. It must have all of: ${CSV_COLUMNS.joinToString(",")}.")), emptyList())
-    header.filter { it !in CSV_COLUMNS && it.isNotBlank() }.distinct().forEach { warn(1, it, "Unknown column, ignored.") }
-    val idx = CSV_COLUMNS.associateWith { header.indexOf(it) }
+    header.filter { it !in CSV_COLUMNS && it !in OPTIONAL_COLUMNS && it.isNotBlank() }.distinct().forEach { warn(1, it, "Unknown column, ignored.") }
+    val idx = (CSV_COLUMNS + OPTIONAL_COLUMNS).associateWith { header.indexOf(it) }          // an optional column that is absent is -1, and its cell reads as empty
 
     val rows = ArrayList<ImportRow>(); val seen = HashSet<String>()
     var skippedPast = 0; var dupes = 0
@@ -160,8 +173,16 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
             "event" -> {
                 val d = date("date"); val s = time("start", d); val e = time("end", d); val t = title(true)
                 val type = text("type").lowercase()
-                if (type !in EVENT_TYPES) err(line, "type", if (type.isBlank()) "Empty. Use one of: ${EVENT_TYPES.joinToString(", ")}." else "\"$type\" is not an event type. Use one of: ${EVENT_TYPES.joinToString(", ")}.")
+                val ov = text("override").lowercase()
+                if (ov !in listOf("", "yes", "true", "1", "no", "false", "0")) err(line, "override", "\"$ov\" is not a choice. Use yes, or leave it empty.")
+                val override = ov in listOf("yes", "true", "1")
+                if (type !in EVENT_TYPES && !(override && type in OVERRIDE_TYPES)) err(line, "type", when {
+                    type.isBlank() -> "Empty. Use one of: ${EVENT_TYPES.joinToString(", ")}."
+                    type in OVERRIDE_TYPES -> "A file cannot touch a $type block. To cancel one on purpose, put yes in the override column of a cancel row."
+                    else -> "\"$type\" is not an event type. Use one of: ${EVENT_TYPES.joinToString(", ")}."
+                })
                 val action = text("action").lowercase()
+                if (override && action != "cancel") err(line, "override", "An override goes only on a cancel row. Set action to cancel, or leave override empty.")
                 if (action !in listOf("", "add", "cancel")) err(line, "action", "\"$action\" is not an action. Leave it empty or use add or cancel.")
                 if (s != null && e != null && e <= s) err(line, "end", "${minutesText(e)} is not after the start ${minutesText(s)}. An event must end on the same day it starts.")
                 val studyText = text("study").lowercase()
@@ -177,14 +198,14 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
                 }
                 if (text("heaviness").isNotBlank() || text("end_date").isNotBlank()) warn(line, "heaviness", "Not used by an event, ignored.")
                 if (errors.size == before && d != null && s != null && e != null && t != null)
-                    EventRow(line, d, s, e, t, type, text("venue"), study, cancel, text("notes")) else null
+                    EventRow(line, d, s, e, t, type, text("venue"), study, cancel, text("notes"), override) else null
             }
             "deadline" -> {
                 val d = date("date"); val due = time("start", d); val t = title(true)
                 val hv = text("heaviness")
                 val heaviness = if (hv.isBlank()) QUICK_ADD_DEFAULT_HEAVINESS else hv.toIntOrNull()?.takeIf { it in 1..10 }
                     ?: run { err(line, "heaviness", "\"$hv\" is not a heaviness. Use a whole number from 1 to 10, or leave it empty for $QUICK_ADD_DEFAULT_HEAVINESS."); null }
-                if (listOf("end", "type", "venue", "study", "action", "end_date").any { text(it).isNotBlank() }) warn(line, "type", "A deadline uses only date, start (the time it is due), title and heaviness. The other cells are ignored.")
+                if (listOf("end", "type", "venue", "study", "action", "end_date", "override").any { text(it).isNotBlank() }) warn(line, "type", "A deadline uses only date, start (the time it is due), title and heaviness. The other cells are ignored.")
                 if (errors.size == before && d != null && due != null && t != null && heaviness != null) DeadlineRow(line, d, due, t, heaviness) else null
             }
             "replace" -> {

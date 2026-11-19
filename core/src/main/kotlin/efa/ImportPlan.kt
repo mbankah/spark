@@ -27,6 +27,7 @@ data class Verification(
     val loosening: List<String>,
     val before: BufferState, val after: BufferState,
     val adds: Int, val cancels: Int, val replaced: Int = 0, val modifiers: List<ImportedModifier> = emptyList(),
+    val overrides: List<String> = emptyList(),
 ) {
     val ok: Boolean get() = errors.isEmpty()
     val needsWall: Boolean get() = loosening.isNotEmpty()
@@ -48,6 +49,7 @@ fun verifyImport(
     val periods = ArrayList<PeriodRow>(); val periodHashes = ArrayList<String>()
     val loosening = ArrayList<String>()
     var already = 0; var adds = 0; var cancels = 0; var replaced = 0
+    val overrides = ArrayList<String>()
     var cur = slots
 
     fun slotText(s: PatternSlot) = "${s.title} ${minutesText(s.startMin)}-${minutesText(s.endMin)}"
@@ -75,10 +77,21 @@ fun verifyImport(
         val hit = slotsFor(cur, r.date, zone).firstOrNull { it.slot.startMin == r.startMin && it.slot.type == r.type }
         if (hit == null) { errors += ImportIssue(r.line, "start", "No ${r.type} starts at ${minutesText(r.startMin)} on ${r.date} to cancel."); continue }
         if (hit.slot.date != null) { errors += ImportIssue(r.line, "start", "That ${r.type} came from an earlier file. Remove that import instead of cancelling it."); continue }
+        if (r.override && neverOverridden(hit.slot.title)) { errors += ImportIssue(r.line, "override", "${hit.slot.title} is never overridden: the alarm is planned from the wake, and the Bible study comes first."); continue }
         if (!hit.slot.title.contains(r.title, ignoreCase = true) && !r.title.contains(hit.slot.title, ignoreCase = true)) warnings += ImportIssue(r.line, "title", "The ${r.type} at that time is \"${hit.slot.title}\". It is the one cancelled.")
-        val cancel = hit.slot.copy(date = r.date, cancelled = true, notes = "imported cancel")
+        val cancel = hit.slot.copy(date = r.date, cancelled = true, notes = if (r.override) "imported override" else "imported cancel")
         overlay += OverlayItem(cancel, h); cur = cur + cancel; cancels++
         loosening += "Cancels ${hit.slot.title} on ${DAY.format(r.date)}"
+        if (r.override) {
+            // OV1: it is named, it needs the wall, and a study cycle it takes away comes back as work due the next working day, so the Buffer still carries it (the same rule as a move, AD2).
+            overrides += "${hit.slot.title} (${hit.slot.type}) on ${DAY.format(r.date)}"
+            loosening += "Overrides ${hit.slot.title} on ${DAY.format(r.date)}"
+            val std = hit.slot.type == "study-standard"
+            if (std || hit.slot.type == "study-light") {
+                val due = endOfDayCutoff(cur, nextWorkingDay(cur, r.date), zone)
+                if (due.isAfter(now)) newWork += NewWork("override:$h", "Study: ${hit.slot.title.substringBefore(" - ")} (came back)", if (std) STUDY_CYCLE_STANDARD_HOURS else STUDY_CYCLE_LIGHT_HOURS, if (std) 6 else 3, due, "import-override")
+            }
+        }
     }
     for (r in events.filter { !it.cancel }) {
         val h = r.hash()
@@ -142,7 +155,7 @@ fun verifyImport(
     val after = if (errors.isNotEmpty()) before else bufferNow(now, studyCycles(cur, now) + work + extra, cur, shortSleep = false)
     return Verification(
         errors, warnings, overlay, newWork, periods, periodHashes, already, parsed.skippedPast, loosening.distinct(),
-        before, after, adds, cancels, replaced, mods,
+        before, after, adds, cancels, replaced, mods, overrides,
     )
 }
 
@@ -153,8 +166,11 @@ fun Verification.summaryLines(): List<String> = buildList {
     if (replaced > 0) add("$replaced planned block${if (replaced == 1) "" else "s"} replaced")
     val deadlines = work.count { it.source == "import" }
     val cycles = work.count { it.source == "import-cycle" }
+    val back = work.count { it.source == "import-override" }
     if (deadlines > 0) add("$deadlines deadline${if (deadlines == 1) "" else "s"} added")
     if (cycles > 0) add("$cycles study block${if (cycles == 1) "" else "s"} due for new lectures")
+    if (overrides.isNotEmpty()) add("${overrides.size} protected block${if (overrides.size == 1) "" else "s"} overridden: ${overrides.joinToString(", ")}")
+    if (back > 0) add("$back study block${if (back == 1) "" else "s"} come back as work, so nothing disappears")
     if (modifiers.isNotEmpty()) add(modifiers.joinToString(", ") { "${it.instance.preset.label} ${DAY.format(it.instance.start)}${if (it.instance.end != it.instance.start) " to ${DAY.format(it.instance.end)}" else ""}" })
     if (periods.isNotEmpty()) add(periods.joinToString(", ") { "${it.kind.label} ${DAY.format(it.start)} to ${DAY.format(it.end)}" })
     if (alreadyImported > 0) add("$alreadyImported row${if (alreadyImported == 1) "" else "s"} already imported, skipped")

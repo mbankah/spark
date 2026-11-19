@@ -109,3 +109,16 @@ test('IX9: every shared fixture reads the same way here as in the app', () => {
     assert.ok(e.some((x) => String(x.line) === m[1] && (m[2] === 'file' || x.column === col)), `${f} expected ${m[1]}:${col} got ${JSON.stringify(e.map((x) => `${x.line}:${x.column}`))}`);
   }
 });
+
+test('OV1, OV5: the optional override column is accepted on a cancel row and refused elsewhere, and a protected block is named when it is missing', () => {
+  const HO = `${H},override`;
+  assert.deepEqual(checkCsv(`${HO}\nevent,2026-11-23,,10:10,12:15,Notes and problems,study-standard,,,none,cancel,,yes\n`).errors, []);
+  assert.deepEqual(checkCsv(`${H}\nevent,2026-11-23,,17:00,18:00,MyTutor session,mytutor,,,none,cancel,\n`).errors, [], 'a file without the column is read as before');
+  const noWord = checkCsv(`${H}\nevent,2026-11-23,,10:10,12:15,Notes and problems,study-standard,,,none,cancel,\n`).errors;
+  assert.ok(noWord.some((e) => e.column === 'type' && /override/.test(e.text)));
+  const add = checkCsv(`${HO}\nevent,2026-11-23,,10:10,12:15,Extra,errand,,,none,add,,yes\n`).errors;
+  assert.ok(add.some((e) => e.column === 'override'));
+  const meal = checkCsv(`${HO}\nevent,2026-11-23,,12:15,12:40,Lunch,meal,,,none,cancel,,yes\nevent,2026-11-23,,23:00,23:30,Shutdown,sleep,,,none,cancel,,yes\n`).errors;
+  assert.deepEqual(meal.map((e) => [e.line, e.column]), [[2, 'type'], [3, 'type']]);
+  assert.ok(checkCsv(`${HO}\nevent,2026-11-23,,10:10,12:15,X,code,,,none,cancel,,maybe\n`).errors.some((e) => e.column === 'override'));
+});

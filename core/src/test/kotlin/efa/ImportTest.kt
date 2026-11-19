@@ -529,7 +529,8 @@ class FormatDocTest {
 
     @Test fun `IM3 the prompt and the document name every column and every event type`() {
         for (c in CSV_COLUMNS) { assertTrue(c in TIMETABLE_AI_PROMPT, c); assertTrue("| $c |" in doc, c) }
-        for (t in EVENT_TYPES) assertTrue(t in TIMETABLE_AI_PROMPT, t)
+        for (c in OPTIONAL_COLUMNS) { assertTrue(c in TIMETABLE_AI_PROMPT, c); assertTrue("| $c |" in doc, c) }
+        for (t in EVENT_TYPES + OVERRIDE_TYPES) assertTrue(t in TIMETABLE_AI_PROMPT, t)
         assertTrue("assignment_week" in TIMETABLE_AI_PROMPT && "catch_up_week" in TIMETABLE_AI_PROMPT)
     }
 

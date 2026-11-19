@@ -3,6 +3,8 @@
 // The same rules as docs/TIMETABLE_CSV.md. Tested with: node --test web/test
 
 export const COLUMNS = ['kind', 'date', 'end_date', 'start', 'end', 'title', 'type', 'venue', 'heaviness', 'study', 'action', 'notes'];
+export const OPTIONAL_COLUMNS = ['override'];
+export const OVERRIDE_TYPES = ['study', 'study-standard', 'study-light', 'code', 'planning', 'routine', 'chore'];
 export const EVENT_TYPES = ['lecture', 'tutorial', 'mytutor', 'training', 'match', 'gym', 'church', 'errand', 'travel', 'reminder'];
 export const PERIOD_TYPES = ['assignment_week', 'catch_up_week'];
 export const FILE_PRESETS = ['catch_up', 'lecture_free', 'late_start', 'run_over', 'add_event', 'cancel', 'recovery', 'guests', 'away', 'night'];
@@ -71,7 +73,11 @@ export function checkCsv(text) {
       if (s === null) err(line, 'start', 'The start must be a 24-hour time like 09:00.');
       if (e === null) err(line, 'end', 'The end must be a 24-hour time like 10:00.');
       if (s !== null && e !== null && e <= s) err(line, 'end', 'The end must be after the start, on the same day.');
-      if (!EVENT_TYPES.includes(at(r, 'type').toLowerCase())) err(line, 'type', `type must be one of: ${EVENT_TYPES.join(', ')}.`);
+      const ov = at(r, 'override').toLowerCase(); const type = at(r, 'type').toLowerCase();
+      if (!['', 'yes', 'true', '1', 'no', 'false', '0'].includes(ov)) err(line, 'override', 'override must be yes, or empty.');
+      const override = ['yes', 'true', '1'].includes(ov);
+      if (override && action !== 'cancel') err(line, 'override', 'An override goes only on a cancel row.');
+      if (!EVENT_TYPES.includes(type) && !(override && OVERRIDE_TYPES.includes(type))) err(line, 'type', OVERRIDE_TYPES.includes(type) ? `A file cannot touch a ${type} block. To cancel one on purpose, put yes in the override column of a cancel row.` : `type must be one of: ${EVENT_TYPES.join(', ')}.`);
     } else if (kind === 'keep') {
       const s = minutes(at(r, 'start')); const e = minutes(at(r, 'end'));
       if (s === null) err(line, 'start', 'The start must be a 24-hour time like 20:00.');

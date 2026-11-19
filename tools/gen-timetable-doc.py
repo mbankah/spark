@@ -50,6 +50,7 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 | study | event | `standard`, `light` or `none`. Empty means standard for an added lecture or tutorial, otherwise none (D1). |
 | action | event | Empty or `add`, or `cancel`. |
 | notes | event, modifier, anchor | Event: free text. Modifier: `key=value;key=value`. Anchor: `winddown_min=45`. |
+| override | event (optional column) | `yes` on a cancel row cancels a study, code, planning, routine or chore block that a file otherwise cannot touch (OV1). Leave the column out otherwise. |
 
 ## What a file can and cannot do
 
@@ -66,6 +67,9 @@ Every column must be in the header (any order). Leave a cell empty when it is no
   anything (RP1).
 - A file **cannot** create, shorten or remove a study block, a meal, sleep or a day off as an event type. Those types are refused. A day off and a
   library period are planned in the app (PW1, H1). Only a replace row takes a meal or sleep away, behind the wall.
+- **One exception, said on purpose (OV1):** a cancel row with `yes` in the optional `override` column cancels a block of type `study`, `study-standard`, `study-light`,
+  `code`, `planning`, `routine` or `chore` that starts at that time. It always needs the typed wall, the preview names each block it overrides, and a study cycle it
+  cancels comes back as work due the next working day, so the Buffer still carries it. The wake, the Bible study, meals and sleep are never overridden.
 - An event on top of sleep, a meal, a walk or another commitment is an error that names it. To move a lecture, cancel the old row and its
   walk, then add the new rows (the same file).
 - A lecture or tutorial that is added brings its study block with it (D1), unless `study` is `none`.

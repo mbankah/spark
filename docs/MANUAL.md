@@ -180,6 +180,7 @@ The six routines Spark knows, each with its own steps, tiers and floor:
 | Mode | Chosen each time | Add to my plan, or Replace my plan for these days | n/a |
 | Keep list | Football, church, sleep, meals, hard alarms | Survives a replace | free to add |
 | Restore point | On | Undo for 24 hours | Locked |
+| Override column | Absent | A file may add an `override` column; yes on a cancel row cancels a study, code, planning, routine or chore block a file otherwise cannot touch. It always needs the typed wall, the preview names it, and a study cycle comes back as work. Never meals, sleep, the wake or the Bible study (OV1 to OV5) | The file says so, openly |
 
 ### 4.8 Privacy and data
 

@@ -40,7 +40,7 @@ event: a fixed commitment on one date
 - Needs: date, start, end, title, type. Optional: venue, study, action, notes.
 - type is one of: lecture, tutorial, mytutor, training, match, gym, church, errand, travel, reminder.
 - action is empty or add to add it, or cancel to remove the commitment of that type that starts at that time on that date.
-- override (the optional column) is yes only on a cancel row, and only when I say so: it cancels a study, code, planning, routine or chore block that a file otherwise cannot touch, and type is then that block's type (study, study-standard, study-light, code, planning, routine or chore). It always needs the typed wall. Never use it for a meal, sleep, the wake or the Bible study.
+- override (the optional column) is yes only on a cancel row, and only when I say so: it cancels a study, code, planning, routine, chore or lesson-notes block that a file otherwise cannot touch, and type is then that block's type (study, study-standard, study-light, code, planning, routine, chore or mytutor-notes). It always needs the typed wall. Never use it for sleep, the wake or the Bible study, or for a meal unless its title says (optional).
 - A moved lecture is two rows: cancel at the old time, add at the new time. Moving a lecture also moves its walk, so cancel and add the travel rows too.
 - A reminder is an event of type reminder: it sounds a notification at its start, may sit on top of anything and takes no time from anything. Give it any short end.
 - study is standard, light or none. Empty means standard for a lecture or tutorial that is added, and none for everything else. Use none when the lecture only replaces one that was already there.
@@ -93,7 +93,7 @@ Do not guess. If a date, time or type is not in what I give you, leave that row 
 
 const COLUMNS = ['kind', 'date', 'end_date', 'start', 'end', 'title', 'type', 'venue', 'heaviness', 'study', 'action', 'notes'];
 const OPTIONAL_COLUMNS = ['override'];
-const OVERRIDE_TYPES = ['study', 'study-standard', 'study-light', 'code', 'planning', 'routine', 'chore'];
+const OVERRIDE_TYPES = ['study', 'study-standard', 'study-light', 'code', 'planning', 'routine', 'chore', 'mytutor-notes'];
 const EVENT_TYPES = ['lecture', 'tutorial', 'mytutor', 'training', 'match', 'gym', 'church', 'errand', 'travel', 'reminder'];
 const PERIOD_TYPES = ['assignment_week', 'catch_up_week'];
 const FILE_PRESETS = ['catch_up', 'lecture_free', 'late_start', 'run_over', 'add_event', 'cancel', 'recovery', 'guests', 'away', 'night'];
@@ -166,7 +166,7 @@ function checkCsv(text) {
       if (!['', 'yes', 'true', '1', 'no', 'false', '0'].includes(ov)) err(line, 'override', 'override must be yes, or empty.');
       const override = ['yes', 'true', '1'].includes(ov);
       if (override && action !== 'cancel') err(line, 'override', 'An override goes only on a cancel row.');
-      if (!EVENT_TYPES.includes(type) && !(override && OVERRIDE_TYPES.includes(type))) err(line, 'type', OVERRIDE_TYPES.includes(type) ? `A file cannot touch a ${type} block. To cancel one on purpose, put yes in the override column of a cancel row.` : `type must be one of: ${EVENT_TYPES.join(', ')}.`);
+      if (!EVENT_TYPES.includes(type) && !(override && (OVERRIDE_TYPES.includes(type) || (type === 'meal' && /\(optional\)/i.test(at(r, 'title')))))) err(line, 'type', OVERRIDE_TYPES.includes(type) ? `A file cannot touch a ${type} block. To cancel one on purpose, put yes in the override column of a cancel row.` : `type must be one of: ${EVENT_TYPES.join(', ')}.`);
     } else if (kind === 'keep') {
       const s = minutes(at(r, 'start')); const e = minutes(at(r, 'end'));
       if (s === null) err(line, 'start', 'The start must be a 24-hour time like 20:00.');

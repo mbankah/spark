@@ -39,6 +39,24 @@ class ImportOrderTest {
         assertTrue(v.summaryLines().any { it.contains("Catch-up") })
     }
 
+    @Test fun IX12_a_row_after_a_night_row_is_checked_against_that_nights_lights_out_and_not_against_23_00() {
+        val late = "modifier,2026-11-22,2026-11-22,,,Late study,catch_up,,,,,day_from=21:00;day_to=23:59;slot_h=1;slots_floor=2;slots_stretch=2"
+        val p = parse(lectureFree, night, late)
+        val v = verify(p, small)
+        assertTrue(v.ok, v.errors.toString())
+        // the same row, checked the way the file's own verification now does (with the night) and the way it used to (without it)
+        var cur = small + v.overlay.map { it.slot }
+        val mods = p.rows.filterIsInstance<ModifierImport>()
+        for (m in mods.dropLast(1)) cur = applied(cur, previewOf(m.instance, cur, emptyList(), now, zone).compiled)
+        val lateRow = mods.last().instance
+        val nights = mods.mapNotNull { nightAnchorsOf(it.instance) }.associateBy { it.night }
+        val with = previewOf(lateRow, cur, emptyList(), now, zone, nights)
+        assertTrue(with.canApply, with.problems.toString())
+        assertTrue(slotsFor(applied(cur, with.compiled), java.time.LocalDate.of(2026, 11, 22), zone).any { it.slot.type == "study" && !it.slot.cancelled && it.slot.endMin > 23 * 60 })
+        val without = previewOf(lateRow, cur, emptyList(), now, zone)
+        assertFalse(without.canApply); assertTrue(without.problems.any { "would be in the night" in it }, without.problems.toString())
+    }
+
     @Test fun IX11_a_file_still_cannot_cancel_a_study_or_project_block_whatever_order_its_rows_come_in() {
         for (t in listOf("code", "study", "study-standard")) assertFalse(parse("event,2026-11-22,,10:00,11:20,Battl.io,$t,,,none,cancel,").ok, t)
         val v = verify(parse(lectureFree, night, "event,2026-11-22,,10:00,11:20,Battl.io,errand,,,none,cancel,"))

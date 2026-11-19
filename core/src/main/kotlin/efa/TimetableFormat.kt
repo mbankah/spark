@@ -20,7 +20,7 @@ val TIMETABLE_AI_PROMPT: String = listOf(
     "- Needs: date, start, end, title, type. Optional: venue, study, action, notes.",
     "- type is one of: ${EVENT_TYPES.joinToString(", ")}.",
     "- action is empty or add to add it, or cancel to remove the commitment of that type that starts at that time on that date.",
-    "- override (the optional column) is yes only on a cancel row, and only when I say so: it cancels a study, code, planning, routine or chore block that a file otherwise cannot touch, and type is then that block's type (study, study-standard, study-light, code, planning, routine or chore). It always needs the typed wall. Never use it for a meal, sleep, the wake or the Bible study.",
+    "- override (the optional column) is yes only on a cancel row, and only when I say so: it cancels a study, code, planning, routine, chore or lesson-notes block that a file otherwise cannot touch, and type is then that block's type (study, study-standard, study-light, code, planning, routine, chore or mytutor-notes). It always needs the typed wall. Never use it for sleep, the wake or the Bible study, or for a meal unless its title says (optional).",
     "- A moved lecture is two rows: cancel at the old time, add at the new time. Moving a lecture also moves its walk, so cancel and add the travel rows too.",
     "- A reminder is an event of type reminder: it sounds a notification at its start, may sit on top of anything and takes no time from anything. Give it any short end.",
     "- study is standard, light or none. Empty means standard for a lecture or tutorial that is added, and none for everything else. Use none when the lecture only replaces one that was already there.",

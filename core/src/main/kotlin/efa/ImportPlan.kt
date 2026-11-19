@@ -77,7 +77,7 @@ fun verifyImport(
         val hit = slotsFor(cur, r.date, zone).firstOrNull { it.slot.startMin == r.startMin && it.slot.type == r.type }
         if (hit == null) { errors += ImportIssue(r.line, "start", "No ${r.type} starts at ${minutesText(r.startMin)} on ${r.date} to cancel."); continue }
         if (hit.slot.date != null) { errors += ImportIssue(r.line, "start", "That ${r.type} came from an earlier file. Remove that import instead of cancelling it."); continue }
-        if (r.override && neverOverridden(hit.slot.title)) { errors += ImportIssue(r.line, "override", "${hit.slot.title} is never overridden: the alarm is planned from the wake, and the Bible study comes first."); continue }
+        if (r.override && neverOverridden(hit.slot.title, hit.slot.type)) { errors += ImportIssue(r.line, "override", "${hit.slot.title} is never overridden: the alarm is planned from the wake, the Bible study comes first, and a meal is overridden only when it is marked optional."); continue }
         if (!hit.slot.title.contains(r.title, ignoreCase = true) && !r.title.contains(hit.slot.title, ignoreCase = true)) warnings += ImportIssue(r.line, "title", "The ${r.type} at that time is \"${hit.slot.title}\". It is the one cancelled.")
         val cancel = hit.slot.copy(date = r.date, cancelled = true, notes = if (r.override) "imported override" else "imported cancel")
         overlay += OverlayItem(cancel, h); cur = cur + cancel; cancels++
@@ -142,7 +142,8 @@ fun verifyImport(
         if (h in known) { already++; continue }
         val clash = modifierConflicts(r.instance, mods.map { it.instance })
         if (clash.isNotEmpty()) { errors += ImportIssue(r.line, "", clash.joinToString(" ")); continue }
-        val pv = previewOf(r.instance, modBase, modWork, now, zone)
+        val nights = mods.mapNotNull { nightAnchorsOf(it.instance) }.associateBy { it.night }          // IX12: the file's own nights, so a later row's day runs to that night's lights-out and not to 23:00
+        val pv = previewOf(r.instance, modBase, modWork, now, zone, nights)
         if (!pv.canApply) { errors += ImportIssue(r.line, "", pv.problems.joinToString(" ")); continue }
         loosening += pv.compiled.loosening
         mods += ImportedModifier(r.instance, h, r.line)

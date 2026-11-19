@@ -65,6 +65,16 @@ class ImportOverrideTest {
         assertFalse(v2.ok); assertTrue(v2.errors.any { it.message.contains("never overridden") })
     }
 
+    @Test fun OV4_a_meal_is_overridden_only_when_the_plan_marks_it_optional() {
+        val sun = java.time.LocalDate.of(2026, 11, 22)
+        val dinner = slotsFor(base, sun, zone).first { it.slot.title.startsWith("Student Dinner") }.slot
+        val v = verify(parse(HOV, "event,2026-11-22,,${minutesText(dinner.startMin)},${minutesText(dinner.endMin)},Student Dinner (optional),meal,,,none,cancel,,yes"))
+        assertTrue(v.ok, v.errors.toString()); assertTrue(v.needsWall)
+        val lunch = slotsFor(base, sun, zone).first { it.slot.title.startsWith("Lunch") }.slot
+        val bad = verify(parse(HOV, "event,2026-11-22,,${minutesText(lunch.startMin)},${minutesText(lunch.endMin)},Lunch (chicken-strip wrap),meal,,,none,cancel,,yes"))
+        assertFalse(bad.ok); assertTrue(bad.errors.any { it.message.contains("meal") }, bad.errors.toString())
+    }
+
     @Test fun OV1_an_override_goes_only_on_a_cancel_row() {
         val p = parse(HOV, "event,2026-11-23,,10:10,12:15,Extra,errand,,,none,add,,yes")
         assertFalse(p.ok); assertTrue(p.errors.single().message.contains("cancel row"), p.errors.toString())
@@ -95,7 +105,7 @@ class ImportOverrideTest {
         val doc = java.io.File("../docs/TIMETABLE_CSV.md").readText().replace("\r\n", "\n")
         for (t in OVERRIDE_TYPES) { assertTrue(t in TIMETABLE_AI_PROMPT, t); assertTrue(t in doc, t) }
         assertTrue("override" in TIMETABLE_AI_PROMPT && "| override |" in doc)
-        assertTrue("Never use it for a meal, sleep, the wake or the Bible study" in TIMETABLE_AI_PROMPT)
+        assertTrue("Never use it for sleep, the wake or the Bible study" in TIMETABLE_AI_PROMPT)
     }
 
     @Test fun OV1_a_block_that_came_from_an_earlier_file_cannot_be_overridden_and_a_missing_block_is_named() {

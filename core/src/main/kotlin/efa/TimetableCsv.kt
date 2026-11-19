@@ -31,10 +31,13 @@ val CSV_COLUMNS = listOf("kind", "date", "end_date", "start", "end", "title", "t
 val OPTIONAL_COLUMNS = listOf("override")
 
 /** OV1: the block types an override can cancel. Meals, sleep and reminders are not in it: nothing overrides a meal or sleep. */
-val OVERRIDE_TYPES = listOf("study", "study-standard", "study-light", "code", "planning", "routine", "chore")
+val OVERRIDE_TYPES = listOf("study", "study-standard", "study-light", "code", "planning", "routine", "chore", "mytutor-notes")
 
-/** OV1: the wake (the alarm is planned from it) and the Bible study (first, always) are never overridden, whatever the file says. */
-fun neverOverridden(title: String) = title.startsWith("Wake") || title.startsWith("Bible study")
+/** OV1: the wake (the alarm is planned from it) and the Bible study (first, always) are never overridden, whatever the file says. A meal is overridden only when the plan itself marks it optional. */
+fun neverOverridden(title: String, type: String = "") = title.startsWith("Wake") || title.startsWith("Bible study") || (type == "meal" && !title.contains("(optional)", ignoreCase = true))
+
+/** OV1: a meal can be named in an override only if its own title says it is optional (the Student Dinner). */
+fun optionalMeal(title: String) = title.contains("(optional)", ignoreCase = true)
 
 /** Event types: fixed commitments that a university or club sets, and the walk to them (T1). Study blocks are never created by a file (IM6). */
 val EVENT_TYPES = listOf("lecture", "tutorial", "mytutor", "training", "match", "gym", "church", "errand", "travel", "reminder")
@@ -176,7 +179,7 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
                 val ov = text("override").lowercase()
                 if (ov !in listOf("", "yes", "true", "1", "no", "false", "0")) err(line, "override", "\"$ov\" is not a choice. Use yes, or leave it empty.")
                 val override = ov in listOf("yes", "true", "1")
-                if (type !in EVENT_TYPES && !(override && type in OVERRIDE_TYPES)) err(line, "type", when {
+                if (type !in EVENT_TYPES && !(override && (type in OVERRIDE_TYPES || (type == "meal" && optionalMeal(t.orEmpty()))))) err(line, "type", when {
                     type.isBlank() -> "Empty. Use one of: ${EVENT_TYPES.joinToString(", ")}."
                     type in OVERRIDE_TYPES -> "A file cannot touch a $type block. To cancel one on purpose, put yes in the override column of a cancel row."
                     else -> "\"$type\" is not an event type. Use one of: ${EVENT_TYPES.joinToString(", ")}."

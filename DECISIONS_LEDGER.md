@@ -769,6 +769,7 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | IX4 | Replace covers the file's span. Sleep, hard alarms, meals, protected free time, the wall and anything marked keep stay. Obligations are re-placed and any shortfall is shown. | Default |
 | IX5 | Replace is a Move if every obligation fits and a Loosen if any is dropped. A file may remove or shorten a study block only in Replace mode, inside its span, through the wall. | Default. Amends IM6 (Locked): needs your yes |
 | IX10 | The modifier rows of a file are checked in the order the file gives them, each on top of the ones before it and of the file's own events, which is also the order they are applied. A file can therefore carry a whole programme: lectures off, then nights that would otherwise be refused for hiding a lecture, then a catch-up laid out after the nights. Work a file adds counts as backlog for the rows after it. | Default; built |
+| IX12 | The nights a file carries count for the rows after them: a catch-up row on a day with a late night is checked against that night's lights-out, not against the default 23:00, so study can run as late as the night allows. | Default; built, tested |
 | IX11 | Order does not widen what a file may do: it still cannot cancel, shorten or create a study or project block (IM6), in any order. The one exception is an override (OV1), which says so in its own column. | Default; tested |
 | IX6 | Format v2 adds `modifier`, `anchor` and `keep` rows; v1 files still read. | Default; built: `modifier` (ten presets), `anchor` and `keep` rows, checked with the same preview and guard rails as the app, applied as modifiers, remembered by row hash, removed with the import. A `keep` row protects its time from a Replace |
 | IX7 | A restore point is written on every apply. | Default |
@@ -966,10 +967,10 @@ Added on 19 November 2026 at your request: "include an override function in the 
 
 | # | Decision | Status |
 | --- | --- | --- |
-| OV1 | A file may add an optional last column named `override`. A cancel row with yes in it cancels a block of type study, study-standard, study-light, code, planning, routine or chore that a file otherwise cannot touch (IM6, IX11). A file without the column is read exactly as before, and its earlier fingerprints stay (IM8). | Default; built, tested |
+| OV1 | A file may add an optional last column named `override`. A cancel row with yes in it cancels a block of type study, study-standard, study-light, code, planning, routine, chore or mytutor-notes that a file otherwise cannot touch (IM6, IX11). A file without the column is read exactly as before, and its earlier fingerprints stay (IM8). | Default; built, tested |
 | OV2 | It is never quiet. It always needs the typed wall (it is a loosening), the preview names each block it overrides, and the change economy counts it as a loosening. | Default; built, tested |
 | OV3 | A study cycle an override cancels comes back as work due the next working day, so the Buffer still carries it (the same rule as a move, AD2). Other blocks (code, planning, routine, chore) have no cycle to return. | Default; built, tested |
-| OV4 | Never overridden, whatever the file says: meals, sleep, reminders, the wake (the alarm is planned from it) and the Bible study (first, always). An override on an add row, or with any word but yes, is an error that says so. | Default; built, tested |
+| OV4 | Never overridden, whatever the file says: sleep, reminders, the wake (the alarm is planned from it) and the Bible study (first, always). A meal is overridden only when the plan itself marks it optional (the Student Dinner). An override on an add row, or with any word but yes, is an error that says so. | Default; built, tested |
 | OV5 | The same rules are in the format document, the text an AI is given (told to leave the column out unless asked), and the web checker, so every reader agrees. | Default; built, tested |
 
 ## 48. The walkthrough

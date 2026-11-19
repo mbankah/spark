@@ -112,6 +112,9 @@ class MainActivity : ComponentActivity() {
     /** The home button was pressed: the home screen returns to its first page. */
     private val homeTick = mutableIntStateOf(0)
 
+    override fun onResume() { super.onResume(); Nfc.start(this) }          // SL2: only while Spark is open and the option is on
+    override fun onPause() { Nfc.stop(this); super.onPause() }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -265,6 +268,9 @@ class MainActivity : ComponentActivity() {
                 var voiceQuietOff by remember { mutableStateOf(true) }
                 var codeReminders by remember { mutableStateOf(true) }
                 var photoReminders by remember { mutableStateOf(true) }
+                var mealChecks by remember { mutableStateOf(true) }
+                var mealLogText by remember { mutableStateOf("") }
+                var modifyFromHome by remember { mutableStateOf(false) }
                 var quietMode by remember { mutableStateOf(false) }
                 var nightPhotoMs by remember { mutableStateOf<Long?>(null) }
                 var widgetRows by remember { mutableStateOf<List<WidgetRowUi>>(emptyList()) }
@@ -279,7 +285,7 @@ class MainActivity : ComponentActivity() {
                 }
                 var shopping by remember { mutableStateOf<List<app.efa.data.ShoppingRow>>(emptyList()) }
                 LaunchedEffect(screen, reload) { if (screen == Screen.SHOPPING) shopping = withContext(Dispatchers.IO) { app.efa.data.ShoppingRepo(db).items() } }
-                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" }; codeReminders = withContext(Dispatchers.IO) { LectureCodeAlarm.enabled(db) }; photoReminders = withContext(Dispatchers.IO) { PhotoAlarm.enabled(db) }; quietMode = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_QUIET_MODE) == "1" }; nightPhotoMs = withContext(Dispatchers.IO) { app.efa.data.SleepRepo(db).shutdownPhotoMs() } }
+                LaunchedEffect(screen, reload) { voiceQuietOff = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_VOICE_QUIET_OFF) != "0" }; codeReminders = withContext(Dispatchers.IO) { LectureCodeAlarm.enabled(db) }; photoReminders = withContext(Dispatchers.IO) { PhotoAlarm.enabled(db) }; mealChecks = withContext(Dispatchers.IO) { MealCheckAlarm.enabled(db) }; mealLogText = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_MEAL_LOG).orEmpty() }; quietMode = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_QUIET_MODE) == "1" }; nightPhotoMs = withContext(Dispatchers.IO) { app.efa.data.SleepRepo(db).shutdownPhotoMs() } }
                 /** V1, V3, V4: what was heard becomes a card to check, or opens a screen. A loosening only opens its request screen, where the typed wall is. */
                 var reviewRow by remember { mutableStateOf<app.efa.data.TaskRow?>(null) }
                 /** B5, E9: the estimates are corrected from finished tasks, and the newest finished task not yet asked about is offered on home. */
@@ -338,7 +344,7 @@ class MainActivity : ComponentActivity() {
                     importUi = if (inc == null) ImportUi.Failed("That file could not be read.") else try {
                         val now = ZonedDateTime.now(LONDON); val plan = PlanRepo(db)
                         db.seedIfEmpty(System.currentTimeMillis(), LONDON.id)       // a file can arrive before the first screen has loaded
-                        ImportUi.Checked(inc.name, verifyImport(parseTimetableCsv(inc.text, now.toLocalDate()), plan.slots(), plan.known(), db.tasks().open().map { it.toDue() }, now, hoursFor = CalibrationState.cal::hours), fileHash(inc.text))
+                        ImportUi.Checked(inc.name, verifyImportIn(ImportMode.ADD, parseTimetableCsv(inc.text, now.toLocalDate()), plan.slots(), plan.known(), db.tasks().open().map { it.toDue() }, now, hoursFor = CalibrationState.cal::hours, reflow = true), fileHash(inc.text), inc.text, ImportMode.ADD)
                     } catch (e: Exception) { ImportUi.Failed("That file could not be checked.") }
                     screen = Screen.IMPORT
                 }
@@ -351,13 +357,43 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) { checkIncoming(ImportSource.read(applicationContext, i)) }
                 }
                 LaunchedEffect(screen, reload) { if (screen == Screen.IMPORT) imports = withContext(Dispatchers.IO) { db.imports().all() } }
+                var liteDay by remember { mutableStateOf(false) }
+                LaunchedEffect(reload, screen) { liteDay = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LITE) == "1" } }
+                LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Backup.nightly(applicationContext) } }          // CT1: a backup file about once a day
+                var importMeter by remember { mutableStateOf<String?>(null) }
+                var importEconomy by remember { mutableStateOf<String?>(null) }
+                /** IX2: switching mode checks the same file again in that mode. Nothing is written. */
+                val setImportMode: (ImportMode) -> Unit = { m ->
+                    val ui = importUi as? ImportUi.Checked
+                    if (ui != null && ui.text.isNotEmpty()) scope.launch(Dispatchers.IO) {
+                        importUi = try {
+                            val now = ZonedDateTime.now(LONDON); val plan = PlanRepo(db)
+                            ui.copy(verification = verifyImportIn(m, parseTimetableCsv(ui.text, now.toLocalDate()), plan.slots(), plan.known(), db.tasks().open().map { it.toDue() }, now, hoursFor = CalibrationState.cal::hours, reflow = true), mode = m)
+                        } catch (e: Exception) { ImportUi.Failed("That file could not be checked.") }
+                    }
+                }
+                LaunchedEffect(screen, reload, importUi) {
+                    if (screen == Screen.IMPORT) withContext(Dispatchers.IO) {
+                        val repo = app.efa.data.ChangeRepo(db); val h = repo.history(); val now = java.time.Instant.now()
+                        importMeter = economyMeter(h, now)
+                        val ui = importUi as? ImportUi.Checked
+                        importEconomy = if (ui == null || !ui.verification.ok) null else when (val d = decideChange(h, importChangeClass(ui.verification, ui.mode), true, now, repo.installedAt())) {
+                            is ChangeDecision.Free -> if (d.trial) "Trial week: counted, nothing locks yet." else if (ui.verification.needsWall) "This loosens, so it needs the typed wall." else "Free."
+                            is ChangeDecision.Wall -> "${d.reason} It needs a typed string of ${d.length} characters."
+                            is ChangeDecision.Cooldown -> d.reason + " Until " + java.time.ZonedDateTime.ofInstant(d.until, LONDON).format(java.time.format.DateTimeFormatter.ofPattern("EEE HH:mm")) + "."
+                            is ChangeDecision.Locked -> d.reason
+                        }
+                    }
+                }
                 /** IM11: one transaction; if it fails nothing was written and the screen says so. */
                 val applyChecked: () -> Unit = {
                     val ui = importUi as? ImportUi.Checked
                     if (ui != null) scope.launch(Dispatchers.IO) {
                         importUi = try {
                             val v = ui.verification
-                            PlanRepo(db).apply(v, ui.name, ui.fileHash, System.currentTimeMillis(), LONDON.id, v.summaryLines().joinToString(". "))
+                            val at = System.currentTimeMillis()
+                            PlanRepo(db).apply(v, ui.name, ui.fileHash, at, LONDON.id, v.summaryLines().joinToString(". "))
+                            app.efa.data.ChangeRepo(db).record(importChangeClass(v, ui.mode), true, at)          // CE1, CE5: it counts against the week
                             BlockingState.refresh(applicationContext)
                             ImportUi.Done(v.summaryLines())
                         } catch (e: Exception) { ImportUi.Failed("Applying failed (${e.javaClass.simpleName}).") }
@@ -396,6 +432,7 @@ class MainActivity : ComponentActivity() {
                             try { LectureCodeAlarm.refresh(applicationContext) } catch (e: Exception) { /* the minute loop sets it again (X7) */ }
                             try { PhotoAlarm.refresh(applicationContext) } catch (e: Exception) { /* the minute loop sets it again (X7) */ }
                             try { EventReminderAlarm.refresh(applicationContext) } catch (e: Exception) { /* the minute loop sets it again (X7) */ }
+                            try { MealCheckAlarm.refresh(applicationContext) } catch (e: Exception) { /* the minute loop sets it again (X7) */ }
                             heldWaiting = HeldRepo(db).anyUnreviewed()
                             BufferNotifier.update(applicationContext)
                             // U1, U4: which setup steps are done right now, and a log entry once when one that was done goes off.
@@ -511,6 +548,7 @@ class MainActivity : ComponentActivity() {
                         val sched = l?.pattern?.let { p -> scheduleView(p, openTasks, alloc, clock, days = 36, verified = l.verified) }.orEmpty()
                         val hb = homeBlocks(sched)
                         val nowRow = hb.now
+                        val dueMeal = if (mealChecks) l?.pattern?.let { p -> efa.dueMealCheck(p, efa.MealLog.decode(mealLogText), clock) } else null
                         val phoneDecision = blockList?.takeIf { it.isNotEmpty() }?.let { BlockingState.decide(it.first()) }
                         HomeScreen(
                             HomeState(
@@ -532,6 +570,7 @@ class MainActivity : ComponentActivity() {
                                 moneyNote = l?.money?.takeIf { !it.live }?.let { "Money starts ${DateTimeFormatter.ofPattern("EEE d MMM").format(it.liveFrom)}. Recorded until then." },
                                 earnedOn = l?.pattern?.let { p -> earnedAccessActive(clock, l.earnings, p) } == true,
                                 photo = photoFocus, photoLeft = photoFocus?.minutesLeft(clock)?.toInt(),
+                                meal = dueMeal?.title, mealKey = dueMeal?.key.orEmpty(), evening = clock.hour >= 21, lite = liteDay, mode = l?.pattern?.let { efa.homeModeOf(it, clock) } ?: efa.HomeMode.FREE,
                                 heldWaiting = heldWaiting,
                                 unavailable = l != null && l.pattern == null,
                                 launcherPaused = launcherPaused,
@@ -560,6 +599,22 @@ class MainActivity : ComponentActivity() {
                             onVoice = { voiceDraft = null; startVoice(emptyList()) },
                             onNewRoom = { mapVenue = newRoom; venueBack = Screen.HOME; screen = Screen.MAP_VENUE },
                             onMoney = { screen = Screen.MONEY },
+                            onMeal = { key, ate -> scope.launch(Dispatchers.IO) { MealCheckAlarm.answer(applicationContext, key, ate); reload++ } },
+                            onEmergency = { a -> scope.launch(Dispatchers.IO) { Emergency.run(applicationContext, a) } },
+                            onReality = { kind ->
+                                modifyFromHome = true
+                                val today = clock.toLocalDate()
+                                val open = { inst: Instance, preview: Boolean -> modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                                    if (preview) scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) } }
+                                when (kind) {
+                                    "night" -> { val tn = efa.nightOf(ZonedDateTime.now(LONDON)); open(Instance(Preset.NIGHT, tn, tn, emptyMap()), false) }
+                                    "late" -> open(Instance(Preset.LATE_START, today, today, mapOf("from_now" to "true")), true)
+                                    else -> screen = Screen.MODIFY          // running over: the minutes are chosen under Right now
+                                }
+                            },
+                            third = { WorkItOutScreen(db, onOpenPlan = { inst, preview -> modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                                if (preview) scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) } },
+                                onWall = { title, text, len, action -> wallBack = Screen.HOME; wallLength = len; wall = Triple(title, text, action); screen = Screen.GATE }) },
                             onNow = { nowRow?.photo?.slot?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
                             onPhoto = { photoFocus?.slot?.let { selected = it; screen = Screen.BLOCK } ?: run { screen = Screen.MORNING } },
@@ -630,6 +685,8 @@ class MainActivity : ComponentActivity() {
                         onVoiceQuiet = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_VOICE_QUIET_OFF, if (v) "1" else "0")); reload++ } },
                         codeReminders = codeReminders,
                         photoReminders = photoReminders,
+                        mealChecks = mealChecks,
+                        onMealChecks = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_MEAL_CHECKS, if (v) "1" else "0")); MealCheckAlarm.refresh(applicationContext); reload++ } },
                         quietMode = quietMode,
                         wake = wakeUi.copy(message = wakeMessage),
                         onWakeClear = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, null); wakeMessage = "Back to the normal alarm."; reload++ } },
@@ -684,16 +741,32 @@ class MainActivity : ComponentActivity() {
                             (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("Spark timetable format", TIMETABLE_AI_PROMPT))
                             importUi = ImportUi.Done(listOf("Copied. Paste it into an AI app, then paste your timetable under it."))
                         },
+                        onMode = setImportMode, meter = importMeter, economy = importEconomy,
                         onApply = {
-                            val v = (importUi as? ImportUi.Checked)?.verification
-                            if (v != null && v.needsWall) {
-                                wall = Triple("Apply a file that loosens", v.loosening.joinToString(". ") + ". Type the characters below by hand to apply it.", applyChecked); screen = Screen.IMPORT_WALL
-                            } else applyChecked()
+                            val ui = importUi as? ImportUi.Checked
+                            val v = ui?.verification
+                            if (ui != null && v != null) scope.launch(Dispatchers.IO) {
+                                val repo = app.efa.data.ChangeRepo(db)
+                                val d = decideChange(repo.history(), importChangeClass(v, ui.mode), true, java.time.Instant.now(), repo.installedAt())
+                                withContext(Dispatchers.Main) {
+                                    when (d) {
+                                        is ChangeDecision.Cooldown -> importUi = ImportUi.Failed(d.reason + " It opens again " + java.time.ZonedDateTime.ofInstant(d.until, LONDON).format(java.time.format.DateTimeFormatter.ofPattern("EEE HH:mm")) + ".")
+                                        is ChangeDecision.Locked -> importUi = ImportUi.Failed(d.reason)
+                                        is ChangeDecision.Wall -> { wallBack = Screen.IMPORT; wallLength = maxOf(d.length, if (v.needsWall) efa.WallLength.IMPORT_LOOSEN else 0); wall = Triple("Apply this file", d.reason + (if (v.needsWall) " " + v.loosening.joinToString(". ") + "." else "") + " Type the characters below by hand to apply it.", applyChecked); screen = Screen.GATE }
+                                        is ChangeDecision.Free -> if (v.needsWall) { wall = Triple("Apply a file that loosens", v.loosening.joinToString(". ") + ". Type the characters below by hand to apply it.", applyChecked); screen = Screen.IMPORT_WALL } else applyChecked()
+                                    }
+                                }
+                            }
                         },
                         onRemove = { row ->
-                            wall = Triple("Remove an import", "Removing ${row.name} can take away a commitment or a deadline, so it needs the wall.", {
-                                scope.launch(Dispatchers.IO) { PlanRepo(db).removeImport(row.id); BlockingState.refresh(applicationContext); reload++ }
-                            }); screen = Screen.IMPORT_WALL
+                            if (System.currentTimeMillis() - row.atMs < 24L * 3_600_000L) {
+                                // CE8: an undo within 24 hours is free and gives the count back
+                                scope.launch(Dispatchers.IO) { PlanRepo(db).removeImport(row.id); app.efa.data.ChangeRepo(db).refund(row.atMs); BlockingState.refresh(applicationContext); reload++ }
+                            } else {
+                                wall = Triple("Remove an import", "Removing ${row.name} can take away a commitment or a deadline, so it needs the wall.", {
+                                    scope.launch(Dispatchers.IO) { PlanRepo(db).removeImport(row.id); BlockingState.refresh(applicationContext); reload++ }
+                                }); screen = Screen.IMPORT_WALL
+                            }
                         },
                         onBack = { importUi = ImportUi.Idle; screen = Screen.SETUP })
                     Screen.IMPORT_WALL -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { screen = Screen.IMPORT; w.third() }, onCancel = { screen = Screen.IMPORT }) } ?: run { screen = Screen.IMPORT }
@@ -717,11 +790,16 @@ class MainActivity : ComponentActivity() {
                     Screen.MODIFY -> ModifyHomeScreen(modRows, clock.toLocalDate(),
                         onPick = { p ->
                             val today = clock.toLocalDate()
-                            modDraft = Instance(p, today, if (p == Preset.ASSIGNMENT) today.plusDays(60) else today.plusDays(if (p == Preset.FOCUS) 4 else 1), emptyMap(), if (p == Preset.ASSIGNMENT || p == Preset.FOCUS) listOf(mapOf("title" to "")) else emptyList())
+                            val first = if (p == Preset.LATE_START) today.plusDays(1) else today          // a late start is for a morning that has not come yet
+                            modDraft = Instance(p, first, if (p == Preset.ASSIGNMENT || p == Preset.REVISION) today.plusDays(60) else first.plusDays(if (p == Preset.FOCUS) 4 else if (p == Preset.LATE_START || p == Preset.RUN_OVER || p == Preset.ADD_EVENT || p == Preset.CANCEL) 0 else if (p == Preset.GUESTS) 0 else if (p == Preset.AWAY) 2 else 1), emptyMap(), if (p == Preset.ASSIGNMENT || p == Preset.FOCUS || p == Preset.REVISION) listOf(mapOf("title" to "")) else emptyList())
                             modPreview = null; modRec = emptyMap(); modMessage = null; screen = Screen.MOD_FORM
                         },
                         onRemove = { r -> scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).remove(r.id); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++; modMessage = "Removed." } },
-                        onAdmin = { screen = Screen.ADMIN }, onEssentials = { essUi = essUi.copy(message = null); screen = Screen.ESSENTIALS }, message = modMessage, dropped = modDropped, onBack = { screen = Screen.SETUP })
+                        onAdmin = { screen = Screen.ADMIN }, onEssentials = { essUi = essUi.copy(message = null); screen = Screen.ESSENTIALS }, message = modMessage, dropped = modDropped, onBack = { screen = if (modifyFromHome) Screen.HOME else Screen.SETUP; modifyFromHome = false },
+                        onQuick = { inst ->
+                            modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                            scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) }     // one tap to the preview
+                        })
                     Screen.MOD_FORM -> modDraft?.let { draft ->
                         ModifyFormScreen(draft, clock.toLocalDate(), modPreview, modRec, modMessage,
                             onChange = { modDraft = it; modPreview = null },
@@ -746,10 +824,24 @@ class MainActivity : ComponentActivity() {
                                     val now = ZonedDateTime.now(LONDON)
                                     scope.launch(Dispatchers.IO) {
                                         val repo = app.efa.data.ModifierRepo(db)
-                                        val len = if (p.compiled.dayOffDates.isNotEmpty()) repo.periodOffWall(p.compiled.dayOffDates.size, now, p.compiled.dayOffDates.first() == now.toLocalDate()) else efa.WallLength.IMPORT_LOOSEN
-                                        val doApply = { scope.launch(Dispatchers.IO) { try { repo.apply(draft, ZonedDateTime.now(LONDON), len); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++; modMessage = "Applied."; withContext(Dispatchers.Main) { screen = Screen.MODIFY } } catch (e: Exception) { modMessage = "Not applied: ${e.message}" } }; Unit }
+                                        val changes = app.efa.data.ChangeRepo(db); val doors = app.efa.data.DoorRepo(db)
+                                        val cls = changeClassOfPreset(draft.preset, p.wallNeeded)
+                                        val decision = decideChange(changes.history(), cls, false, now.toInstant(), changes.installedAt())
+                                        val obligation = obligationMinutesOf(draft, p.compiled)
+                                        val door = if (obligation > 0) doors.decide(obligationDoor(if (draft.preset == Preset.PERIOD_OFF) Door.DAY_OFF else Door.RECOVERY, now.toInstant(), obligation), now.toInstant()) else null
+                                        if (decision is ChangeDecision.Locked) { modMessage = decision.reason; return@launch }
+                                        if (door is DoorDecision.Locked) { modMessage = door.reason; return@launch }
+                                        var len = if (p.compiled.dayOffDates.isNotEmpty()) repo.periodOffWall(p.compiled.dayOffDates.size, now, p.compiled.dayOffDates.first() == now.toLocalDate()) else efa.WallLength.IMPORT_LOOSEN
+                                        if (decision is ChangeDecision.Wall) len = maxOf(len, decision.length)
+                                        if (door is DoorDecision.Open) len = maxOf(len, door.wallLength)
+                                        val needsWall = p.wallNeeded || decision is ChangeDecision.Wall
+                                        val doApply = { scope.launch(Dispatchers.IO) { try {
+                                            val id = repo.apply(draft, ZonedDateTime.now(LONDON), len)
+                                            if (cls == ChangeClass.LOOSEN || cls == ChangeClass.MOVE) changes.record(cls, false, id)          // CE3, CE4: counted like an import
+                                            if (obligation > 0) doors.record(obligationDoor(if (draft.preset == Preset.PERIOD_OFF) Door.DAY_OFF else Door.RECOVERY, java.time.Instant.now(), obligation))          // DP2
+                                            BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++; modMessage = "Applied."; withContext(Dispatchers.Main) { screen = Screen.MODIFY } } catch (e: Exception) { modMessage = "Not applied: ${e.message}" } }; Unit }
                                         withContext(Dispatchers.Main) {
-                                            if (p.wallNeeded) { wallBack = Screen.MOD_FORM; wallLength = len; wall = Triple("Apply ${draft.preset.label}", p.compiled.loosening.joinToString(". ") + ". Type the characters below by hand to apply it.", { doApply() }); screen = Screen.GATE } else doApply()
+                                            if (needsWall) { wallBack = Screen.MOD_FORM; wallLength = len; wall = Triple("Apply ${draft.preset.label}", (p.compiled.loosening.joinToString(". ").ifBlank { (decision as? ChangeDecision.Wall)?.reason.orEmpty() }) + ". Type the characters below by hand to apply it.", { doApply() }); screen = Screen.GATE } else doApply()
                                         }
                                     }
                                 }

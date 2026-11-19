@@ -105,6 +105,7 @@ object SleepCollector {
             try { LectureCodeAlarm.refresh(app) } catch (e: Exception) { /* the next reminder is set on the next minute (X7) */ }
             try { PhotoAlarm.refresh(app) } catch (e: Exception) { /* the next reminder is set on the next minute (X7) */ }
             try { EventReminderAlarm.refresh(app) } catch (e: Exception) { /* the next reminder is set on the next minute (X7) */ }
+            try { MealCheckAlarm.refresh(app) } catch (e: Exception) { /* the next question is set on the next minute (X7) */ }
             if (ticks % 10 == 0) repo.rollup(Instant.now())
         }
         if (screenOff && ticks % 10 == 5) sampleLight(app, repo)

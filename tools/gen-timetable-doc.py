@@ -8,15 +8,18 @@ tt = open('core/src/main/kotlin/efa/TimetableCsv.kt', encoding='utf-8').read()
 types = re.search(r'val EVENT_TYPES = listOf\((.*?)\)', tt).group(1)
 types = ', '.join(t.strip().strip('"') for t in types.split(','))
 
+pre = re.search(r'val FILE_PRESETS: List<Preset> = listOf\((.*?)\)\s*$', tt, re.M).group(1)
+presets = ', '.join(p.strip().split('.')[-1].lower() for p in pre.split(','))
+
 block = src[src.index('val TIMETABLE_AI_PROMPT'):src.index('.joinToString("\\n")')]
 lines = re.findall(r'^\s+"(.*)",?\s*$', block, re.M)
-prompt = '\n'.join(l.replace('${CSV_COLUMNS.joinToString(",")}', cols).replace('${EVENT_TYPES.joinToString(", ")}', types).replace('\\"', '"') for l in lines)
+prompt = '\n'.join(l.replace('${CSV_COLUMNS.joinToString(",")}', cols).replace('${EVENT_TYPES.joinToString(", ")}', types).replace('${FILE_PRESETS.joinToString(", ") { it.id }}', presets).replace('\\"', '"') for l in lines)
 
 ex_block = src[src.index('val TIMETABLE_EXAMPLE_CSV'):]
 ex_lines = [l for l in re.findall(r'^\s+(CSV_COLUMNS\.joinToString\(","\)|".*"),?\s*$', ex_block, re.M)]
 example = '\n'.join(cols if l.startswith('CSV_COLUMNS') else l.strip('"') for l in ex_lines)
 
-doc = f'''# Timetable CSV, version 1
+doc = f'''# Timetable CSV, version 2
 
 One format, read the same way on every platform (ledger IM1 to IM3). Spark checks the whole file before it changes anything. A file with
 any error is rejected as a whole, and each error names the line and the column.
@@ -35,18 +38,18 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 
 | Column | Used by | Meaning |
 | --- | --- | --- |
-| kind | all | `event`, `deadline`, `period` or `replace` |
+| kind | all | `event`, `deadline`, `period`, `replace`, `modifier`, `anchor` or `keep` |
 | date | all | `2026-11-02` or `02/11/2026`. For a period, the first day. |
 | end_date | period | The last day. A period is 1 to 14 days. |
 | start | event, deadline, replace | `09:00`, 24-hour UK time. For a deadline, the time it is due. |
 | end | event, replace | `10:00`. After the start, on the same day. |
 | title | all | Up to 120 characters. Required for event and deadline. |
-| type | event, period | Event: {types}. Period: `assignment_week` or `catch_up_week`. |
+| type | event, period, modifier | Event: {types}. Period: `assignment_week` or `catch_up_week`. Modifier: {presets}. |
 | venue | event | The building and room, as on the timetable. Spark matches it to its venue directory (L4). |
 | heaviness | deadline | A whole number 1 to 10. Empty means 5 (D2). |
 | study | event | `standard`, `light` or `none`. Empty means standard for an added lecture or tutorial, otherwise none (D1). |
 | action | event | Empty or `add`, or `cancel`. |
-| notes | event | Free text. |
+| notes | event, modifier, anchor | Event: free text. Modifier: `key=value;key=value`. Anchor: `winddown_min=45`. |
 
 ## What a file can and cannot do
 
@@ -56,6 +59,9 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 - **Replace** (`kind` replace, with a date, start and end) takes away everything planned in that time on that day, meals, walks, planning and sleep
   included, and the events of the same file stand in its place. It asks for the typed wall, and the preview names what it removes (RP2). It cannot
   take in the wake, and it works on one day at a time.
+- A **modifier** row is a preset with its dates, checked like the same preset planned in the app (the same guard rails and the same wall). An **anchor** row is a night
+  (lights out and wake, 8 hours at least). A **keep** row protects a time on a day from a replace in the same file (IX6). A file with these is version 2; a version 1
+  file is read the same way.
 - A **reminder** is an event of type `reminder`: it sounds a notification at its start, may sit on top of anything and takes no time from
   anything (RP1).
 - A file **cannot** create, shorten or remove a study block, a meal, sleep or a day off as an event type. Those types are refused. A day off and a

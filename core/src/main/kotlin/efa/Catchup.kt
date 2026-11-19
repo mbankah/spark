@@ -40,3 +40,16 @@ fun missedCatchUps(
                 // Z4: after a bad night the reason says so, with what it costs, for example "Bad night, missed Randomness lecture, Buffer -1.0h"
                 if (ds.plannedDay in badNightDays) "Bad night, missed $label, Buffer -${fmt1(hours)}h" else "Missed $label")
         }
+
+/**
+ * BK1: inside a catch-up span a missed-lecture catch-up is due at the span's end, so the backlog can be spread over the days. Outside any span D5 stands (BK4).
+ * Coursework and exam dates are tasks, not catch-ups, so they are never moved (BK3). When the span ends the items fall back to their D5 date, which is
+ * earlier than now, so they show as due and a re-plan is offered (BK5).
+ */
+fun catchUpDueInSpan(items: List<CatchUp>, spans: List<Instance>, now: ZonedDateTime, base: List<PatternSlot>, zone: java.time.ZoneId = LONDON): List<CatchUp> {
+    val today = now.toLocalDate()
+    val active = spans.filter { it.preset == Preset.CATCH_UP && !today.isBefore(it.start) && !today.isAfter(it.end) }
+    if (active.isEmpty()) return items
+    val end = active.maxOf { endOfDayCutoff(base, it.end, zone) }
+    return items.map { if (it.due.isBefore(end)) it.copy(due = end) else it }
+}

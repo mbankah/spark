@@ -300,7 +300,7 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E59 | Add two assignments due within three days, order Auto. | Their sessions alternate on the same days. Far apart, they run one after the other. |
 | E60 | Period off for a weekend, with Gym as a window block. Apply, typing the wall. | Work and lectures are off, the gym block is placed, the dishes, chores, Bible reading and meals stay. Days off count toward the 30 day tally. |
 | E61 | Focus week, hybrid on, for a week in the holidays. | The project sessions fill the daytime and the evenings stay free. Lectures are off. Turning hybrid off keeps the lectures. |
-| E62 | Catch-up week with rapid notes. | At least 3 study slots a day counting lecture cycles, named by module, each shorter. |
+| E62 | Catch-up week with rapid notes. | Whole study blocks by module, each shorter, at least 3 a day counting lecture cycles or the day says why not. |
 | E63 | Admin library, Standard. | Jobs appear in free time, spread over the week, none over a meal, sleep or the night, none past the daily cap. Jobs with no room are listed with their day. Turning on "May trim work" asks for the wall. |
 | E64 | Essentials, Open the add window, type the wall, add three apps. | A fourth is refused. After 5 minutes the window is closed. An added app is never blocked in a work block. Try to block Phone or Maps from the block list: it is refused with the app named. |
 
@@ -334,3 +334,49 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E92 | Set a wake time earlier than the card's normal alarm. | It is set with no wall. It never rings sooner than 3 hours after you fall asleep. |
 | E93 | Set a wake time, then press Use the normal alarm. | The card goes back to the normal alarm, with no wall. |
 | E94 | Ask for a wake time later than 12:00, or on a planned day off. | Past 12:00 it says the latest alarm is 12:00. On a day off there is no alarm at all. |
+| E95 | Modify Schedule, Catch-up week. Choose 3 days from tomorrow, look at the Starts at and Ends at times, then Preview. | There is a time at each end. The preview shows three tiles (study a day with what it was, study cycles with hours of notes, free time with what it was) and a bar for each day. Football, lectures, meals and church are where they were. The study blocks are whole blocks named by module, each followed by a short reset. |
+| E96 | Apply that catch-up week and open the schedule page for one of its days. | The day shows the study blocks as ordinary blocks with the steps of the time (video or slides, reading, notes, practice, error log). Removing the catch-up week puts the days back as they were. |
+| E97 | Modify Schedule, Late start, tomorrow, the day starts at 12:15. Preview. | It says breakfast is dropped and what moved, and that this needs the wall. The morning routine starts at 12:15, lunch moves within its window, and a commitment before 12:15 is shown as missed, not moved. |
+| E98 | Late start at a time that runs into a lecture. | It is refused with the lecture named, and the day is left as it is. |
+| E99 | Lecture-free lighter period with 2 study blocks a day. | The preview shows the hours a day, the study cycles, the hours of notes and the free time, not only the settings. |
+| E100 | Apply a late start, then plan a day off on the same date. | The day goes back to the normal plan with the day off on it: every meal is still there. |
+| E101 | Modify Schedule, Right now, Start the day from now, in the afternoon. | A preview says the day starts at the time it is, to 5 minutes. Breakfast is not offered. Lunch is placed, not dropped. The wall is asked for only if something is shortened or dropped. After applying, the schedule shows wake, Bible and the rest from now, and what was planned earlier today is missed. |
+| E102 | Right now, +30 min, while you are in a meal block. | The preview says what you are doing runs until the new time and that free time is used first. Dinner and the evening stay where they still fit. Applying it moves the rest. |
+| E103 | Running over by 60 minutes when a football session starts in 30. | The preview says the session starts before then and is not moved. |
+| E104 | Set Running over twice on one day. | The second is refused until the first is removed. |
+| E105 | Modify Schedule, Right now, Put it in the day. Add Birthday dinner 17:30 to 19:00, then Preview. | The event is in the preview. Dinner and the chore after it move inside their windows, and nothing is lost. No wall unless work is shortened. |
+| E106 | Add an event over a lecture, over Shutdown, and over Wake. | Each is refused, naming what it overlaps. |
+| E107 | Start the day from now when a lecture starts in 40 minutes. | Breakfast is dropped and the Bible is cut to 10 minutes, and it says so. If even that cannot fit it is refused and says what is in the way. |
+| E108 | Modify Schedule, Something is cancelled, words from a lecture's title, a day this week. | The preview says it is cancelled and its time is free, asks for the wall, and makes no work. Meals and sleep are as they were. |
+| E109 | Recovery for 3 days at 1 hour of work a day. | Routine, meals and lectures stay, work is held to 1 hour a day, and the hours set aside come back as work due the day after. |
+| E110 | Away for 3 days. | Lectures pause, work is lighter, Travel out is on the first day and Travel home on the last, and missed lectures come back as work unless they are not running. |
+| E111 | Guests tomorrow evening, with the default preparation. | Preparation jobs are placed in free time over the days before, the visit is the evening, tidying follows. A job with no room is said. |
+| E112 | Revision with two exams. | Sessions are planned backwards from each exam, interleaved, ending the day before. Removing it takes the sessions and the hours away. |
+| E113 | Ten minutes after lunch ends, with the screen off. | A notification asks "Did you eat?" with Ate and Not yet. Not yet asks again in 30 minutes, three times at most. Ate stops it. The home screen shows the same question with the same answers. |
+| E114 | On the home screen, tap Change. | Modify Schedule opens at Right now. Back returns to the home screen, not to Setup. |
+| E115 | On the home screen there is no Change button. In a running block, tap Running over or Started late on the Now card. After 21:00, tap Bed later tonight. | Running over opens Modify Schedule at Right now. Started late opens the day-from-now preview. Bed later tonight opens the Sleep later or earlier form. Nothing changes until you apply. |
+| E116 | Swipe left twice from the home screen. | The third page, Work it out: today looks like (confirm it once), the what-if for tonight, the winter vacation, how are you, park an idea, your rewards, cannot sleep, your data and help. |
+| E117 | Work it out, set lights-out 02:40 and wake 11:00, tap Work it out, then Open it to apply. | The preview says 8.0h of sleep, moves the shutdown, and starts the next morning at 11:00. Applying it sets the alarm to 11:00. A lecture before 11:30 is refused by name. |
+| E118 | Add an event 00:00 to 00:50 on tonight's date with After midnight on. | Refused before the night is applied ("would be in the night"); accepted after. |
+| E119 | Open WhatsApp for 10 minutes, then try again. | It opens. After 10 minutes the blocked card says it opens 10 minutes at a time and shows when the cooldown ends (30 minutes). A call in WhatsApp is not cut off. The wall opens it for 30 minutes. |
+| E120 | Choose a timetable file, then Replace my plan for these days. | The preview says what it takes (work blocks) and needs the wall; Add to my plan only adds. The meter shows the week's imports, moves and loosening. A sixth import in a week says it is closed for 24 hours. |
+| E121 | Remove an import within 24 hours. | No wall is asked, and the count comes back. |
+| E122 | Work it out, Back up now. Uninstall nothing; open Downloads/Spark. | A spark-backup file is there. Restore from a backup file asks first, keeps a safety copy, and restarts Spark. |
+| E123 | Work it out, This doesn't work. | A report is saved in Downloads/Spark/reports. Nothing is uploaded. |
+| E124 | Grant the permission once (adb shell pm grant app.efa android.permission.WRITE_SECURE_SETTINGS), then wait for the hour before lights-out. | The screen goes grey. It returns to colour after the wake. Without the permission nothing changes. |
+| E125 | Start a catch-up span covering today with a missed lecture waiting. | The missed catch-up is due at the end of the span. Removing the span gives back its own date. |
+| E126 | On the home screen, tap Call 999, NHS 111 or Share where I am. On a blocked card, tap Phone or Maps and taxi. | The dialler opens with the number ready (you press call); the share sheet opens with a map link. Nothing asks a question and a lockdown does not stop it. |
+| E127 | Work it out, I am out, 2h, while away from home. At home, or with no location, try the same. | Away: "Out until HH:MM"; blocking and the night rule are paused until then or until you tap I'm back. At home: "out does not apply" and nothing changes. |
+| E128 | Work it out, your reminders: add a reminder a minute ahead. | A notification with Taken and Not taken at that time. The answer is listed under the reminders. It gives no advice. |
+| E129 | Work it out, Lite on. | The home shows Now, the next two things and the phone state; no Buffer, no money. Lite off brings it all back. |
+| E130 | Work it out, Feel the patterns. | Six different buzz patterns, one after another. In the hour before lights-out you feel the goodnight pattern once, and hear one line if the voice is on. |
+| E131 | Work it out, Permissions. | Each permission shows On or Off with a button to its setting; Check again refreshes it. |
+| E132 | Work it out, Set the family home to where I am, at the family home. | Within about 15 minutes the day type reads Home study day on a day with no lectures. |
+| E133 | Build the APK on a machine with a different debug key. | The build refuses, saying the key changed and an update would lose your data. |
+| E134 | Work it out, Break glass, once the weekly pool is used up or a lockdown is on. | The 150 character string is asked for. After it, this week's lockdown is lifted. A second use inside 30 days says it was used. |
+| E135 | Modify Schedule, Period off with a screen-time limit of 30. Open an app on your block list on the first day. | It opens, then closes after 30 minutes with "Your screen-time limit for today is spent", until midnight. The wall opens it for the usual allowance. |
+| E136 | Work it out, NFC tags on, Register the Desk, tap a sticker. Then Run a routine, Study block, tap the sticker. | "Desk tag registered", then the Sit step shows done. With NFC off a tap does nothing and photos stay the proof. |
+| E137 | Work it out, Run a routine, Bible, tier Floor, Done on each step. | The routine finishes, a pattern buzzes, your reward is named and Today's wins says "Bible done." |
+| E138 | At 01:45, Work it out, what if lights-out 02:40 and wake 11:00, then add an event 02:15 to 02:32 with After midnight on. | The night is accepted as the night still running; the event is accepted before lights-out. |
+| E139 | Import a file with a `modifier` row (type lecture_free, three days). Apply. Open Modify Schedule. | The preview names the preset and the days; after Apply the span is listed as active. Importing the same file again says it is already imported. Removing the import removes the span. |
+| E140 | Import a file with an event over lunch. Apply. | Lunch moves out of the way inside its window; the event stands; a warning names anything that could not fit. |

@@ -101,6 +101,7 @@ class BlockerService : AccessibilityService() {
      * next time its window changes.
      */
     fun checkWindows(eventPackage: String? = null) {
+        BlockingState.inCall = try { (getSystemService(AUDIO_SERVICE) as android.media.AudioManager).mode.let { it == android.media.AudioManager.MODE_IN_COMMUNICATION || it == android.media.AudioManager.MODE_IN_CALL } } catch (e: Exception) { false }     // GT2: a call is never cut off
         val packages = LinkedHashSet<String>()
         eventPackage?.let { packages += it }
         try {
@@ -112,6 +113,8 @@ class BlockerService : AccessibilityService() {
         for (pkg in packages) {
             if (pkg == packageName || pkg == "com.android.systemui") continue
             if (BlockingState.decide(pkg) is Decision.Block) { show(pkg); return }
+            scope.launch { BlockingState.noteLimitOpen(applicationContext, pkg) }          // MX6
+            if (pkg in efa.WHATSAPP_PACKAGES) scope.launch { BlockingState.noteOpen(applicationContext, pkg) }          // GT2: the 10 minute window starts when it is opened
         }
     }
 

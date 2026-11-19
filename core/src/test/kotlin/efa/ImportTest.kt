@@ -541,6 +541,6 @@ class FormatDocTest {
 
     @Test fun `IM3 the prompt tells the AI the rules the reader enforces`() {
         for (phrase in listOf("Dates are year-month-day", "24-hour", "cancel", "1 to 14 days", "Do not guess")) assertTrue(phrase in TIMETABLE_AI_PROMPT, phrase)
-        assertEquals(TIMETABLE_FORMAT_VERSION, 1)
+        assertEquals(TIMETABLE_FORMAT_VERSION, 2)
     }
 }

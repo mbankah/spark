@@ -11,3 +11,6 @@ windows/publish/
 windows/**/bin/
 windows/**/obj/
 windows/extension/package.json.bak
+
+# Personal notes about the user: never commit
+private/

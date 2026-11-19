@@ -6,7 +6,10 @@ import java.time.LocalDate
 import java.time.ZonedDateTime
 
 /** What applying a file did (IM11). */
-data class Applied(val importId: Long, val overlay: Int, val tasks: Int, val periods: Int, val alreadyLogged: Boolean)
+/** IX6: the meta key a modifier from a file is remembered under: the hash of its row, then the import and modifier ids. */
+const val IMPORT_MOD_PREFIX = "impmod:"
+
+data class Applied(val importId: Long, val overlay: Int, val tasks: Int, val periods: Int, val alreadyLogged: Boolean, val modifiers: Int = 0)
 
 /** What the automatic step added this time (RS8). */
 data class AutoResult(val catchUps: List<TaskRow>, val conversions: List<OverlayRow>)
@@ -57,7 +60,7 @@ class PlanRepo(private val db: EfaDb) {
 
     /** Fingerprints of every row already stored, so offering the same row again changes nothing (IM8). */
     suspend fun known(): Set<String> =
-        (db.overlay().hashes() + db.periods().hashes() + db.tasks().sourceKeys().map { it.substringAfter(':') }).toSet()
+        (db.overlay().hashes() + db.periods().hashes() + db.tasks().sourceKeys().map { it.substringAfter(':') } + db.meta().withPrefix(IMPORT_MOD_PREFIX).map { it.key.removePrefix(IMPORT_MOD_PREFIX) }).toSet()
 
     suspend fun apply(v: Verification, name: String, fileHash: String, nowMs: Long, zoneId: String, summary: String): Applied = db.withTransaction {
         require(v.ok) { "a file with errors is never applied" }
@@ -78,11 +81,21 @@ class PlanRepo(private val db: EfaDb) {
             if (db.periods().insert(PlannedPeriodRow(startDate = r.start.toString(), endDate = r.end.toString(), kind = r.kind.csv, title = r.title,
                     rowHash = v.periodHashes[i], importId = id)) > 0) p++
         }
-        Applied(id, o, t, p, existing != null)
+        // IX6: a modifier a file carries is applied the way the app applies one, and remembered by its row fingerprint so the same file twice changes nothing (IM8)
+        var m = 0
+        for (mod in v.modifiers) {
+            if (db.meta().get(IMPORT_MOD_PREFIX + mod.hash) != null) continue
+            val mid = ModifierRepo(db).apply(mod.instance, java.time.Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.of(zoneId)), 0)
+            db.meta().put(MetaRow(IMPORT_MOD_PREFIX + mod.hash, "$id:$mid")); m++
+        }
+        Applied(id, o, t, p, existing != null, m)
     }
 
     /** IM12: takes an import's events, periods and untouched tasks away again. Work that already has proven minutes stays. */
     suspend fun removeImport(id: Long) = db.withTransaction {
+        db.meta().withPrefix(IMPORT_MOD_PREFIX).filter { it.value.startsWith("$id:") }.forEach { row ->
+            row.value.substringAfter(':').toLongOrNull()?.let { ModifierRepo(db).remove(it) }; db.meta().remove(row.key)
+        }
         db.overlay().deleteByImport(id); db.periods().deleteByImport(id); db.tasks().deleteByImport(id); db.imports().delete(id)
     }
 
@@ -101,6 +114,15 @@ class PlanRepo(private val db: EfaDb) {
             val row = TaskRow(title = c.title, dueMs = c.due.toInstant().toEpochMilli(), dueZone = c.due.zone.id, heaviness = c.heaviness, hoursEstimate = c.hours,
                 createdMs = nowMs, source = "missed", sourceKey = c.key, reason = c.reason)
             if (db.tasks().insertOnce(row) > 0) added += row
+        }
+        // BK1, BK5: inside a catch-up span a missed-lecture catch-up is due at the span's end, so the backlog can be spread over the days. When the span is over the D5 date stands again.
+        val spans = db.modifiers().all().filter { it.state == "active" }.mapNotNull { decodeInstance(it.instance) }.filter { it.preset == Preset.CATCH_UP }
+        val today = now.toLocalDate()
+        val spanEnd = spans.filter { !today.isBefore(it.start) && !today.isAfter(it.end) }.maxOfOrNull { endOfDayCutoff(slots, it.end, now.zone).toInstant().toEpochMilli() }
+        for (t in db.tasks().open().filter { it.source == "missed" }) {
+            val keep = "bk_orig:${t.id}"; val orig = db.meta().get(keep)?.toLongOrNull()
+            if (spanEnd != null && t.dueMs < spanEnd) { if (orig == null) db.meta().put(MetaRow(keep, t.dueMs.toString())); db.tasks().setDue(t.id, spanEnd) }
+            else if (spanEnd == null && orig != null) { db.tasks().setDue(t.id, orig); db.meta().put(MetaRow(keep, "")) }
         }
         // F7, Y5: personal football for this week and next, from tomorrow, before free time is turned into work.
         val tomorrow = now.toLocalDate().plusDays(1).atStartOfDay(now.zone)

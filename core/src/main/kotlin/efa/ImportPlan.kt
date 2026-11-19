@@ -10,6 +10,12 @@ data class NewWork(val key: String, val title: String, val hours: Double, val he
 /** One overlay slot to store with the fingerprint of the row that made it. */
 data class OverlayItem(val slot: PatternSlot, val rowHash: String)
 
+/** IX6: a modifier a file carries, checked against the calendar and ready to apply, with the fingerprint of its row (IM8). */
+data class ImportedModifier(val instance: Instance, val hash: String, val line: Int)
+
+/** Types the engine can move around an event (IX1): a meal, the routine, a chore. Study cycles, lectures, sleep and anything hard are never moved by a file. */
+val REFLOWABLE_TYPES = setOf("meal", "routine", "chore")
+
 /**
  * What a file would do, worked out without changing anything (IM5). [loosening] lists the reasons it needs the typed wall (IM6);
  * it is empty for a file that only adds. [before] and [after] are the Buffer now and with the file applied.
@@ -20,11 +26,11 @@ data class Verification(
     val alreadyImported: Int, val skippedPast: Int,
     val loosening: List<String>,
     val before: BufferState, val after: BufferState,
-    val adds: Int, val cancels: Int, val replaced: Int = 0,
+    val adds: Int, val cancels: Int, val replaced: Int = 0, val modifiers: List<ImportedModifier> = emptyList(),
 ) {
     val ok: Boolean get() = errors.isEmpty()
     val needsWall: Boolean get() = loosening.isNotEmpty()
-    val changesNothing: Boolean get() = overlay.isEmpty() && work.isEmpty() && periods.isEmpty()
+    val changesNothing: Boolean get() = overlay.isEmpty() && work.isEmpty() && periods.isEmpty() && modifiers.isEmpty()
 }
 
 private val DAY = DateTimeFormatter.ofPattern("EEE d MMM")
@@ -35,7 +41,7 @@ private val DAY = DateTimeFormatter.ofPattern("EEE d MMM")
  */
 fun verifyImport(
     parsed: ParsedImport, slots: List<PatternSlot>, known: Set<String>, work: List<DueWork>,
-    now: ZonedDateTime, zone: ZoneId = LONDON, hoursFor: (Int) -> Double = ::quickAddHours,
+    now: ZonedDateTime, zone: ZoneId = LONDON, hoursFor: (Int) -> Double = ::quickAddHours, reflow: Boolean = false,
 ): Verification {
     val errors = ArrayList(parsed.errors); val warnings = ArrayList(parsed.warnings)
     val overlay = ArrayList<OverlayItem>(); val newWork = ArrayList<NewWork>()
@@ -85,6 +91,7 @@ fun verifyImport(
         for (o in here.filter { r.type != REMINDER_TYPE && it.slot.type != REMINDER_TYPE && it.slot.startMin < r.endMin && it.slot.endMin > r.startMin }) {
             when {
                 o.slot.type == "free" -> {}
+                reflow && o.slot.type in REFLOWABLE_TYPES -> {}                       // IX1: the engine lays the day out around the event, so a meal or the routine gives way
                 o.slot.type in CUTTABLE_WORK -> loosening += "${r.title} on ${DAY.format(r.date)} takes time from ${o.slot.title}"
                 else -> { errors += ImportIssue(r.line, "start", "Overlaps ${slotText(o.slot)} on ${r.date}. Change the time, or cancel that one in the same file if it has moved."); bad = true }
             }
@@ -111,12 +118,25 @@ fun verifyImport(
         periods += r; periodHashes += h
     }
 
+    // IX6: modifiers the file carries are checked like any modifier in the app: the same preview, the same guard rails, the same loosening
+    val mods = ArrayList<ImportedModifier>()
+    for (r in parsed.rows.filterIsInstance<ModifierImport>()) {
+        val h = r.hash()
+        if (h in known) { already++; continue }
+        val clash = modifierConflicts(r.instance, mods.map { it.instance })
+        if (clash.isNotEmpty()) { errors += ImportIssue(r.line, "", clash.joinToString(" ")); continue }
+        val pv = previewOf(r.instance, cur, work, now, zone)
+        if (!pv.canApply) { errors += ImportIssue(r.line, "", pv.problems.joinToString(" ")); continue }
+        loosening += pv.compiled.loosening
+        mods += ImportedModifier(r.instance, h, r.line)
+    }
+
     val extra = newWork.map { DueWork(it.title, it.hours, it.heaviness, it.due) }
     val before = bufferNow(now, studyCycles(slots, now) + work, slots, shortSleep = false)
     val after = if (errors.isNotEmpty()) before else bufferNow(now, studyCycles(cur, now) + work + extra, cur, shortSleep = false)
     return Verification(
         errors, warnings, overlay, newWork, periods, periodHashes, already, parsed.skippedPast, loosening.distinct(),
-        before, after, adds, cancels, replaced,
+        before, after, adds, cancels, replaced, mods,
     )
 }
 
@@ -129,6 +149,7 @@ fun Verification.summaryLines(): List<String> = buildList {
     val cycles = work.count { it.source == "import-cycle" }
     if (deadlines > 0) add("$deadlines deadline${if (deadlines == 1) "" else "s"} added")
     if (cycles > 0) add("$cycles study block${if (cycles == 1) "" else "s"} due for new lectures")
+    if (modifiers.isNotEmpty()) add(modifiers.joinToString(", ") { "${it.instance.preset.label} ${DAY.format(it.instance.start)}${if (it.instance.end != it.instance.start) " to ${DAY.format(it.instance.end)}" else ""}" })
     if (periods.isNotEmpty()) add(periods.joinToString(", ") { "${it.kind.label} ${DAY.format(it.start)} to ${DAY.format(it.end)}" })
     if (alreadyImported > 0) add("$alreadyImported row${if (alreadyImported == 1) "" else "s"} already imported, skipped")
     if (skippedPast > 0) add("$skippedPast row${if (skippedPast == 1) "" else "s"} in the past, skipped")

@@ -1,6 +1,6 @@
 package efa
 
-const val TIMETABLE_FORMAT_VERSION = 1
+const val TIMETABLE_FORMAT_VERSION = 2
 
 /**
  * The text an AI is given to build a file (IM3). The app copies it from here, docs/TIMETABLE_CSV.md holds the same text, and a test fails
@@ -13,7 +13,7 @@ val TIMETABLE_AI_PROMPT: String = listOf(
     "- The first line is exactly: ${CSV_COLUMNS.joinToString(",")}",
     "- One row per line, with every cell present. Leave a cell empty if it is not used. Put a cell in double quotes if it has a comma in it.",
     "- Dates are year-month-day, like 2026-11-02. Times are 24-hour, like 09:00. All times are UK time.",
-    "- kind is event, deadline, period or replace.",
+    "- kind is event, deadline, period, replace, modifier, anchor or keep.",
     "",
     "event: a fixed commitment on one date",
     "- Needs: date, start, end, title, type. Optional: venue, study, action, notes.",
@@ -31,6 +31,16 @@ val TIMETABLE_AI_PROMPT: String = listOf(
     "",
     "replace: take everything planned in a time away and put this file's events there instead",
     "- Needs: date, start, end (the same day, end after start). Optional: title. The events of the same file stand in its place. It needs the typed wall in the app, so use it only when I ask to replace part of a day.",
+    "",
+    "modifier: one of the app's modifiers for a stretch of days (format version 2)",
+    "- Needs: date (first day), end_date (last day), type. Optional: start and end (the times on the first and last day), notes as key=value;key=value.",
+    "- type is one of: ${FILE_PRESETS.joinToString(", ") { it.id }}. Leave notes empty unless I give you the setting.",
+    "",
+    "anchor: when one night starts and ends",
+    "- Needs: date (the evening the night starts), start (lights out), end (wake). A night is at least 8 hours. Optional: notes as winddown_min=45.",
+    "",
+    "keep: protect a time from a replace in the same file",
+    "- Needs: date, start, end (the same day, end after start). Optional: title.",
     "",
     "Do not guess. If a date, time or type is not in what I give you, leave that row out.",
 ).joinToString("\n")

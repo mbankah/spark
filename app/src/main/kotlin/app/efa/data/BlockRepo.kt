@@ -77,6 +77,9 @@ class BlockRepo(
             val venue = places.pointFor(ds.slot.venue)
             val home = places.home()
             loc = locate(fix, venue, home)
+            // PL2: while an Away span covers the day the place check is off. It is not silent: the proof is the weaker kind.
+            val away = db.modifiers().all().filter { it.state == "active" }.mapNotNull { decodeInstance(it.instance) }
+            if (placeChecksExempt(ds.plannedDay, away)) loc = LocationResult.AWAY_FROM_HOME
             if (fix != null && venue != null) band = distanceBand(haversineM(fix.lat, fix.lon, venue.first, venue.second))
         }
         val dup = isReusedPhoto(processed.fingerprint, db.photos().fingerprints())

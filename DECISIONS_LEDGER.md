@@ -61,7 +61,7 @@ The weekly pattern comes from your Master Plan (week type B, the template for we
 | D2 | Manual deadlines (assignments, exams, project dates) are added the moment you learn of them through quick-add on the lock screen or home screen: title, deadline and heaviness slider, with defaults so it takes seconds. | Locked |
 | D3 | A Check Canvas button in quick-add opens the Canvas app so you can see what you have. The app cannot read Canvas. An optional calendar feed import can come later. | Locked |
 | D4 | Hard alarms: exams, paid MyTutor sessions and anything else you mark. Lectures, tutorials and training are not hard alarms. | Default |
-| D5 | A lecture missed because of bad sleep stays missed. The catch-up (the recording, at the lecture's length) is added to the Buffer and is due by the end of the next day. The study cycle is still due. | Catch-up deadline: Default |
+| D5 | A lecture missed because of bad sleep stays missed. The catch-up (the recording, at the lecture's length) is added to the Buffer and is due by the end of the next day. The study cycle is still due. Inside a catch-up span the catch-up is due at the span's end (BK1). | Catch-up deadline: Default |
 | D6 | In weeks with no deadlines the Buffer shows "no deadline" and not a huge misleading number. | Default |
 | D7 | Coursework dates, exam dates, CS Project deadlines and the IMC hackathon date are unknown and entered by hand. | Locked |
 
@@ -597,7 +597,6 @@ Added on 23 October 2026 after your point that the app must not grow without lim
 | LA13 | Whole-app battery use stays at or under about 5% of the battery per day, measured on your phone. The overnight sleep service is included. | Default |
 | LA14 | Launcher acceptance tests: 100 reboots with the launcher and blocking starting each time, every route in LA8, essentials one tap away, the digest complete, and the launcher usable with no network. | Locked |
 
-The ledger has no Open items. Lines marked Default here are still to be confirmed by you.
 
 ## 23. Widgets
 
@@ -646,7 +645,7 @@ Added on 29 October 2026 at your request. The timetable can adapt from a CSV fil
 | IM3 | A table an AI can use to build the file is in `docs/TIMETABLE_CSV.md` with a ready prompt, and the app has a button that copies the same table and prompt. | Locked |
 | IM4 | The whole file is checked before anything is applied. Any error rejects the whole file, and each error says the line, the column and what to change. Nothing is guessed or fixed silently. | Locked |
 | IM5 | A preview comes before applying: what is added, what is cancelled, the Buffer before and after, and the warnings. Applying always asks. A file that arrives from another app never applies on its own. | Locked |
-| IM6 | A file can add and tighten freely. Anything that loosens needs the typed wall of 75 characters once for the file: cancelling a fixed commitment, or an event that takes time from a work block. A file can never create, shorten or remove a study block, a day off or a meal. | Locked; length Default |
+| IM6 | A file can add and tighten freely. Anything that loosens needs the typed wall of 75 characters once for the file: cancelling a fixed commitment, or an event that takes time from a work block. A file can never create, shorten or remove a study block, a day off or a meal. In Replace mode (IX5) a file may remove or shorten a study block, only inside its span and through the wall. | Locked; length Default |
 | IM7 | A deadline row is the same as quick-add (D2). A lecture or tutorial that a file adds creates its study cycle (D1), standard unless the file says light or none. | Locked |
 | IM8 | Importing the same row or the same file twice changes nothing the second time. | Locked |
 | IM9 | The reader accepts files up to 1 MB and 2000 rows, in UTF-8, with commas, semicolons or tabs, and quoted cells. It never calculates a cell, so a cell that starts with = + - or @ is only text. The file is read on the phone and sent nowhere. | Locked |
@@ -658,7 +657,7 @@ Added on 29 October 2026 at your request. The timetable can adapt from a CSV fil
 
 | # | Decision | Status |
 | --- | --- | --- |
-| PW1 | An assignment week and a catch-up week are planned periods (C1) of 1 to 14 days, from a file or in the app. A day off and a library period stay planned in the app, where a day off goes through its wall (H1). | Locked |
+| PW1 | An assignment week and a catch-up week are planned periods (C1) of 1 to 14 days in a file, and up to 28 days in the app's Modify Schedule (RF1, changed 16 Nov 2026). A day off and a library period stay planned in the app, where a day off goes through its wall (H1). | Locked |
 | PW2 | A period changes only the order in which work is placed: in an assignment week, deadline work comes before catch-up work when deadlines are equal, and in a catch-up week it is the other way round. It never moves a deadline, never removes work and never lowers a rule. | Default |
 | PW3 | Home says which period is running and when it ends, for example "Assignment week, until Fri 6 Nov". | Default |
 
@@ -694,5 +693,278 @@ Asked for by you on 15 November 2026: the wall allows for a small keyboard and b
 | QM1 | Quiet mode, a switch in Setup, holds every notification except essentials while the phone is in a work block or the night: held ones wait in the digest and show when the window ends, with no count. It never holds an essential (MG1), a call, an alarm, an authenticator code, a banking alert or a MyUoB notice (LA1), the phone's own packages (emergency alerts, system, permission and settings messages, Google Play services), ongoing notifications, group summaries, or the categories that are the phone working (navigation, progress, errors, system, services, status, media transport, stopwatch, voicemail, shared location), and never Spark's own. Getting ready, transitions and planning do not make the phone quiet. A night override or the end of the window lifts it. Turning it on is free; turning it off needs the typed wall (75 characters), because it lets notifications through again. Off until you turn it on. With it off, U8 is exactly as before. | Locked (Michael, 15 Nov 2026) |
 | SC3 | The schedule page has today at the top on its own, open, with the day's finished blocks folded into one line, and underneath it a carousel of the next 7 days after today, then the 7 after, and so on, each day a tap-to-open dropdown. The home screen's Now and Next cards are read from the same rows as the schedule page, so they show the same titles, rooms, work placed in each block and times, and a block that runs past midnight from yesterday's plan is on today's page and is the block you are in. A reminder never shows as Now or Next. | Locked (Michael, 15 Nov 2026) |
 | WT1 | You may choose when the next alarm rings, in Setup under Wake time, in steps of 15 minutes. It replaces onset plus 8 hours for that one morning. It can never be later than the 12:00 backstop (G2) or sooner than 3 hours after you fell asleep (Z2), a hard alarm still rings first (D4), and a planned day off still has no alarm. A time later than the one Spark would have set is a loosening and needs the typed wall (75 characters); an earlier or equal time is free. It is forgotten once the alarm has rung or is long past, and Use the normal alarm cancels it. The blocks you sleep through are missed as usual (W2, RS1): choosing a wake time moves the alarm and nothing else. | Locked (Michael, 16 Nov 2026) |
+
+## 27. The schedule reflows: modifiers are spans that lay the day out again
+
+Asked for by you on 16 November 2026. A modifier is not a pile of tasks laid over a fixed timetable. The schedule adapts to it as a whole, from any point in time, and the same way for every modifier: a late start, a catch-up week of three days, an assignment week. It amends MG7, MG8 and MG18 of docs/WEEK_TYPES_SPEC.md as RF1 and RF4 say.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| RF1 | A modifier is a span with a start and an end, each a date and a time, so it can begin this afternoon and end tomorrow noon. It is 1 to 28 days (MG8 said 1 to 14). A span that starts today never changes what has already passed, and a block that began before the span's start or ends after its end is left as it is. | Locked (Michael, 16 Nov 2026); 28 days is Default |
+| RF2 | Whatever the span does, these stay exactly where they are: lectures and tutorials still running, the lecture study cycles, matches, training, gym, church, MyTutor and errands, anything dated (imports, football, other modifiers' blocks), hard alarms, sleep, the protected free time (G3) and the walks and travel that go with them. A day on a planned day off is not touched. | Locked (Michael, 16 Nov 2026) |
+| RF3 | Devote: a span can give its days to whole study blocks by module. They are laid in the gaps the fixed things leave, each the chosen length (never under 45 minutes), with a reset after it, so a block is one block and never scattered in pieces. The ordinary work blocks and free time in the window become study; the project and code blocks too unless you turn that off. Meals, chores and the routine keep their place. Lecture cycles count toward the day's floor. A module has a cap a day. If the floor cannot fit, the day says how many blocks are missing and why. | Locked (Michael, 16 Nov 2026); 45 minutes and the reset are Default |
+| RF4 | A day can start at a time you choose, and everything movable follows. The morning routine runs from that time. A meal keeps its length and its place if it still fits, else it slides up to 1 hour earlier or 3 hours later but not past 21:30 and at least 2.5 hours after the meal before, else it is dropped and the preview says so. A day that starts after 13:00 has no breakfast. Work keeps its order and its length where there is room, is trimmed to no less than 30 minutes where there is not, and is dropped with the reason when there is none. A start that runs into a commitment is refused with the commitment named. Sleep and hard alarms never move. Anything dropped, and a start later than planned, is a loosening and needs the typed wall (IM6). This is how MG7 and MG18 read: a meal or the routine may move or be dropped only as this says. | Locked (Michael, 16 Nov 2026); the numbers are Default |
+| RF5 | In a catch-up span the floor of study blocks a day is always placed if it fits. The stretch is placed only while backlog is left to clear, so a clear backlog does not fill the week with more. | Default |
+| RF6 | Late start is a modifier of its own: choose the dates and the time the day starts, and it applies RF4 to each day. It cannot start at a time that has passed today. | Locked (Michael, 16 Nov 2026) |
+| RF7 | The same span, settings and calendar always give the same plan, for any length of span and any start. The commitments of RF2 are in the same place afterwards. A plan that breaks a guard rail cannot be applied. | Locked (Michael, 16 Nov 2026) |
+| RF8 | Every preview says what the span comes to in numbers, before and after: study and work hours over the days and a day, study cycles and hours of notes, lectures still on, free time, hours by module, and each day's hours and blocks. A block says how its time is spent (video or slides, reading, notes, practice, error log). | Locked (Michael, 16 Nov 2026) |
+| RF9 | A day laid out again is all or nothing. If part of it can no longer stand because the calendar changed (an import or a day off), the whole day goes back to the plan underneath, so a moved meal is never left cancelled with nothing in its place. Lectures the modifier cancelled stay cancelled. | Default |
+
+## 28. Re-plan the day from now
+
+Asked for by you on 18 November 2026, after going through situations: waking at 2 or 3pm and needing a plan, a last-minute change, and a task that runs over. Both use the reflow of section 27.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| RN1 | Late start can start the day from now, today only. The day starts at the current time rounded up to 5 minutes: wake, Bible and breakfast follow, then meals, work and free time, around your commitments. What was planned before now is already missed (W2, RS1) and its work comes back as ever. Starting later than planned gives nothing up that was not already given up, so it needs the typed wall only for what it drops or shortens, and a breakfast that is past is not one of them. When nothing has been eaten yet that day, the first meal may be placed as late as any meal (21:30) instead of being dropped. | Locked (Michael, 18 Nov 2026) |
+| RN2 | Running over: when what you are doing is taking longer, you say by how many minutes (5 to 180). What has started is not touched, nothing movable is laid before the new end, and the rest of today slides after it: free time is used first, then meals move inside their windows, then work is shortened to no less than 30 minutes or dropped, and each of those is said with the reason and needs the typed wall. A commitment inside the overrun stays where it is and the preview says so. Sleep and hard alarms never move. It is for today only, once a day; to run over more, remove it and set it again. Both are one tap from Modify Schedule under Right now, straight to the preview. | Locked (Michael, 18 Nov 2026) |
+| YP1 | One yield policy decides what gives way whenever time is short, for every modifier and every change to the plan. In order: free time that is not protected, resets, meals (slid inside their window, dropped last), the routine (breakfast first, then the Bible and the wake each cut to 10 minutes), chores (slid, never dropped), work (shortened to no less than 30 minutes, then dropped, and it returns as work, RS1). Never: sleep, hard alarms, commitments, protected free time. A refusal is the last step and says what is in the way and what it would need. Anything below the minimum, dropped or shortened is a loosening and needs the typed wall. | Locked (Michael, 18 Nov 2026); the order and the minimums are Default |
+| YP2 | Everything that changes the plan in the middle of a day goes through one entry, a disturbance: the day starts at a time or from now, a block runs over by some minutes, or time is taken by something new. Each is a choice of numbers on the same engine and the same policy. Add an event: a title, a type, a start and an end on one day; everything movable gives way around it by YP1, and it is refused over a commitment, sleep, the morning routine or the night routine, over a time that is already over, or with no title. It may take protected free time because it is your own choice. A start that falls inside a commitment that is running begins when that commitment ends, and says so. | Locked (Michael, 18 Nov 2026) |
+| YP3 | Every kind of disturbance, on every day of a month and at many times, either makes a plan that keeps every commitment and sleep where it was, or is refused with a reason. None goes silent. | Locked (Michael, 18 Nov 2026) |
+| YP4 | The rest of the family of changes to the plan is built on the same engine and policy, each a choice of numbers: **Something is cancelled** (time is freed: a lecture or commitment on one day that matches your words is not happening, its time becomes free, no work comes back from it, and it needs the typed wall; sleep, meals and the routine cannot be cancelled), **Recovery** (lighter days: routine, meals, lectures and sleep stay, work is held to a number of hours a day, and every hour set aside comes back as work due after the last day, so nothing disappears; typed wall), **Away** (lectures and tutorials pause, work is lighter, the way out and the way home are placed as events; lectures come back as work unless they are not running, which is a holiday; typed wall), **Guests** (the visit is the time spent with them, not the whole day; each preparation job is placed in free time before they arrive, closest days first, and a job with no free time is placed where the day can give way for it, else it is said that there is no room; tidying follows; a visit may be on a day off) and **Revision** (each exam planned backwards in short interleaved sessions, with the assignment planner). A transition that belongs to no commitment gives way to what is added. Events on one day are laid out together. | Locked (Michael, 18 Nov 2026); the numbers are Default |
+| MC1 | Ten minutes after a meal block ends Spark asks "Did you eat?" with two answers, Ate and Not yet, on the notification and on the home screen. Not yet asks again in 30 minutes, up to 3 asks; Ate closes it; a question nobody answered for 3 hours is dropped, not carried to the next meal. The bedtime drink is not asked about. It costs nothing, changes no plan and never needs the wall, because it is about your health. The answers are kept for a week. There is a switch in Setup. On by default. | Locked (Michael, 18 Nov 2026) |
+| HM1 | The home screen has no Change button, because a button that edits the plan invites changing it. What happened (running over, started late, out, going to bed later) is reported from the Now card and the evening, which is free (MX4). Everything else is changed in Modify Schedule, where the cost is shown (CE9). This replaces the Change button of 18 Nov 2026. | Locked (Michael, 19 Nov 2026) |
+
+The ledger has no Open items. Lines marked Default here are still to be confirmed by you.
+
+## 29. Anchors: the day's edges are data
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| SA1 | Every night has two anchors, lights-out and wake. Setup gives the defaults and any night or span can override them. Everything that depends on the night reads them: the night cutoff, the alarm, meal windows, the end of the planned day, and the guard rail. | Default |
+| SA2 | The guard rail "in the night" becomes: no non-free block before wake or after lights-out. It replaces the fixed 06:00 and 23:00. | Default. Amends MG guard rail |
+| SA3 | Lights-out to wake is at least 8 hours (N1 stays Locked). An anchor pair under 8 hours is refused. | Default, reuses N1 |
+| SA4 | Moving lights-out and wake together keeping 8 hours is a Reality change, free. Moving lights-out later alone is a Loosen and needs the wall. | Default |
+| SA5 | An anchor that hides a commitment (a lecture before the wake time) is refused naming the commitment, with the choices. | Default |
+| SA6 | A day with a clock change is 23 or 25 hours long and no block is lost or doubled. | Default |
+
+## 30. Change economy
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| CE1 | Changes have four classes: Reality, Add, Move, Loosen. The class comes from the effect on obligations in the preview, not from the screen. | Default |
+| CE2 | Reality and Add are free and unlimited. | Default |
+| CE3 | Move: 5 free a week, then a 25 character string. | Default |
+| CE4 | Loosen: the existing wall; the 3rd in a week longer; the 4th locks loosening until Monday 00:00. | Default |
+| CE5 | Imports: checking is free; applying has 2 free a week, then the short string, then a 24 hour cooldown on the 6th. | Default |
+| CE6 | The first 7 days after install count without locking. | Default |
+| CE7 | Break glass: once per 30 days, the longest string lifts one lockdown or cooldown. Logged. | Default; built: Work it out and the blocked card, once in 30 days, 150 characters |
+| CE8 | A restore point is written before every apply. Undo within 24 hours is free and refunds the count. | Default |
+| CE9 | The meter shows in Setup, Modify Schedule and the import preview, never on the home page. | Default |
+| CE10 | A change that loosens the economy takes effect after 24 hours. | Default; core only: no screen offers it yet |
+
+## 31. Plan sources: one path, merge or replace
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| IX1 | A file compiles to the same instances and goes through the same engine as Modify Schedule. There is one path. | Default; built: a file's events are laid out again with the same engine as Modify Schedule (`reflowEvents`): a meal, the routine or a chore gives way, what cannot fit is a warning, what is shortened is a loosening. Lectures, sleep and anything hard are never moved by a file |
+| IX2 | Two modes, chosen in the app: Add to my plan, or Replace my plan for these days. A file cannot choose. | Default |
+| IX3 | Add: commitments win, study blocks are never shortened, refusals have reasons. | Default |
+| IX4 | Replace covers the file's span. Sleep, hard alarms, meals, protected free time, the wall and anything marked keep stay. Obligations are re-placed and any shortfall is shown. | Default |
+| IX5 | Replace is a Move if every obligation fits and a Loosen if any is dropped. A file may remove or shorten a study block only in Replace mode, inside its span, through the wall. | Default. Amends IM6 (Locked): needs your yes |
+| IX6 | Format v2 adds `modifier`, `anchor` and `keep` rows; v1 files still read. | Default; built: `modifier` (ten presets), `anchor` and `keep` rows, checked with the same preview and guard rails as the app, applied as modifiers, remembered by row hash, removed with the import. A `keep` row protects its time from a Replace |
+| IX7 | A restore point is written on every apply. | Default |
+| IX8 | The preview shows placed, moved, refused, shortfall and the Buffer before and after. | Default |
+| IX9 | All platforms read the same file the same way, from shared fixtures. | Default; built: one set of fixtures in `core/src/test/resources/csv` is read by the Kotlin reader and by `web/check.js` |
+
+## 32. Backlog spread
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| BK1 | Inside a catch-up span a missed-lecture catch-up is due at the span's end. | Locked (Michael, 19 Nov 2026) |
+| BK2 | The backlog is spread oldest first and balanced by day, with the floor and stretch of RF5, and the shortfall is a number. | Default |
+| BK3 | Coursework dates, exam dates and hard alarms never move. | Default |
+| BK4 | Outside a span D5 is unchanged. | Default |
+| BK5 | A backlog left at the span's end falls back to D5 and a re-plan is offered. | Default |
+
+## 33. Place and time zone
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| PL1 | A span can set a time zone. Alarms, meals and lights-out use it. | Default; built: `BlockingState.zone` is the zone of the active Away span and the day, alarms, meal checks, the night rule and prompts read now in it |
+| PL2 | Attendance and place checks are exempt while Away covers the day, and the exemption is shown. | Default |
+| PL3 | Alarms are kept in absolute time across a zone change. | Default; built with PL1: the wake alarm is stored as an instant, so a change of zone does not move it |
+| PL4 | The clock change rule SA6 applies in every zone. | Default |
+
+## 34. Emergency and out
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| EM1 | An Emergency door (call, emergency call, location share, maps and taxi, bank, authenticator, health) is never gated and is on the home page, the blocked screen and the lock. | Default. Extends X1, LA1 |
+| EM2 | "I'm out until HH:MM" pauses blocking and the night rule only if the phone is not at the home point; the day reflows on return. | Default |
+| EM3 | Urgent messaging stays on the existing override (N3). It is not loosened here. | Default; no new code: the existing override stays |
+| EM4 | Break glass as CE7. | Default; built (CE7) |
+| EM5 | A lost-phone checklist is one screen on the PC and web view and the first-run screen. | Default |
+
+## 35. Modifiers are five effects
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| MX1 | A modifier is built from five effects: Demand, Supply, Event, Anchor, Policy. | Default |
+| MX2 | The thirteen presets stay as named recipes. | Default |
+| MX3 | A custom composer builds any combination with a preview. | Default |
+| MX4 | Reality reports are on the Now card and in the evening, and they are free. | Default |
+| MX5 | Stored instances migrate. Nothing is lost. | Default |
+| MX6 | Policy can set screen-time limits and the essentials list for a span, so a weekend off can still have limits. | Default; built: a screen-time limit setting on Period off |
+
+## 36. The interface
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| HS1 | The home page has modes by the moment: Morning, In a block, Between, Free, Wind-down, Night, Out, Paused. | Default |
+| HS2 | Each mode has one hero and at most four cards above the fold. | Default |
+| HS3 | Page 2 (Schedule) stays as it is. | Default |
+| HS4 | Page 3 is a what-if page that changes nothing until Apply. | Default |
+| HS5 | There is no Change button. | Locked (Michael, 19 Nov 2026) |
+| HS6 | The bottom row is a dock with icons: Phone, Messages, Maps, Camera, Bank. Setup is a small gear. | Default; built: drawn icons in the dock |
+| HS7 | Text is label and value only. No loose paragraphs. | Default; checked as far as a machine can: labels are short and sentence-free, steps are 90 characters at most; the rest is a design rule |
+| HS8 | Every refusal and empty state says what happened, why, and the next step. | Default; built: `refusalLine` writes every refusal in one place and a test checks each says what happened and when it ends |
+
+## 37. Continuity, retention, ideas and assurance
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| CT1 | A versioned backup file is written nightly and on demand to `Downloads/Spark/`. | Default |
+| CT2 | First run finds the newest backup and offers it with counts. | Default |
+| CT3 | A persistent release key signs every build; the build refuses a different signature. | Default |
+| CT4 | After a reinstall one screen lists every permission with a button to each. | Default |
+| CT5 | Android Auto Backup stays off. | Default |
+| LT1 | Lite mode shows three things for a chosen number of days; Spark offers it after three missed blocks. | Default |
+| LT2 | Fresh start re-plans from now with no red wall and no streaks. | Default |
+| LT3 | No blaming wording anywhere. | Default |
+| PK1 | A parking lot for ideas that change nothing, with a Sunday review. | Default |
+| PK2 | "This doesn't work" writes a local report to `Downloads/Spark/reports/`. | Default |
+| AS1 to AS7 | Scenario bank as tests, invariants over random plans, dead-end audit, device tests, real-phone checklist, traceability. | Default |
+
+## 38. Routines and steps
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| RT1 | A day is blocks, a block holds routines, a routine holds steps. | Default; the runner on the third page runs them one step at a time; nothing prompts them at their time yet |
+| RT2 | Every routine has three tiers (Full, Short, Floor). The floor is never dropped. | Default; the runner on the third page runs them one step at a time; nothing prompts them at their time yet |
+| RT3 | A step has a cue, an instruction, a time, a proof tier, a gate, a reward and a fallback. | Default; the runner on the third page runs them one step at a time; nothing prompts them at their time yet |
+| RT4 | Steps may run in parallel only where a routine declares it. | Default; the runner on the third page runs them one step at a time; nothing prompts them at their time yet |
+| RT5 | The yield policy picks the tier from time, sleep and context. | Default; the runner on the third page runs them one step at a time; nothing prompts them at their time yet |
+| RT6 | The Bible routine is first, always, with a floor of 10 minutes; breakfast is cut before it (your plan). | Locked (from your seed, kept by Michael 19 Nov 2026); the runner on the third page runs them one step at a time; nothing prompts them at their time yet |
+| RT7 | A new or changed routine has an observe week, then a suggest week, then it enforces. | Default; the runner on the third page runs them one step at a time; nothing prompts them at their time yet |
+| RT8 | Prompts fade by scaffold level: Guided, Cued, Tracked, Yours; they return when a habit slips. | Default; the runner on the third page runs them one step at a time; nothing prompts them at their time yet |
+
+## 39. Facts and proof
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| FB1 | Every signal becomes a fact on one bus. Everything that asks "was it done" reads the bus. | Default; partly: NFC taps and the routine runner write facts; photo, sleep and meal proofs are still separate stores |
+| FB2 | The proof ladder has five tiers: none, tap, sensor, NFC, photo. A step names the tier it needs. | Default; partly: NFC taps and the routine runner write facts; photo, sleep and meal proofs are still separate stores |
+| FB3 | A step is done if a fact of the needed tier is inside its window. | Default; partly: NFC taps and the routine runner write facts; photo, sleep and meal proofs are still separate stores |
+| FB4 | An ignored required proof leaves the step open, and its gate stays shut; when the window closes it is unproven: no reward, unconfirmed time, no blame. | Default; partly: NFC taps and the routine runner write facts; photo, sleep and meal proofs are still separate stores |
+| FB5 | A technical failure closes the step as not your fault (M10 stays). | Default; partly: NFC taps and the routine runner write facts; photo, sleep and meal proofs are still separate stores |
+| FB6 | NFC taps and sensor facts are accepted where the step names them. A tag read away from its place is flagged and accepted at lower confidence only. | Default; partly: NFC taps and the routine runner write facts; photo, sleep and meal proofs are still separate stores |
+| FB7 | Where two signals disagree, one strong or two weak are needed. | Default; partly: NFC taps and the routine runner write facts; photo, sleep and meal proofs are still separate stores |
+| FB8 | Photos stay the proof for now. NFC stickers are bought later and the NFC tier is already in the ladder, so a tag drops in without rework. | Locked (Michael, 19 Nov 2026) |
+
+## 40. Context and places
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| CX1 | One context record: place, day type, state, body, mood, phase. | Default |
+| CX2 | Places are named, with their own tags, Wi-Fi and routine variants: the flat, the family home, campus, library, church, pitch, shop. | Default |
+| CX3 | The day type is proposed from the calendar and place and confirmed once; you never assemble a day. | Default |
+| CX4 | You have two homes, and "home" in the location rules is whichever you are at. | Default |
+
+## 41. The gate and the door pool
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| GT1 | One gate decides what the phone allows, reading the day model, the context, the facts and the doors. No other part decides. | Default; built: one `decide` reads the day model, the cap, the screen limit, out, the allowances and the morning state; `RulesTest` shows each door closing or opening it |
+| DP1 | A door is any feature that relaxes a rule. They are listed in `COHERENCE_AND_BYPASS.md` s4. | Default |
+| DP2 | All doors draw from one pool in two units, obligation minutes removed and gate minutes lifted, over a rolling 7 days. | Default numbers: 600 obligation and 180 gate; a day off costs 240 obligation minutes, so a two day period off fits a fresh pool |
+| DP3 | Verifiable doors cost less than unverifiable ones. | Default; partly: the WhatsApp wall, the night override, a period off and the lighter modifiers draw from the pool; the other doors do not |
+| DP4 | At the cap, doors lock except the Emergency door, a verified ill day and break glass. Sleep protection is never relaxed by any door. | Default; partly: the pool locks the WhatsApp wall, the night override, a period off and the lighter modifiers; break glass lifts a lock |
+| DP5 | Precedence: safety, sleep, hard commitments, routine floors, study, free time, rewards. | Default; built: `Precedence` and `precedenceOf` own the order; a test shows free time gives way before study |
+| DP6 | A property test opens doors in every combination and order and shows the cap holds. | Default |
+| GT2 | WhatsApp is capped: it opens for 10 minutes at a time and then a cooldown follows (30 minutes). Ending the cooldown early needs the typed wall. An active call is never cut off. Messages (SMS) and phone calls are not capped. It applies at all times. It replaces the seed's open WhatsApp in Tier 0. Loosening the cap takes effect after 24 hours. | Locked (Michael, 19 Nov 2026); cooldown length Default |
+
+## 42. The coach and rewards
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| CO1 | One voice, one prompt at a time. | Default; built: one voice (Coach), one prompt at a time (20 seconds apart), routines prompted at their time by `RoutinePrompter` |
+| CO2 | Four prompt levels (haptic, spoken, notification, gate), never more, never repeated endlessly. | Default; built: feel, spoken, notification, then the gate that already holds for the block; each level once; it stops after half an hour |
+| CO3 | A fixed haptic vocabulary. | Default |
+| CO4 | Every prompt is one sentence with the verb first. | Default |
+| CO5 | An optional mood tap twice a day, used only for the review and to notice a run of low days. | Default |
+| CO6 | A run of low days shows two actions: Lite mode, and a people list (GP, the university's Mental Health and Wellbeing Service, Student Disability Service, NHS 111, Samaritans 116 123, Shout 85258). Spark never diagnoses. | Default; built on the Work it out page |
+| CO7 | A reward menu of five of your own, offered at random on a proven block or routine. | Default |
+| CO8 | No streaks, points, badges or red for a missed day. | Default |
+| CO9 | Today's wins: three true facts at wind-down. | Default |
+| CO10 | Three identity sentences you write, quoted back sparingly with a fact. | Default |
+| CO11 | A tone setting: Calm, Plain, Light. | Default |
+
+## 43. The sleep programme
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| SL1 | A 60 minute wind-down anchored to lights-out: tidy, soft screen, brain dump, tomorrow's fun, prayer and stretches, warm milk, dock, shutdown photo. | Default |
+| SL2 | Docking is a tag tap at the charger across the room; the night rule still applies if it is not done. | Default; built as an option: off by default, read only while Spark is open; photos stay the proof until it is on and a tag is registered |
+| SL3 | An Awake tap offers a list: up, low light, no phone, back at 20 minutes. | Default |
+| SL4 | "Tomorrow's fun" puts a night-time urge into a real slot tomorrow. | Default |
+| SL5 | A gradual shift moves wake earlier by 15 minutes every 2 to 3 days, never more than 30 in a day, with a morning light step. | Default; core only: no screen uses it yet |
+| SL6 | Your own reminders for medication and the like, logged as taken or not taken, with no advice from Spark. | Default |
+| SL7 | One 20 minute nap window before 15:00 after a night under 4 hours. | Default |
+| SL8 | Spark does not use sleep restriction. | Default |
+| SL9 | Greyscale and a warm screen at wind-down use a permission granted once from the PC (`adb shell pm grant app.efa android.permission.WRITE_SECURE_SETTINGS`). Without it a warm overlay is used and greyscale is skipped, with a note. | Locked (Michael, 19 Nov 2026) |
+
+## 44. Home and the university
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| HO1 | Home mode: no lectures, revision and project blocks, family meals as fixed events, a portable seat tag, a family-time window. | Default |
+| HO2 | The family home is a place with its own home point, Wi-Fi and tags. | Default; built: set the family home where you stand; Spark tells which home you are at about every 15 minutes |
+| HO3 | The winter vacation arc (14 Dec to 8 Jan) is a recommended recipe: land, holiday, ramp, final prep. | Default |
+| HO4 | A support card with the university's real routes: coursework extension (before the deadline), extenuating circumstances (after), Reasonable Adjustment Plan. | Default |
+| HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
+| HO6 | The calendar carries the university's real term dates. | Default |
+
+## 45. Voice and the manual
+
+Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| VG1 | Every message follows the voice rules in `MANUAL.md` s3. | Default; built: a test runs every routine step, support route, emergency line, lost-phone step and refusal through the banned-word check |
+| VG2 | The banned words are never used. | Default |
+| VG3 | The manual is kept in step with the app. | Default; process, with a test that the manual names every routine, every support route and the WhatsApp cap |
 
 The ledger has no Open items. Lines marked Default here are still to be confirmed by you.

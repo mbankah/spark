@@ -4,6 +4,11 @@ import android.content.Context
 import app.efa.data.BlockRepo
 import app.efa.data.BlockingRepo
 import app.efa.data.EfaDb
+import app.efa.data.LocationFix
+import app.efa.data.PlaceRepo
+import app.efa.data.MetaRow
+import app.efa.data.META_OUT_UNTIL
+import app.efa.data.META_COACH_WD
 import app.efa.data.META_FIRST_USE
 import app.efa.data.MorningRepo
 import app.efa.data.RewardsRepo
@@ -27,10 +32,49 @@ class Snapshot(
 
 object BlockingState {
     @Volatile var snapshot: Snapshot? = null; private set
+    /** GT2: the WhatsApp cap, when each capped app was last opened, and whether a call is on. Held in memory like the snapshot, so a window event is decided in microseconds. */
+    @Volatile var cap: AppCap = AppCap()
+    @Volatile var capStart: Map<String, ZonedDateTime> = emptyMap()
+    @Volatile var inCall: Boolean = false
+    /** EM2: when you said you are out until, and whether the phone is at home right now (null when the place is not known). */
+    @Volatile var outUntil: ZonedDateTime? = null
+    @Volatile var atHome: Boolean? = null
+    @Volatile private var lastPlaceCheck = 0L
+    /** MX6: the minutes a day the blocked apps get while a period off carries a limit (0 means none), and when each was first opened today. */
+    @Volatile var limitMin: Int = 0
+    @Volatile var limitStart: Map<String, ZonedDateTime> = emptyMap()
+
+    suspend fun noteLimitOpen(ctx: Context, pkg: String) {
+        val s = snapshot ?: return
+        if (limitMin <= 0 || pkg !in s.list) return
+        val now = now()
+        if (limitStatus(limitStart[pkg], now, limitMin).phase != LimitPhase.FREE) return
+        limitStart = limitStart + (pkg to now)
+        try { EfaDb.get(ctx).meta().put(app.efa.data.MetaRow("limit_start:" + pkg, now.toInstant().toEpochMilli().toString())) } catch (e: Exception) { }
+    }
+
+    /** GT2: opening a capped app starts its window, unless one is running or a cooldown is on. */
+    suspend fun noteOpen(ctx: Context, pkg: String) {
+        if (pkg !in cap.apps) return
+        val now = now()
+        if (capStatus(capStart[pkg], now, cap).phase != CapPhase.FREE) return
+        capStart = capStart + (pkg to now)
+        try { EfaDb.get(ctx).meta().put(app.efa.data.MetaRow(app.efa.data.META_CAP_START + pkg, now.toInstant().toEpochMilli().toString())) } catch (e: Exception) { /* X7: the window still runs in memory */ }
+    }
+
+    private suspend fun loadCap(db: EfaDb) {
+        val w = db.meta().get(app.efa.data.META_CAP_WINDOW)?.toIntOrNull()?.coerceIn(1, 120) ?: 10
+        val c = db.meta().get(app.efa.data.META_CAP_COOLDOWN)?.toIntOrNull()?.coerceIn(1, 480) ?: 30
+        cap = AppCap(windowMin = w, cooldownMin = c)
+        capStart = cap.apps.mapNotNull { p -> db.meta().get(app.efa.data.META_CAP_START + p)?.toLongOrNull()?.takeIf { it > 0 }?.let { p to java.time.Instant.ofEpochMilli(it).atZone(LONDON) } }.toMap()
+    }
     /** Tests move the clock here; the real service never sets it. */
     @Volatile var clockOverride: (() -> ZonedDateTime)? = null
 
-    fun now(): ZonedDateTime = clockOverride?.invoke() ?: ZonedDateTime.now(LONDON).plus(java.time.Duration.ofMillis(TimeTrust.correction()))      // G10
+    /** PL1, PL3: the zone the day is lived in: an Away span can set one, otherwise London. Alarms, meal checks, the night rule and the prompts all read "now" in it. */
+    @Volatile var zone: java.time.ZoneId = LONDON
+
+    fun now(): ZonedDateTime = clockOverride?.invoke() ?: ZonedDateTime.now(zone).plus(java.time.Duration.ofMillis(TimeTrust.correction()))      // G10
 
     suspend fun refresh(ctx: Context) {
         try {
@@ -45,6 +89,42 @@ object BlockingState {
             } catch (e: Exception) { android.util.Log.w("efa-plan", "automation skipped: ${e.message}") }
             val pattern = plan.slots()
             try { RewardsRepo(db).closeWeeks(pattern, db.meta().get(META_FIRST_USE)?.toLongOrNull() ?: now.toInstant().toEpochMilli(), now) } catch (e: Exception) { /* a week closes next minute */ }
+            try { loadCap(db) } catch (e: Exception) { /* keep the last cap state */ }
+            try { zone = zoneFor(now.toLocalDate(), db.modifiers().all().filter { it.state == "active" }.mapNotNull { decodeInstance(it.instance) }) } catch (e: Exception) { zone = LONDON }
+            try { RoutinePrompter.tick(ctx, pattern, now) } catch (e: Exception) { /* X7: a prompt that cannot go out changes nothing else */ }
+            try { Backup.nightly(ctx) } catch (e: Exception) { /* CT1: a backup that cannot be written changes nothing else */ }
+            try {      // MX6: a period off can carry a daily limit for the blocked apps
+                val today = now.toLocalDate()
+                limitMin = db.modifiers().all().filter { it.state == "active" }.mapNotNull { decodeInstance(it.instance) }.filter { it.preset == Preset.PERIOD_OFF && today in it.dates() }.maxOfOrNull { it.int("screen_limit_min") } ?: 0
+                limitStart = if (limitMin <= 0) emptyMap() else pattern.let { snapshot?.list.orEmpty() }.mapNotNull { p -> db.meta().get("limit_start:" + p)?.toLongOrNull()?.takeIf { it > 0 }?.let { p to java.time.Instant.ofEpochMilli(it).atZone(LONDON) } }.toMap()
+            } catch (e: Exception) { limitMin = 0; limitStart = emptyMap() }
+            try { WindDown.sync(ctx, homeModeOf(pattern, now)) } catch (e: Exception) { /* SL9: never blocks the blocking */ }
+            try {
+                val ou = db.meta().get(META_OUT_UNTIL)?.toLongOrNull()?.takeIf { it > now.toInstant().toEpochMilli() }
+                outUntil = ou?.let { java.time.Instant.ofEpochMilli(it).atZone(LONDON) }
+                atHome = if (ou == null) null else {
+                    val fix = LocationFix.current(ctx, 3_000); val home = PlaceRepo(db).home()
+                    if (fix == null || home == null) null else distanceM(fix.lat, fix.lon, home.first, home.second) <= 250
+                }
+            } catch (e: Exception) { outUntil = null; atHome = null }
+            try {      // HO2: once you have set the family home, Spark tells which home you are at, at most every 15 minutes, from one coarse reading
+                val fam = db.meta().get(app.efa.data.META_FAMILY_HOME)
+                if (fam != null && now.toInstant().toEpochMilli() - lastPlaceCheck > 15 * 60_000L) {
+                    lastPlaceCheck = now.toInstant().toEpochMilli()
+                    val fix = LocationFix.current(ctx, 3_000); val flat = PlaceRepo(db).home()
+                    if (fix != null) {
+                        val (la, lo) = fam.split("|").map { it.toDouble() }
+                        val kind = when { distanceM(fix.lat, fix.lon, la, lo) <= 150 -> PlaceKind.FAMILY_HOME; flat != null && distanceM(fix.lat, fix.lon, flat.first, flat.second) <= 150 -> PlaceKind.FLAT; else -> null }
+                        if (kind != null) db.meta().put(MetaRow(app.efa.data.META_PLACE_NOW, kind.name))
+                    }
+                }
+            } catch (e: Exception) { /* X7: the place stays as you last chose it */ }
+            try {      // CO2: the wind-down prompt, once a night, in the feel of the goodnight pattern and the spoken line if the voice is on
+                if (homeModeOf(pattern, now) == HomeMode.WIND_DOWN && db.meta().get(META_COACH_WD) != now.toLocalDate().toString()) {
+                    db.meta().put(MetaRow(META_COACH_WD, now.toLocalDate().toString())); Coach.prompt(ctx, "Wind-down. Last jobs, then the screen goes quiet.", Haptic.GOODNIGHT)
+                }
+                ReminderAlarm.refresh(ctx, now)
+            } catch (e: Exception) { /* X7 */ }
             android.util.Log.i("efa-state", "snapshot loaded: ${pattern.size} blocks")
             snapshot = Snapshot(
                 pattern = pattern, list = repo.list().orEmpty(), allow = repo.allowances(now),
@@ -74,7 +154,7 @@ object BlockingState {
     fun decide(pkg: String): Decision {
         val s = snapshot ?: return Decision.Allow
         val now = now()
-        return decide(pkg, now, s.pattern, s.list, s.allow, s.verified, s.morning, s.lateness, earnedAccess = earnedAccessActive(now, s.earnings, s.pattern), essentials = s.essentials)
+        return decide(pkg, now, s.pattern, s.list, s.allow, s.verified, s.morning, s.lateness, earnedAccess = earnedAccessActive(now, s.earnings, s.pattern), essentials = s.essentials, cap = cap, capStart = capStart, inCall = inCall, outUntil = outUntil, atHome = atHome, limit = if (limitMin > 0) ScreenLimit(s.list, limitMin) else null, limitStart = limitStart)
     }
 
     /**

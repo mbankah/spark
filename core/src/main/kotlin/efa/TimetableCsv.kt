@@ -49,6 +49,16 @@ data class PeriodRow(override val line: Int, val start: LocalDate, val end: Loca
 /** RP2: everything the calendar holds on [date] from [startMin] to [endMin] is taken away and the events of the same file stand in its place. It needs the typed wall. */
 data class ReplaceRow(override val line: Int, val date: LocalDate, val startMin: Int, val endMin: Int, val title: String) : ImportRow
 
+/**
+ * IX6, format version 2: a file can say what a modifier says. A modifier row is a preset with its dates and settings (date, end_date, type is the preset id, notes is key=value;key=value, start and end the
+ * times of the first and last day). An anchor row is a night: date the night, start lights-out, end wake. A keep row protects a time on a date from a Replace in the same file.
+ */
+data class ModifierImport(override val line: Int, val instance: Instance) : ImportRow
+data class KeepRow(override val line: Int, val date: LocalDate, val startMin: Int, val endMin: Int, val title: String) : ImportRow
+
+/** The presets a file may carry. The ones that need items (assignments, exams, a project) and a day off are planned in the app, where the wall and the items are. */
+val FILE_PRESETS: List<Preset> = listOf(Preset.CATCH_UP, Preset.LECTURE_FREE, Preset.LATE_START, Preset.RUN_OVER, Preset.ADD_EVENT, Preset.CANCEL, Preset.RECOVERY, Preset.GUESTS, Preset.AWAY, Preset.NIGHT)
+
 /** [column] is blank for a problem with the file as a whole. [line] is the line in the file, counting the header as line 1. */
 data class ImportIssue(val line: Int, val column: String, val message: String) {
     fun text() = (if (line > 0) "Line $line" else "File") + (if (column.isNotBlank()) ", $column" else "") + ": $message"
@@ -66,6 +76,8 @@ fun ImportRow.hash(): String {
         is DeadlineRow -> listOf("deadline", date, dueMin, title.lowercase()).joinToString("|")
         is PeriodRow -> listOf("period", start, end, kind.csv).joinToString("|")
         is ReplaceRow -> listOf("replace", date, startMin, endMin).joinToString("|")
+        is ModifierImport -> listOf("modifier", instance.preset.id, instance.start, instance.end, instance.fromMin, instance.toMin, instance.settings.toSortedMap().entries.joinToString(";") { "${it.key}=${it.value}" }).joinToString("|")
+        is KeepRow -> listOf("keep", date, startMin, endMin).joinToString("|")
     }
     return MessageDigest.getInstance("SHA-256").digest(canon.toByteArray()).take(12).joinToString("") { "%02x".format(it) }
 }
@@ -114,7 +126,7 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
         val before = errors.size
 
         val kind = text("kind").lowercase()
-        if (kind !in listOf("event", "deadline", "period", "replace")) { err(line, "kind", if (kind.isBlank()) "Empty. Use event, deadline, period or replace." else "\"$kind\" is not a kind. Use event, deadline, period or replace."); continue }
+        if (kind !in listOf("event", "deadline", "period", "replace", "modifier", "anchor", "keep")) { err(line, "kind", if (kind.isBlank()) "Empty. Use event, deadline, period, replace, modifier, anchor or keep." else "\"$kind\" is not a kind. Use event, deadline, period, replace, modifier, anchor or keep."); continue }
 
         fun date(c: String): LocalDate? {
             val s = text(c)
@@ -181,6 +193,40 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
                 val t = title(false)
                 if (errors.size == before && d != null && s != null && e != null) ReplaceRow(line, d, s, e, t.orEmpty().ifBlank { "Replaced" }) else null
             }
+            "keep" -> {
+                val d = date("date"); val s = time("start", d); val e = time("end", d)
+                if (s != null && e != null && e <= s) err(line, "end", "${minutesText(e)} is not after the start ${minutesText(s)}. Keep one day at a time.")
+                if (errors.size == before && d != null && s != null && e != null) KeepRow(line, d, s, e, title(false).orEmpty().ifBlank { "Kept" }) else null
+            }
+            "anchor" -> {
+                val d = date("date"); val lo = time("start", d); val wk = time("end", d)
+                val extra = parseSettings(text("notes")) { m -> err(line, "notes", m) }
+                if (lo != null && wk != null && d != null) {
+                    val settings = mapOf("lights_out" to "%02d:%02d".format(lo / 60, lo % 60), "wake" to "%02d:%02d".format(wk / 60, wk % 60)) + extra.filterKeys { it == "winddown_min" }
+                    extra.keys.filter { it != "winddown_min" }.forEach { err(line, "notes", "\"$it\" is not a setting of an anchor. Use winddown_min, or leave notes empty.") }
+                    val inst = Instance(Preset.NIGHT, d, d, settings)
+                    if (errors.size == before) validate(inst, today.minusDays(1)).forEach { err(line, "date", it) }
+                    if (errors.size == before) ModifierImport(line, inst) else null
+                } else null
+            }
+            "modifier" -> {
+                val d = date("date"); val e = date("end_date")
+                val id = text("type").lowercase()
+                val preset = FILE_PRESETS.firstOrNull { it.id == id }
+                if (preset == null) err(line, "type", when {
+                    Preset.of(id) != null -> "\"$id\" needs its own items or the typed wall, so it is planned in the app. Use one of: ${FILE_PRESETS.joinToString(", ") { it.id }}."
+                    id.isBlank() -> "Empty. Use one of: ${FILE_PRESETS.joinToString(", ") { it.id }}."
+                    else -> "\"$id\" is not a modifier. Use one of: ${FILE_PRESETS.joinToString(", ") { it.id }}."
+                })
+                val sm = if (text("start").isBlank()) 0 else time("start", d); val em = if (text("end").isBlank()) 1440 else time("end", e ?: d)
+                val settings = parseSettings(text("notes")) { m -> err(line, "notes", m) }
+                if (preset != null) settings.keys.filter { key -> ModDefs.settings(preset).none { it.key == key } }.forEach { err(line, "notes", "\"$it\" is not a setting of ${preset.label}. Its settings are: ${ModDefs.settings(preset).joinToString(", ") { s -> s.key }}.") }
+                if (errors.size == before && preset != null && d != null && e != null && sm != null && em != null) {
+                    val inst = Instance(preset, d, e, settings, emptyList(), sm, em)
+                    validate(inst, today).forEach { err(line, "date", it) }
+                    if (errors.size == before) ModifierImport(line, inst) else null
+                } else null
+            }
             else -> {
                 val d = date("date"); val e = date("end_date")
                 val type = text("type").lowercase()
@@ -199,12 +245,25 @@ fun parseTimetableCsv(input: String, today: LocalDate, zone: ZoneId = LONDON): P
             }
         }
         if (row == null) continue
-        val past = when (row) { is EventRow -> row.date.isBefore(today); is DeadlineRow -> row.date.isBefore(today); is PeriodRow -> row.end.isBefore(today); is ReplaceRow -> row.date.isBefore(today) }
+        val past = when (row) { is EventRow -> row.date.isBefore(today); is DeadlineRow -> row.date.isBefore(today); is PeriodRow -> row.end.isBefore(today); is ReplaceRow -> row.date.isBefore(today); is ModifierImport -> row.instance.end.isBefore(today) && !(row.instance.preset == Preset.NIGHT && row.instance.start == today.minusDays(1)); is KeepRow -> row.date.isBefore(today) }
         if (past) { skippedPast++; warn(line, "date", "In the past, skipped."); continue }
         if (!seen.add(row.hash())) { dupes++; warn(line, "", "The same row appears earlier in the file, skipped."); continue }
         rows += row
     }
     return ParsedImport(if (errors.isEmpty()) rows else emptyList(), errors, warnings, skippedPast, dupes)
+}
+
+/** IX6: "key=value;key=value". A key or value with a bar or a line break is refused so a row cannot break a line. [onError] gets a plain sentence. */
+fun parseSettings(notes: String, onError: (String) -> Unit): Map<String, String> {
+    if (notes.isBlank()) return emptyMap()
+    val out = LinkedHashMap<String, String>()
+    for (part in notes.split(";")) {
+        if (part.isBlank()) continue
+        val i = part.indexOf('=')
+        if (i <= 0) { onError("\"${part.trim()}\" is not key=value. Separate settings with ;"); continue }
+        out[part.substring(0, i).trim()] = part.substring(i + 1).trim()
+    }
+    return out
 }
 
 /** ISO 2026-11-02, or UK 02/11/2026. Anything else is not a date. */

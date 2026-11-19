@@ -1,0 +1,6 @@
+kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
+modifier,2026-11-23,2026-11-25,,,Lighter days,lecture_free,,,,,
+modifier,2026-11-30,2026-12-02,10:00,,Late start,late_start,,,,,
+anchor,2026-11-23,,02:30,10:30,Late night then sleep in,,,,,,winddown_min=45
+keep,2026-11-24,,15:00,16:00,Call home,,,,,,
+event,2026-11-24,,10:00,11:00,Dentist,errand,,,none,,

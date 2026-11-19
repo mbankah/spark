@@ -20,11 +20,11 @@ class ModifiersTest {
     private fun sessionDates(c: Compiled, title: String) = c.slots.filter { it.title.startsWith("$title:") }.map { it.date!! }
 
     // ---- validation (MG8) ----
-    @Test fun MG8_a_period_is_one_to_fourteen_days_and_not_in_the_past() {
-        assertTrue(validate(Instance(Preset.PERIOD_OFF, today, today.plusDays(14)), today).any { it.contains("1 to 14") })
+    @Test fun MG8_a_period_is_one_to_28_days_and_not_in_the_past() {
+        assertTrue(validate(Instance(Preset.PERIOD_OFF, today, today.plusDays(28)), today).any { it.contains("1 to 28") })
         assertTrue(validate(Instance(Preset.PERIOD_OFF, today.minusDays(1), today), today).any { it.contains("past") })
         assertTrue(validate(Instance(Preset.PERIOD_OFF, today.plusDays(3), today), today).any { it.contains("before") })
-        assertEquals(emptyList(), validate(Instance(Preset.PERIOD_OFF, today, today.plusDays(13)), today))
+        assertEquals(emptyList(), validate(Instance(Preset.PERIOD_OFF, today, today.plusDays(27)), today))
     }
 
     @Test fun MG8_an_assignment_needs_a_title_a_real_future_due_date_and_values_in_range() {
@@ -203,42 +203,46 @@ class ModifiersTest {
     // ---- Catch-up ----
     private fun catchUp(settings: Map<String, String> = emptyMap(), start: LocalDate = LocalDate.of(2026, 11, 16), end: LocalDate = LocalDate.of(2026, 11, 22)) = Instance(Preset.CATCH_UP, start, end, settings)
 
-    @Test fun catch_up_gives_at_least_the_floor_of_slots_a_day_counting_lecture_cycles() {
-        val c = run(catchUp()).compiled
-        val auto = studyCycles(base, now, days = 40)
+    private fun blocksOf(c: Compiled) = c.slots.filter { !it.cancelled && it.type == "study" && it.title.endsWith(": notes and problems") }
+    private fun cyclesOn(after: List<PatternSlot>, date: LocalDate) = slotsFor(after, date).count { it.slot.type == "study-standard" || it.slot.type == "study-light" || (it.slot.type == "study" && it.slot.title.endsWith(": notes and problems")) }
+
+    @Test fun catch_up_gives_at_least_the_floor_of_study_blocks_a_day_counting_lecture_cycles_or_says_why_not() {
+        val c = run(catchUp(), listOf(DueWork("Backlog", 60.0, 8, at(LocalDate.of(2026, 11, 30), LocalTime.of(17, 0))))).compiled; val after = applied(base, c)
         for (d in 16..22) {
             val date = LocalDate.of(2026, 11, d)
-            val count = auto.count { it.due.toLocalDate() == date } + c.tasks.count { it.due.toLocalDate() == date }
-            assertTrue(count >= 3, "$date has $count")
+            assertTrue(cyclesOn(after, date) >= 3 || c.problems.any { it.contains("$d Nov") }, "$date has ${cyclesOn(after, date)}")
         }
     }
 
-    @Test fun catch_up_slots_are_named_by_module_never_vrnp() {
+    @Test fun catch_up_blocks_are_whole_blocks_by_module_never_vrnp_and_real_blocks_on_the_schedule() {
         val c = run(catchUp()).compiled
-        assertTrue(c.tasks.isNotEmpty()); assertTrue(c.tasks.all { it.title.endsWith(": notes and problems") }); assertTrue(c.tasks.none { it.title.contains("VRNP", true) })
-        assertTrue(c.tasks.map { it.title.substringBefore(":") }.all { it in ModDefs.MODULES.split("|") })
+        assertTrue(blocksOf(c).isNotEmpty()); assertTrue(c.tasks.isEmpty(), "the blocks are the plan, not extra demand")
+        assertTrue(blocksOf(c).none { it.title.contains("VRNP", true) })
+        assertTrue(blocksOf(c).map { it.title.substringBefore(":") }.all { it in ModDefs.MODULES.split("|") })
+        assertTrue(blocksOf(c).all { it.endMin - it.startMin in 45..150 })
     }
 
-    @Test fun rapid_notes_make_each_slot_smaller() {
-        val full = run(catchUp()).compiled.tasks.first().hours; val rapid = run(catchUp(mapOf("intensity" to "rapid", "rapid_factor" to "0.6"))).compiled.tasks.first().hours
-        assertEquals(2.5, full, 0.001); assertEquals(1.5, rapid, 0.001)
+    @Test fun rapid_notes_make_each_block_smaller() {
+        val full = blocksOf(run(catchUp()).compiled).maxOf { it.endMin - it.startMin }; val rapid = blocksOf(run(catchUp(mapOf("intensity" to "rapid", "rapid_factor" to "0.6"))).compiled).maxOf { it.endMin - it.startMin }
+        assertTrue(rapid <= 90, "rapid blocks are at most 90 minutes, got $rapid"); assertTrue(full > rapid, "full $full, rapid $rapid"); assertTrue(full <= 150)
     }
 
     @Test fun no_module_gets_more_than_its_cap_in_a_day() {
         val c = run(catchUp(mapOf("slots_floor" to "6", "slots_stretch" to "6", "module_cap" to "1"))).compiled
-        c.tasks.groupBy { it.due.toLocalDate() to it.title }.values.forEach { assertTrue(it.size <= 1) }
+        blocksOf(c).groupBy { it.date to it.title }.values.forEach { assertTrue(it.size <= 1) }
     }
 
     @Test fun the_weekend_can_be_the_same_lower_or_none() {
-        fun weekendCount(w: String) = run(catchUp(mapOf("weekend" to w, "slots_stretch" to "3"))).compiled.tasks.count { it.due.toLocalDate().dayOfWeek.value >= 6 }
+        val backlog = listOf(DueWork("Backlog", 80.0, 8, at(LocalDate.of(2026, 11, 30), LocalTime.of(17, 0))))
+        fun weekendCount(w: String) = blocksOf(run(catchUp(mapOf("weekend" to w, "slots_stretch" to "3")), backlog).compiled).count { it.date!!.dayOfWeek.value >= 6 }
         assertTrue(weekendCount("same") > weekendCount("lower")); assertEquals(0, weekendCount("none"))
     }
 
-    @Test fun a_stretch_that_would_make_the_Buffer_negative_is_dropped_and_the_floor_stands() {
-        val tight = DueWork("Big deadline", 150.0, 8, at(LocalDate.of(2026, 11, 22), LocalTime.of(20, 30)))
-        val withStretch = previewOf(catchUp(mapOf("slots_floor" to "2", "slots_stretch" to "6")), base, listOf(tight), now).compiled
-        val floorOnly = previewOf(catchUp(mapOf("slots_floor" to "2", "slots_stretch" to "2")), base, listOf(tight), now).compiled
-        assertEquals(floorOnly.tasks.size, withStretch.tasks.size)
+    @Test fun RF5_the_stretch_is_only_used_while_there_is_backlog_left_and_the_floor_stands() {
+        val none = blocksOf(run(catchUp(mapOf("slots_floor" to "2", "slots_stretch" to "5"))).compiled).size
+        val big = blocksOf(run(catchUp(mapOf("slots_floor" to "2", "slots_stretch" to "5")), listOf(DueWork("Backlog", 100.0, 8, at(LocalDate.of(2026, 11, 30), LocalTime.of(17, 0))))).compiled).size
+        assertTrue(big > none, "no backlog gave $none, a big one $big")
+        assertEquals(none, blocksOf(run(catchUp(mapOf("slots_floor" to "2", "slots_stretch" to "2"))).compiled).size, "with no backlog only the floor is placed")
     }
 
     // ---- Lecture-free lighter period ----
@@ -255,7 +259,11 @@ class ModifiersTest {
 
     @Test fun a_lecture_free_period_can_add_study_slots_by_module() {
         val c = run(lectureFree(mapOf("cycles_per_day" to "2"))).compiled
-        assertEquals(10, c.tasks.size); assertTrue(c.tasks.all { it.title.endsWith(": notes and problems") })
+        val blocks = c.slots.filter { !it.cancelled && it.type == "study" && it.title.endsWith(": notes and problems") }
+        val after = applied(base, c)
+        for (d in 9..13) assertTrue(cyclesOn(after, LocalDate.of(2026, 11, d)) >= 2 || c.problems.any { it.contains("$d Nov") }, "Nov $d has ${cyclesOn(after, LocalDate.of(2026, 11, d))}")   // the cycles already there count, blocks fill up to 2, or the day says why not
+        assertTrue(blocks.isNotEmpty()); assertTrue(c.tasks.isEmpty())
+        assertTrue(blocks.map { it.title.substringBefore(":") }.all { it in ModDefs.MODULES.split("|") })
     }
 
     // ---- guard rails ----

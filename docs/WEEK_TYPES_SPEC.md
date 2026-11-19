@@ -11,7 +11,7 @@ Your answers, applied:
 | You said | What is in this version |
 | --- | --- |
 | A week off in general | One preset, **Period off** (7.2). The reading or chapters week is gone. |
-| Period off with a start and end date | **Period off** takes any start and end date (1 to 14 days). A weekend is just a two-day period. There is no separate Weekend off. |
+| Period off with a start and end date | **Period off** takes any start and end date (1 to 28 days). A weekend is just a two-day period. There is no separate Weekend off. |
 | Start 2 weeks before, finish a day before | Assignment default: **lead time 14 days, finish 24 hours before the due time** (5.1). |
 | Default screen time 4 hours total | Period off default: **a daily limit of 4 hours across every non-essential app** (9). |
 | Lighten the cycles, but adapt | Assignment default **adaptive lightening**: cycles lighten more as the assignment load rises, and re-adapt when it changes (5.3). |
@@ -62,7 +62,7 @@ Every preset runs the same steps:
 
 | Setting | Options |
 | --- | --- |
-| Dates | A start and an end, 1 to 14 days at a time (PW1), or a repeating pattern |
+| Dates | A start and an end, 1 to 28 days at a time (PW1), or a repeating pattern |
 | Days | Any set of weekdays |
 | Part of the day | **Morning** (wake to 12:00), **Afternoon** (12:00 to 18:00), **Evening** (18:00 to the night cutoff), **Night** (cutoff to wake), a **clock window**, or **the whole day** |
 | Selector inside the scope | Block type, module, title, venue, a named block, or "everything that is not protected" |
@@ -323,13 +323,15 @@ Study cycles keep running, but they **lighten as the assignment load rises**, an
 
 Slots are shown **by module** ("Neural Computation: notes and problems"), never as "VRNP".
 
+**Changed 16 November 2026 (RF3, RF5):** the slots are real blocks, not tasks. The preset gives the days to whole study blocks laid in the gaps that the fixed things leave (study window, a reset after each block, the floor counts the lecture cycles, the stretch only while backlog is left), and the project and code blocks are replaced unless the setting is off. A "start the day at" setting makes the routine, meals and work follow a later start (RF4). The "if a stretch does not fit" setting is gone: the stretch is simply not placed when there is no backlog or no room.
+
 ### 7.2 Period off (one preset for a week off, a weekend off or any days off)
 
-You pick a **start date and an end date** (1 to 14 days). Work and lectures are off for the period, and **important blocks stay or are added in between**.
+You pick a **start date and an end date** (1 to 28 days). Work and lectures are off for the period, and **important blocks stay or are added in between**.
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
-| Start and end | Any dates, 1 to 14 days. A weekend is two days | Required |
+| Start and end | Any dates, 1 to 28 days. A weekend is two days | Required |
 | What is paused | Work blocks, lectures, cycles, planning (the list a day off removes) | Work, lectures, planning |
 | **Daily routine** | Kept: Bible reading, setting up for the day, dishes, tidying, chores, prayer, meals (4). This is also how a day off works today, which removes only work, lectures and planning | Kept |
 | Pinned blocks (items) | Important blocks with their own settings (below) | Church, gym, MyTutor, football as in your week |
@@ -380,7 +382,7 @@ For the days or weeks when **there are no lectures and the load is lighter, but 
 
 | Setting | Meaning | Default |
 | --- | --- | --- |
-| Dates | Start and end, 1 to 14 days | Required |
+| Dates | Start and end, 1 to 28 days | Required |
 | Lectures and tutorials | **None** in the period (they are not in the calendar, so there are no lecture cycles and nothing to catch up) | None |
 | Work level | Gentle, normal or heavy (scales the hours a day) | **Gentle** |
 | Work hours a day | Minimum and maximum | 3 to 5 |
@@ -504,7 +506,7 @@ Every preview runs a **checker** against the plan. A plan that fails any rule be
 - **MG5** No block has a length below its type's minimum or above its maximum; no negative or zero length.
 - **MG6** Nothing is placed in the night (after the cutoff until wake) except sleep, a reminder and what is already there. A ramp that would put a block there stops and says so.
 - **MG7** Every protected block (sleep, meals, the protected free hours, resets, hard alarms) is in the calendar exactly as before, or moved only inside its own window.
-- **MG8** Start dates, due dates and ranges are real: a start before a due date, a period of 1 to 14 days, nothing in the past except as a claim (H6).
+- **MG8** Start dates, due dates and ranges are real: a start before a due date, a period of 1 to 28 days, nothing in the past except as a claim (H6).
 - **MG9** Dependencies have no cycle (A before B before A is refused).
 - **MG10** A daily cap is never exceeded by the placed work; if work cannot fit it is shown as NEGATIVE and not squeezed in.
 - **MG11** A lecture is never left with no cycle by lightening (5.3); a lecture is never dropped unless you chose it, with the wall.
@@ -593,3 +595,8 @@ None blocks the design. Two things I have **assumed** because you moved on witho
 1. A **period off** is one request and one use toward the 30-day tally. Up to two days costs the base string and each extra day adds 25 characters.
 2. In the **Admin library**: chores keep the photo proof they have now (Y1) and other admin needs none; the daily admin cap is 90 minutes; the Standard set is the starting load. Tell me if you want different defaults.
 3. In a **Focus week**: hybrid on means a period off with the project as the only work and the rest free; hybrid off means term time with lecture cycles kept and lightened. The daily routine (chores, Bible reading, setting up for the day) happens in both.
+
+
+## 12. Reflow (RF1 to RF9, 16 November 2026)
+
+A modifier is a span (a date and a time at each end, 1 to 28 days) that lays the day out again around what cannot move; see section 27 of DECISIONS_LEDGER.md. The engine is core/src/main/kotlin/efa/Reflow.kt. It knows nothing about any one preset: Catch-up week and Late start only choose its rules (devote the window to whole study blocks, or start the day at a time). MG7 and MG18 read as RF4 says: sleep and hard alarms never move; a meal, the routine or a chore may move inside its window and keeps its length, and goes only when the plan says so and the wall is typed. MG8's range is 1 to 28 days. Every preview states its numbers (RF8).

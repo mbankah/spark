@@ -48,6 +48,7 @@ fun SetupScreen(
     onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, onModify: () -> Unit = {}, healthText: String = "", onHealth: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
     codeReminders: Boolean = true, onCodeReminders: (Boolean) -> Unit = {},
     photoReminders: Boolean = true, onPhotoReminders: (Boolean) -> Unit = {},
+    mealChecks: Boolean = true, onMealChecks: (Boolean) -> Unit = {},
     quietMode: Boolean = false, onQuietMode: (Boolean) -> Unit = {},
     wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {},
 ) {
@@ -162,6 +163,13 @@ fun SetupScreen(
             BasicText("When to take a photo", style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText("A sound when a photo opens and five minutes before it stops counting in full. The home screen always shows the next one.", style = Ts(c.muted, 14.sp))
             Chip(if (photoReminders) "Reminders: on" else "Reminders: off", photoReminders, { onPhotoReminders(!photoReminders) }, if (photoReminders) "Turn the photo reminders off" else "Turn the photo reminders on")
+        }
+
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("MEALS")
+            BasicText("Did you eat?", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("A question ten minutes after each meal, with Ate and Not yet. It changes nothing in your plan and costs nothing.", style = Ts(c.muted, 14.sp))
+            Chip(if (mealChecks) "Questions: on" else "Questions: off", mealChecks, { onMealChecks(!mealChecks) }, if (mealChecks) "Turn the meal questions off" else "Turn the meal questions on")
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

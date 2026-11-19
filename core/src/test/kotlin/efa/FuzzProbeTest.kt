@@ -52,7 +52,7 @@ class FuzzProbeTest {
     /** Invariants for one applied instance. Returns the broken ones. */
     private fun invariants(base: List<PatternSlot>, inst: Instance, p: ModPreview, today: LocalDate): List<String> {
         val bad = ArrayList<String>(); val c = p.compiled; val after = applied(base, c)
-        val range = inst.dates().toSet()
+        val range = inst.coverage().toSet()
         // F1 repeatable
         // F2 a period preset puts nothing outside its dates
         if (inst.preset != Preset.ASSIGNMENT) c.slots.filter { it.date != null && it.date !in range }.forEach { bad += "F2 ${inst.preset} slot ${it.title} on ${it.date} is outside $range" }
@@ -91,9 +91,14 @@ class FuzzProbeTest {
         if (r.dropped != 0) bad += "F13 reconcile would drop ${r.dropped} of ${c.slots.size} fresh slots"
         // F10 a protected block of the base is untouched on every date involved
         for (d in (range + c.slots.mapNotNull { it.date }).distinct()) {
-            val keep = slotsFor(base, d).filter { it.slot.type in setOf("sleep", "meal") || it.slot.hardAlarm }.map { Triple(it.slot.title, it.slot.startMin, it.slot.endMin) }
-            val now = slotsFor(after, d).filter { it.slot.type in setOf("sleep", "meal") || it.slot.hardAlarm }.map { Triple(it.slot.title, it.slot.startMin, it.slot.endMin) }
+            // RF4 amends this: sleep and hard alarms keep their exact time; a meal keeps its title and length and may move, and goes only when the plan says so
+            val anchored = d in c.anchors.map { it.night }      // SA1: a night whose lights-out moved moves its shutdown, which is the point
+            val keep = slotsFor(base, d).filter { (it.slot.type == "sleep" && !anchored) || it.slot.hardAlarm }.map { Triple(it.slot.title, it.slot.startMin, it.slot.endMin) }
+            val now = slotsFor(after, d).filter { (it.slot.type == "sleep" && !anchored) || it.slot.hardAlarm }.map { Triple(it.slot.title, it.slot.startMin, it.slot.endMin) }
             if (!now.containsAll(keep) && !isDayOff(after, d)) bad += "F10 protected block lost on $d"
+            val meals = slotsFor(base, d).filter { it.slot.type == "meal" && "$d|${it.slot.title}" !in c.droppedMeals }.map { Triple(it.slot.title, it.slot.endMin - it.slot.startMin, 0) }
+            val mealsNow = slotsFor(after, d).filter { it.slot.type == "meal" }.map { Triple(it.slot.title, it.slot.endMin - it.slot.startMin, 0) }
+            if (!mealsNow.containsAll(meals) && !isDayOff(after, d)) bad += "F10 a meal was lost on $d"
         }
         return bad
     }

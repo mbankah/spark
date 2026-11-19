@@ -405,6 +405,7 @@ interface TaskDao {
     @Insert suspend fun insert(row: TaskRow): Long
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertOnce(row: TaskRow): Long
     @Query("SELECT * FROM task WHERE doneAtMs IS NULL ORDER BY dueMs") suspend fun open(): List<TaskRow>
+    @Query("UPDATE task SET dueMs = :dueMs WHERE id = :id") suspend fun setDue(id: Long, dueMs: Long)          // BK1, BK5: a catch-up span moves the date, and its end gives it back
     @Query("SELECT * FROM task WHERE source = 'missed' AND createdMs >= :sinceMs ORDER BY createdMs") suspend fun missedSince(sinceMs: Long): List<TaskRow>
     @Query("SELECT sourceKey FROM task WHERE sourceKey IS NOT NULL") suspend fun sourceKeys(): List<String>
     @Query("SELECT * FROM task WHERE sourceKey LIKE :prefix") suspend fun byKeyPrefix(prefix: String): List<TaskRow>
@@ -433,6 +434,8 @@ interface MetaDao {
     @Query("SELECT value FROM meta WHERE `key` = :key") suspend fun get(key: String): String?
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun putIfAbsent(row: MetaRow)
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: MetaRow)
+    @Query("SELECT * FROM meta WHERE `key` LIKE :prefix || '%'") suspend fun withPrefix(prefix: String): List<MetaRow>
+    @Query("DELETE FROM meta WHERE `key` = :key") suspend fun remove(key: String)
 }
 
 @Database(entities = [PatternSlotRow::class, MetaRow::class, TaskRow::class, BlockRow::class, PhotoRow::class, VenuePointRow::class, CommitUseRow::class, AllowanceRow::class, TamperRow::class, HeldRow::class, OverlayRow::class, PlannedPeriodRow::class, ImportLogRow::class, SensorEventRow::class, NightSummaryRow::class, ReferencePhotoRow::class, MorningRow::class, WeekMoneyRow::class, DayOffRow::class, CalibrationRow::class, ShoppingRow::class, WidgetRow::class, ModifierRow::class], version = 15, exportSchema = true)
@@ -463,6 +466,8 @@ abstract class EfaDb : RoomDatabase() {
 
     companion object {
         @Volatile private var inst: EfaDb? = null
+        /** CT2: closes the database so a backup can be put in its place. The next [get] opens it again. */
+        fun close() { synchronized(this) { inst?.close(); inst = null } }
         fun get(ctx: Context): EfaDb = inst ?: synchronized(this) {
             inst ?: Room.databaseBuilder(ctx.applicationContext, EfaDb::class.java, "efa.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15).build().also { inst = it }
         }
@@ -584,9 +589,36 @@ const val META_PC_ADDRESS = "pc_address"
 const val META_PC_CODE = "pc_code"
 const val META_PC_LAST = "pc_last"
 const val META_VOICE_QUIET_OFF = "voice_quiet_off"
+const val META_PLACE_NOW = "place_now"                      // CX2: FLAT or FAMILY_HOME, where you are living this stretch
+const val META_DAYTYPE_OK = "daytype_ok"                   // CX3: the date the proposed day type was confirmed
+const val META_IDEAS = "ideas_parked"                      // PK1: one parked idea a line
+const val META_MOOD = "mood_taps"                          // CO5: epoch ms and 1 to 5, a line each
+const val META_REWARDS = "reward_menu"                     // CO7: up to five of your own
+const val META_AWAKE = "awake_list"                        // SL3: your own calm things for when you cannot sleep
+const val META_CHANGES = "change_log"                      // CE1: every counted change, one a line: id, epoch ms, class, import
+const val META_LAST_BACKUP = "last_backup_ms"                // CT1: when the last backup file was written
+const val META_OUT_UNTIL = "out_until_ms"                     // EM2: out until this epoch millisecond, honoured only away from home
+const val META_LITE = "lite_on"                            // LT1: the home shows three things
+const val META_COACH = "coach_voice"                       // CO3: "0" turns the spoken line off
+const val META_TONE = "coach_tone"                         // CO11: CALM, PLAIN or LIGHT
+const val META_IDENTITY = "identity_lines"                 // CO10: three sentences you wrote
+const val META_REMINDERS = "reminders"                     // SL6: your own reminders
+const val META_REMINDER_LOG = "reminder_log"               // SL6: taken or not taken
+const val META_EMERGENCY_LOG = "emergency_log"             // EM1: quiet log of the emergency door
+const val META_FAMILY_HOME = "family_home"                 // HO2: latitude and longitude of the family home
+const val META_COACH_WD = "coach_winddown_date"            // CO2: the night the wind-down prompt was given
+const val META_FACTS = "facts_log"                         // FB1: facts, one a line
+const val META_NFC_ON = "nfc_on"                           // SL2: NFC tags are an option, off by default
+const val META_NFC_TAGS = "nfc_tags"                       // SL2: tag hash to place
+const val META_DOOR_USES = "door_uses"                      // DP2: every use of a door, one per line, for the weekly pool
+const val META_CAP_START = "cap_start:"                    // GT2: prefix; the window of a capped app opened at this epoch millisecond
+const val META_CAP_WINDOW = "cap_window_min"               // GT2: minutes a capped app stays open (default 10)
+const val META_CAP_COOLDOWN = "cap_cooldown_min"           // GT2: minutes of cooldown after the window (default 30)
 const val META_WAKE_CHOSEN = "wake_chosen_ms"            // WT1: the wake time chosen for the next morning, as epoch milliseconds; "0" or missing means none
 const val META_QUIET_MODE = "quiet_mode"                  // "1" holds every notification except essentials in a work block and the night (QM1); anything else is off
 const val META_PHOTO_REMINDERS = "photo_reminders"         // "0" switches the photo reminders off; anything else is on
+const val META_MEAL_CHECKS = "meal_checks"               // "0" switches the "did you eat?" questions off; anything else is on (MC1)
+const val META_MEAL_LOG = "meal_log"                     // the answers, one line each (MC1)
 const val META_CODE_REMINDERS = "code_reminders"           // "0" switches the lecture attendance code reminders off; anything else is on
 const val META_BLOCKLIST = "blocklist"
 const val META_GITHUB_USER = "github_user"

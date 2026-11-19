@@ -1,4 +1,4 @@
-# Timetable CSV, version 1
+# Timetable CSV, version 2
 
 One format, read the same way on every platform (ledger IM1 to IM3). Spark checks the whole file before it changes anything. A file with
 any error is rejected as a whole, and each error names the line and the column.
@@ -17,18 +17,18 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 
 | Column | Used by | Meaning |
 | --- | --- | --- |
-| kind | all | `event`, `deadline`, `period` or `replace` |
+| kind | all | `event`, `deadline`, `period`, `replace`, `modifier`, `anchor` or `keep` |
 | date | all | `2026-11-02` or `02/11/2026`. For a period, the first day. |
 | end_date | period | The last day. A period is 1 to 14 days. |
 | start | event, deadline, replace | `09:00`, 24-hour UK time. For a deadline, the time it is due. |
 | end | event, replace | `10:00`. After the start, on the same day. |
 | title | all | Up to 120 characters. Required for event and deadline. |
-| type | event, period | Event: lecture, tutorial, mytutor, training, match, gym, church, errand, travel, reminder. Period: `assignment_week` or `catch_up_week`. |
+| type | event, period, modifier | Event: lecture, tutorial, mytutor, training, match, gym, church, errand, travel, reminder. Period: `assignment_week` or `catch_up_week`. Modifier: catch_up, lecture_free, late_start, run_over, add_event, cancel, recovery, guests, away, night. |
 | venue | event | The building and room, as on the timetable. Spark matches it to its venue directory (L4). |
 | heaviness | deadline | A whole number 1 to 10. Empty means 5 (D2). |
 | study | event | `standard`, `light` or `none`. Empty means standard for an added lecture or tutorial, otherwise none (D1). |
 | action | event | Empty or `add`, or `cancel`. |
-| notes | event | Free text. |
+| notes | event, modifier, anchor | Event: free text. Modifier: `key=value;key=value`. Anchor: `winddown_min=45`. |
 
 ## What a file can and cannot do
 
@@ -38,6 +38,9 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 - **Replace** (`kind` replace, with a date, start and end) takes away everything planned in that time on that day, meals, walks, planning and sleep
   included, and the events of the same file stand in its place. It asks for the typed wall, and the preview names what it removes (RP2). It cannot
   take in the wake, and it works on one day at a time.
+- A **modifier** row is a preset with its dates, checked like the same preset planned in the app (the same guard rails and the same wall). An **anchor** row is a night
+  (lights out and wake, 8 hours at least). A **keep** row protects a time on a day from a replace in the same file (IX6). A file with these is version 2; a version 1
+  file is read the same way.
 - A **reminder** is an event of type `reminder`: it sounds a notification at its start, may sit on top of anything and takes no time from
   anything (RP1).
 - A file **cannot** create, shorten or remove a study block, a meal, sleep or a day off as an event type. Those types are refused. A day off and a
@@ -59,7 +62,7 @@ Rules
 - The first line is exactly: kind,date,end_date,start,end,title,type,venue,heaviness,study,action,notes
 - One row per line, with every cell present. Leave a cell empty if it is not used. Put a cell in double quotes if it has a comma in it.
 - Dates are year-month-day, like 2026-11-02. Times are 24-hour, like 09:00. All times are UK time.
-- kind is event, deadline, period or replace.
+- kind is event, deadline, period, replace, modifier, anchor or keep.
 
 event: a fixed commitment on one date
 - Needs: date, start, end, title, type. Optional: venue, study, action, notes.
@@ -77,6 +80,16 @@ period: an assignment week or a catch-up week, 1 to 14 days
 
 replace: take everything planned in a time away and put this file's events there instead
 - Needs: date, start, end (the same day, end after start). Optional: title. The events of the same file stand in its place. It needs the typed wall in the app, so use it only when I ask to replace part of a day.
+
+modifier: one of the app's modifiers for a stretch of days (format version 2)
+- Needs: date (first day), end_date (last day), type. Optional: start and end (the times on the first and last day), notes as key=value;key=value.
+- type is one of: catch_up, lecture_free, late_start, run_over, add_event, cancel, recovery, guests, away, night. Leave notes empty unless I give you the setting.
+
+anchor: when one night starts and ends
+- Needs: date (the evening the night starts), start (lights out), end (wake). A night is at least 8 hours. Optional: notes as winddown_min=45.
+
+keep: protect a time from a replace in the same file
+- Needs: date, start, end (the same day, end after start). Optional: title.
 
 Do not guess. If a date, time or type is not in what I give you, leave that row out.
 ```

@@ -1,3 +1,6 @@
+import java.security.KeyStore
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -53,3 +56,20 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation(kotlin("test"))
 }
+
+// CT3: an update installs over the old app only if it is signed with the same key. This records the fingerprint of the debug key the first time and refuses a build signed with a different one,
+// so a build on another machine cannot quietly force an uninstall and the loss of your data. Copy ~/.android/debug.keystore to the other machine to keep the key.
+val verifySigning = tasks.register("verifySigning") {
+    doLast {
+        val ks = file(System.getProperty("user.home") + "/.android/debug.keystore")
+        if (!ks.exists()) { logger.warn("verifySigning: there is no debug keystore yet, so there is nothing to compare."); return@doLast }
+        var store: KeyStore? = null
+        for (type in listOf("PKCS12", "JKS")) { try { val k = KeyStore.getInstance(type); ks.inputStream().use { k.load(it, "android".toCharArray()) }; store = k; break } catch (e: Exception) { } }
+        val cert = store?.getCertificate("androiddebugkey") ?: run { logger.warn("verifySigning: the debug key could not be read."); return@doLast }
+        val fp = MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02X".format(it) }
+        val rec = file("signing-fingerprint.txt")
+        if (!rec.exists()) { rec.writeText(fp + "\n"); logger.lifecycle("verifySigning: recorded the signing key $fp") }
+        else if (rec.readText().trim() != fp) throw GradleException("The signing key changed (was ${rec.readText().trim()}, now $fp). An update would not install over the old Spark and your data would be lost. Copy the old debug.keystore back, or delete app/signing-fingerprint.txt if you mean to start a new key.")
+    }
+}
+tasks.matching { it.name == "assembleDebug" }.configureEach { finalizedBy(verifySigning) }

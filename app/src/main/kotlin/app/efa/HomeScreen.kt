@@ -73,6 +73,11 @@ data class HomeState(
     val photo: efa.PhotoDue? = null,     // PH1: the photo to take now, or the next one, shown first
     val photoLeft: Int? = null,          // minutes left to take it in full
     val nowLeftMin: Int? = null,         // minutes left in the running block, shown inside its ring
+    val meal: String? = null,            // MC1: the meal being asked about, with the two answers on the home screen
+    val mealKey: String = "",
+    val evening: Boolean = false,        // HM1: from 21:00 the evening offers "Bed later tonight"
+    val lite: Boolean = false,          // LT1: the home shows now, next and the phone, nothing else
+    val mode: efa.HomeMode = efa.HomeMode.FREE,   // HS1, HS2: the home follows the moment; a running block, the wind-down and the night show only what matters
 )
 
 /**
@@ -83,10 +88,12 @@ data class HomeState(
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
     onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {}, onNewRoom: () -> Unit = {},
-    homeTick: Int = 0, onPhoto: () -> Unit = {},
+    homeTick: Int = 0, onPhoto: () -> Unit = {}, onMeal: (String, Boolean) -> Unit = { _, _ -> }, onReality: (String) -> Unit = {},
+    third: (@Composable () -> Unit)? = null,         // HS4: the third page, Work it out
+    onEmergency: (efa.EmergencyAction) -> Unit = {},
 ) {
     val c = LocalColors.current
-    val pager = rememberPagerState(pageCount = { 2 })
+    val pager = rememberPagerState(pageCount = { if (third != null) 3 else 2 })
     val scope = rememberCoroutineScope()
     BackHandler(enabled = pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0) } }       // back from the schedule goes to the first page
     LaunchedEffect(homeTick) { if (homeTick > 0) pager.animateScrollToPage(0) }                              // the home button always lands on the first page
@@ -95,10 +102,11 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), pageSpacing = 20.dp, key = { it }) { page ->
-            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto)
-            else ScheduleScreen(s.schedule)
+            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency)
+            else if (page == 1) ScheduleScreen(s.schedule)
+            else third?.invoke()
         }
-        PageDots(pager.currentPage) { page -> scope.launch { pager.animateScrollToPage(page) } }
+        PageDots(pager.currentPage, if (third != null) 3 else 2) { page -> scope.launch { pager.animateScrollToPage(page) } }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // U6, LA5: apps are reached by typing, not by browsing a grid.
             Box(Modifier.weight(1f).heightIn(min = 54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSearch).padding(horizontal = 16.dp).semantics { contentDescription = "Type to open an app" }, contentAlignment = Alignment.CenterStart) {
@@ -116,12 +124,26 @@ fun HomeScreen(
     }
 }
 
+/** HS6: the dock's own small icons, drawn from simple shapes so they follow the theme. */
+@Composable
+private fun DockIcon(kind: String, color: androidx.compose.ui.graphics.Color) {
+    Canvas(Modifier.size(20.dp)) {
+        val w = size.width; val sw = 1.8.dp.toPx(); val st = Stroke(sw, cap = StrokeCap.Round)
+        when (kind) {
+            "phone" -> { drawRoundRect(color, Offset(w * 0.28f, w * 0.06f), Size(w * 0.44f, w * 0.88f), androidx.compose.ui.geometry.CornerRadius(w * 0.1f), style = st); drawLine(color, Offset(w * 0.42f, w * 0.8f), Offset(w * 0.58f, w * 0.8f), sw, StrokeCap.Round) }
+            "messages" -> { drawRoundRect(color, Offset(w * 0.08f, w * 0.14f), Size(w * 0.84f, w * 0.56f), androidx.compose.ui.geometry.CornerRadius(w * 0.1f), style = st); drawLine(color, Offset(w * 0.3f, w * 0.7f), Offset(w * 0.26f, w * 0.92f), sw, StrokeCap.Round); drawLine(color, Offset(w * 0.26f, w * 0.92f), Offset(w * 0.5f, w * 0.7f), sw, StrokeCap.Round) }
+            "maps" -> { drawCircle(color, w * 0.22f, Offset(w * 0.5f, w * 0.36f), style = st); drawLine(color, Offset(w * 0.34f, w * 0.52f), Offset(w * 0.5f, w * 0.92f), sw, StrokeCap.Round); drawLine(color, Offset(w * 0.66f, w * 0.52f), Offset(w * 0.5f, w * 0.92f), sw, StrokeCap.Round) }
+            else -> { drawCircle(color, w * 0.2f, Offset(w * 0.5f, w * 0.5f), style = st); for (i in 0 until 8) { val a = Math.PI / 4 * i; drawLine(color, Offset(w * (0.5f + 0.3f * Math.cos(a).toFloat()), w * (0.5f + 0.3f * Math.sin(a).toFloat())), Offset(w * (0.5f + 0.44f * Math.cos(a).toFloat()), w * (0.5f + 0.44f * Math.sin(a).toFloat())), sw, StrokeCap.Round) } }
+        }
+    }
+}
+
 /** Two dots, the current page filled. Each is a button of its own, so the other page is one tap away as well as one swipe. */
 @Composable
-private fun PageDots(page: Int, onPage: (Int) -> Unit) {
+private fun PageDots(page: Int, count: Int, onPage: (Int) -> Unit) {
     val c = LocalColors.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        listOf("Home" to 0, "Schedule" to 1).forEach { (name, i) ->
+        listOf("Home" to 0, "Schedule" to 1, "Work it out" to 2).take(count).forEach { (name, i) ->
             Box(
                 Modifier.heightIn(min = 32.dp).widthIn(min = 48.dp).clickable(role = Role.Tab) { onPage(i) }.semantics { contentDescription = "$name page" + if (page == i) ", showing" else "" },
                 contentAlignment = Alignment.Center,
@@ -133,7 +155,7 @@ private fun PageDots(page: Int, onPage: (Int) -> Unit) {
 @Composable
 private fun HomePage(
     s: HomeState, onBuffer: () -> Unit, onNow: () -> Unit, onProofDue: () -> Unit, onSetup: () -> Unit, onHeld: () -> Unit, onEssential: (String) -> Unit,
-    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit,
+    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit,
 ) {
     val c = LocalColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -150,34 +172,51 @@ private fun HomePage(
         }
         s.period?.let { Label(it) }
         s.photo?.let { PhotoCard(it, s.photoLeft, onPhoto) }
+        s.meal?.let { m ->
+            Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("DID YOU EAT?")
+                BasicText(m, style = Ts(c.text, 20.sp, FontWeight.Bold))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Btn("Ate", { onMeal(s.mealKey, true) }, primary = true, description = "Ate $m"); Btn("Not yet", { onMeal(s.mealKey, false) }, description = "Not yet, $m") }
+            }
+        }
         if (s.launcherPaused) InfoCard("LAUNCHER PAUSED", "Put Spark back as a home choice", onRestoreLauncher, "Spark crashed 3 times in 10 minutes. Blocking kept running.")
         s.morning?.let { InfoCard("MORNING", "Ready photo needed", onReady, it) }
-        BufferCard(s.buffer, onBuffer)
-        if (s.moved.isNotEmpty()) InfoCard("MOVED FOR YOU", s.moved.first(), null, (s.moved.drop(1).take(2) + listOfNotNull(s.moved.size.minus(3).takeIf { it > 0 }?.let { "And $it more." })).joinToString(" ").ifBlank { null })
+        if (s.mode.showsSecondary && s.moved.isNotEmpty()) InfoCard("MOVED FOR YOU", s.moved.first(), null, (s.moved.drop(1).take(2) + listOfNotNull(s.moved.size.minus(3).takeIf { it > 0 }?.let { "And $it more." })).joinToString(" ").ifBlank { null })
         if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read.")
         else if (efa.WidgetKind.NOW_NEXT !in s.widgets) {}
         else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null, efa.CardKind.NOW)
         else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() }, efa.CardKind.NOW, s.nowFraction, s.nowLeftMin)
+        // HM1, MX4: what happened is reported from the Now card and the evening. It is free. There is no general Change button, because a button that edits the plan invites changing it.
+        if (!s.unavailable && s.nowTitle != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Running over", false, { onReality("over") }, "Running over: this is taking longer")
+            Chip("Started late", false, { onReality("late") }, "Started late: start the day from now")
+        }
+        if (s.evening) Chip("Bed later tonight", false, { onReality("night") }, "Going to bed later tonight")
+        if (!s.lite) BufferCard(s.buffer, onBuffer)          // the Now card is the hero (HS2); the Buffer sits under it, in every mode but a lite day
         s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
-        if (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets) InfoCard("SHOPPING", "Shopping list", onShopping, null)
-        s.newRoom?.let { InfoCard("WHERE IS IT?", "Where is $it?", onNewRoom, "Put it on the map so attendance can be checked.") }
+        if (s.mode.showsSecondary && (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets)) InfoCard("SHOPPING", "Shopping list", onShopping, null)
+        s.newRoom?.takeIf { s.mode.showsSecondary }?.let { InfoCard("WHERE IS IT?", "Where is $it?", onNewRoom, "Put it on the map so attendance can be checked.") }
         s.voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
-        s.review?.let { InfoCard("HELP THE ESTIMATES", it, onReview, null) }
+        s.review?.takeIf { s.mode.showsSecondary }?.let { InfoCard("HELP THE ESTIMATES", it, onReview, null) }
         if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Open the digest.")
-        if (efa.WidgetKind.DAY_PLAN in s.widgets) NextCard(s.next)
-        if (efa.WidgetKind.WEEK_GLANCE in s.widgets && s.week.isNotEmpty()) InfoCard("WEEK", s.week.first(), null, s.week.drop(1).joinToString("\n"))
-        MoneyCard(s, onMoney)
+        if (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite) NextCard(if (s.lite) s.next.take(2) else s.next)
+        if (s.mode.showsSecondary && efa.WidgetKind.WEEK_GLANCE in s.widgets && s.week.isNotEmpty()) InfoCard("WEEK", s.week.first(), null, s.week.drop(1).joinToString("\n"))
+        if (s.mode.showsSecondary && !s.lite) MoneyCard(s, onMoney)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf("Phone" to "phone", "Msgs" to "messages", "Maps" to "maps").forEach { (label, key) ->
                 Box(
                     Modifier.weight(1f).heightIn(min = 48.dp).card().clip(CardShape).clickable(role = Role.Button) { onEssential(key) }.semantics { contentDescription = "$label. Opens your $label app." },
                     contentAlignment = Alignment.Center,
-                ) { BasicText(label, style = Ts(c.text, 14.sp, FontWeight.Medium)) }
+                ) { Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) { DockIcon(key, c.text); BasicText(label, style = Ts(c.text, 13.sp, FontWeight.Medium)) } }
             }
             Box(
                 Modifier.weight(1f).heightIn(min = 48.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSetup).semantics { contentDescription = "Setup: home, venues, blocking and GitHub" },
                 contentAlignment = Alignment.Center,
-            ) { BasicText("Setup", style = Ts(c.muted, 14.sp, FontWeight.Medium)) }
+            ) { Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) { DockIcon("setup", c.muted); BasicText("Setup", style = Ts(c.muted, 13.sp, FontWeight.Medium)) } }
+        }
+        // EM1: the Emergency door is one tap from the home, never gated
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(efa.EmergencyAction.CALL_EMERGENCY, efa.EmergencyAction.HEALTH, efa.EmergencyAction.SHARE_LOCATION).forEach { a -> Chip(a.label, false, { onEmergency(a) }, "Emergency: ${a.label}") }
         }
     }
 }

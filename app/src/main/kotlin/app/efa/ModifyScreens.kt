@@ -25,7 +25,7 @@ private val DAY = DateTimeFormatter.ofPattern("EEE d MMM")
 
 /** Modify Schedule: what is running, and the presets to start. */
 @Composable
-fun ModifyHomeScreen(active: List<ModifierRow>, today: LocalDate, onPick: (Preset) -> Unit, onRemove: (ModifierRow) -> Unit, onAdmin: () -> Unit, onEssentials: () -> Unit, message: String?, onBack: () -> Unit, dropped: Int = 0) {
+fun ModifyHomeScreen(active: List<ModifierRow>, today: LocalDate, onPick: (Preset) -> Unit, onRemove: (ModifierRow) -> Unit, onAdmin: () -> Unit, onEssentials: () -> Unit, message: String?, onBack: () -> Unit, dropped: Int = 0, onQuick: (Instance) -> Unit = {}) {
     val c = LocalColors.current
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
@@ -37,6 +37,18 @@ fun ModifyHomeScreen(active: List<ModifierRow>, today: LocalDate, onPick: (Prese
         message?.let { Column(Modifier.fillMaxWidth().card().padding(16.dp)) { BasicText(it, style = Ts(c.text, 15.sp, FontWeight.Bold)) } }
         if (dropped > 0) Column(Modifier.fillMaxWidth().card().padding(16.dp)) {
             BasicText("$dropped planned session${if (dropped == 1) "" else "s"} not shown: the calendar changed since (a day off or an import now sits there). The work is still due and counted in the Buffer.", style = Ts(c.text, 14.sp, FontWeight.Bold))
+        }
+
+        // RN1, RN2: the two changes you need in the middle of a day, one tap to a preview
+        Label("RIGHT NOW")
+        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Btn("Start the day from now", { onQuick(Instance(Preset.LATE_START, today, today, mapOf("from_now" to "true"))) }, primary = true, modifier = Modifier.fillMaxWidth(), description = "Start the day from now")
+            BasicText("Or, if what you are doing is taking longer", style = Ts(c.muted, 13.sp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(15, 30, 45, 60).forEach { m -> Chip("+$m min", false, { onQuick(Instance(Preset.RUN_OVER, today, today, mapOf("minutes" to m.toString()))) }, "Running over $m minutes") }
+            }
+            BasicText("Or, if something has come up", style = Ts(c.muted, 13.sp))
+            Btn("Put it in the day", { onPick(Preset.ADD_EVENT) }, modifier = Modifier.fillMaxWidth(), description = "Something has come up")
         }
 
         Label("ACTIVE AND PLANNED")
@@ -51,15 +63,20 @@ fun ModifyHomeScreen(active: List<ModifierRow>, today: LocalDate, onPick: (Prese
         }
 
         Label("PRESETS")
-        Preset.entries.forEach { p -> Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            BasicText(p.label, style = Ts(c.text, 17.sp, FontWeight.Bold)); BasicText(p.blurb, style = Ts(c.muted, 14.sp))
-            Btn("Set up ${p.label}", { onPick(p) }, description = "Set up ${p.label}")
-        } }
+        // MX1, MX3: every modifier is built from five effects. Not on the list? Pick what it does to your day.
+        BasicText("Pick what it does to your day, then the recipe.", style = Ts(c.muted, 14.sp))
+        Effect.entries.forEach { e ->
+            Label(e.label.uppercase())
+            BasicText(e.question, style = Ts(c.muted, 13.sp))
+            presetsFor(e).forEach { p -> Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                BasicText(p.label, style = Ts(c.text, 17.sp, FontWeight.Bold)); BasicText(p.blurb, style = Ts(c.muted, 14.sp))
+                Btn("Set up ${p.label}", { onPick(p) }, description = "Set up ${p.label}")
+            } }
+        }
 
         Label("ALSO")
         Btn("Admin library: upkeep jobs", onAdmin, modifier = Modifier.fillMaxWidth())
         Btn("Essentials: apps never blocked", onEssentials, modifier = Modifier.fillMaxWidth())
-        BasicText("Not built yet: Revision, Routine, Recovery, Away, Guests, Placement, Fresh start, Custom and screen-time limits.", style = Ts(c.muted, 13.sp))
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
     }
 }
@@ -103,10 +120,66 @@ fun SettingRow(def: SettingDef, value: String, today: LocalDate, onChange: (Stri
                     Chip("+30m", false, { onChange(t.plusMinutes(30).toString()) }, "Later ${def.label}")
                 }
             }
+            SettingKind.OPT_TIME -> {
+                val t = runCatching { LocalTime.parse(value) }.getOrNull()
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Chip("As normal", t == null, { onChange("") }, "${def.label}: as normal")
+                    if (t == null) Chip("Choose a time", false, { onChange("10:00") }, "Choose ${def.label}")
+                    else {
+                        Chip("-30m", false, { onChange(t.minusMinutes(30).toString()) }, "Earlier ${def.label}")
+                        BasicText(t.toString(), style = Ts(c.text, 18.sp, FontWeight.Bold), modifier = Modifier.semantics { contentDescription = "${def.label} $t" })
+                        Chip("+30m", false, { onChange(t.plusMinutes(30).toString()) }, "Later ${def.label}")
+                    }
+                }
+            }
             SettingKind.TEXT -> BasicTextField(value, { onChange(it) }, singleLine = false, textStyle = Ts(c.text, 16.sp), cursorBrush = SolidColor(c.text),
                 modifier = Modifier.fillMaxWidth().card().padding(12.dp).semantics { contentDescription = def.label })
             SettingKind.DATE -> Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (0..120).map { today.plusDays(it.toLong()) }.forEach { d -> Chip(DAY.format(d), d.toString() == value, { onChange(d.toString()) }, "${def.label} ${DAY.format(d)}") }
+            }
+        }
+    }
+}
+
+private fun clockText(min: Int) = "%02d:%02d".format(min / 60, min % 60)
+
+/** The time at one end of a span, in steps of 30 minutes (RF1). */
+@Composable
+private fun SpanTime(label: String, minutes: Int, word: String, onChange: (Int) -> Unit) {
+    val c = LocalColors.current
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        BasicText(label, style = Ts(c.muted, 14.sp), modifier = Modifier.width(84.dp))
+        Chip("-30m", false, { onChange(minutes - 30) }, "Earlier $word of the period")
+        BasicText(clockText(minutes), style = Ts(c.text, 18.sp, FontWeight.Bold), modifier = Modifier.semantics { contentDescription = "$label ${clockText(minutes)}" })
+        Chip("+30m", false, { onChange(minutes + 30) }, "Later $word of the period")
+    }
+}
+
+/** RF8: what a span comes to, as three tiles and a bar for each day, drawn from numbers that are also written out. */
+@Composable
+fun SummaryCard(s: PeriodSummary) {
+    val c = LocalColors.current
+    fun h(min: Number) = fmt1(min.toDouble() / 60.0)
+    @Composable fun Tile(big: String, small: String, was: String, modifier: Modifier) = Column(modifier.card().padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        BasicText(big, style = Ts(c.text, 22.sp, FontWeight.Bold)); BasicText(small, style = Ts(c.text, 13.sp)); BasicText(was, style = Ts(c.muted, 12.sp))
+    }
+    Column(Modifier.fillMaxWidth().card().padding(14.dp).semantics { contentDescription = "What it comes to. ${s.lines().first()}" }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Label("WHAT IT COMES TO")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Tile("${h(s.perDayMin)}h", "study a day", "was ${h(s.perDayBeforeMin)}h", Modifier.weight(1f))
+            Tile("${s.cycles}", "study cycles", "${h(s.notesMin)}h of notes", Modifier.weight(1f))
+            Tile("${h(s.freeMin)}h", "free time", "was ${h(s.freeBeforeMin)}h", Modifier.weight(1f))
+        }
+        if (s.byModule.isNotEmpty()) BasicText(s.byModule.entries.joinToString("  ·  ") { "${it.key.substringBefore(" and ")} ${h(it.value)}h" }, style = Ts(c.muted, 13.sp))
+        if (s.lectures > 0) BasicText("${s.lectures} lecture${if (s.lectures == 1) "" else "s"} still on the schedule", style = Ts(c.muted, 13.sp))
+        if (s.count > 1) {
+            val top = s.days.maxOf { it.workMin }.coerceAtLeast(1)
+            s.days.forEach { d ->
+                Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = "${DAY.format(d.date)}: ${h(d.workMin)} hours, ${d.blocks} blocks" }, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    BasicText(DAY.format(d.date), style = Ts(c.muted, 12.sp), modifier = Modifier.width(76.dp))
+                    Bar(d.workMin.toFloat() / top, Modifier.weight(1f))
+                    BasicText("${h(d.workMin)}h", style = Ts(c.text, 12.sp, FontWeight.Bold), modifier = Modifier.width(36.dp))
+                }
             }
         }
     }
@@ -129,15 +202,20 @@ fun ModifyFormScreen(
         BasicText(preset.blurb, style = Ts(c.muted, 14.sp))
         message?.let { Column(Modifier.fillMaxWidth().card().padding(16.dp)) { BasicText(it, style = Ts(c.text, 15.sp, FontWeight.Bold)) } }
 
-        if (preset != Preset.ASSIGNMENT) {
+        if (!ModDefs.datesFromItems(preset)) {
             Label("DATES")
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (0..60).map { today.plusDays(it.toLong()) }.forEach { d -> Chip(if (d == today) "Today" else DAY.format(d), d == draft.start, { onChange(draft.copy(start = d, end = d.plusDays((draft.days - 1).toLong()))) }, "Starts ${DAY.format(d)}") }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(1, 2, 3, 5, 7, 10, 14).forEach { n -> Chip(if (n == 1) "1 day" else "$n days", n == draft.days, { onChange(draft.copy(end = draft.start.plusDays((n - 1).toLong()))) }, "For $n days") }
+                listOf(1, 2, 3, 5, 7, 10, 14, 21, 28).forEach { n -> Chip(if (n == 1) "1 day" else "$n days", n == draft.days, { onChange(draft.copy(end = draft.start.plusDays((n - 1).toLong()))) }, "For $n days") }
             }
             BasicText("${DAY.format(draft.start)} to ${DAY.format(draft.end)}", style = Ts(c.text, 15.sp, FontWeight.Bold))
+            // RF1: a span has a time at each end. Presets that lay the day out again read them.
+            if (ModDefs.hasSpanTimes(preset)) {
+                SpanTime("Starts at", draft.fromMin, "start") { onChange(draft.copy(fromMin = it.coerceIn(0, 1439))) }
+                SpanTime("Ends at", draft.toMin, "end") { onChange(draft.copy(toMin = it.coerceIn(1, 1440))) }
+            }
         }
 
         Btn("Recommended", onRecommend, modifier = Modifier.fillMaxWidth(), description = "Recommended. Fills in the settings from your own plan and times, with a reason for each.")
@@ -169,7 +247,7 @@ fun ModifyFormScreen(
                 if (p.problems.isNotEmpty()) { BasicText("It cannot be applied:", style = Ts(c.text, 15.sp, FontWeight.Bold)); p.problems.forEach { BasicText(it, style = Ts(c.text, 14.sp)) } }
                 else {
                     p.compiled.lines.forEach { BasicText(it, style = Ts(c.text, 14.sp)) }
-                    p.compiled.problems.forEach { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+                    p.summary?.let { SummaryCard(it) }
                     BasicText("Buffer now: ${bufText(p.before)}", style = Ts(c.muted, 13.sp)); BasicText("Buffer with this: ${bufText(p.after)}", style = Ts(c.muted, 13.sp, FontWeight.Bold))
                     if (p.wallNeeded) { BasicText("This loosens something, so it needs the typed wall:", style = Ts(c.text, 14.sp, FontWeight.Bold)); p.compiled.loosening.forEach { BasicText(it, style = Ts(c.text, 13.sp)) } }
                     Btn(if (p.wallNeeded) "Apply, with the wall" else "Apply", onApply, primary = true, modifier = Modifier.fillMaxWidth())

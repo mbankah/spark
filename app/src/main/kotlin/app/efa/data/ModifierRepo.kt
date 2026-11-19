@@ -13,8 +13,10 @@ class ModifierRepo(private val db: EfaDb) {
 
     suspend fun preview(inst: Instance, now: ZonedDateTime): ModPreview {
         val base = PlanRepo(db).slots()
-        val p = previewOf(inst, base, db.tasks().open().map { it.toDue() }, now)
-        val clash = modifierConflicts(inst, db.modifiers().all().filter { it.state == "active" }.mapNotNull { decodeInstance(it.instance) })
+        val active = db.modifiers().all().filter { it.state == "active" }.mapNotNull { decodeInstance(it.instance) }
+        val anchors = active.mapNotNull { nightAnchorsOf(it) }.associateBy { it.night }          // SA1, SA2: the guard rail reads the nights that were moved
+        val p = previewOf(inst, base, db.tasks().open().map { it.toDue() }, now, anchors = anchors)
+        val clash = modifierConflicts(inst, active)
         return if (clash.isEmpty()) p else p.copy(problems = p.problems + clash)
     }
 
@@ -34,6 +36,7 @@ class ModifierRepo(private val db: EfaDb) {
             db.tasks().insertOnce(TaskRow(title = w.title, dueMs = w.due.toInstant().toEpochMilli(), dueZone = w.due.zone.id, heaviness = w.heaviness, hoursEstimate = w.hours,
                 createdMs = nowMs, source = "modifier", sourceKey = "mod:$id:$n", reason = "${inst.preset.label}"))
         }
+        c.anchors.firstOrNull()?.let { a -> db.meta().put(MetaRow(META_WAKE_CHOSEN, a.wakeAt().toInstant().toEpochMilli().toString())) }      // WT1, SA1: the alarm rings at the wake of the night
         if (c.dayOffDates.isNotEmpty()) PlanRepo(db).addDaysOff(db, c.dayOffDates, "period_off", wallLength, now, sameDay = c.dayOffDates.first() == now.toLocalDate(), withDemand = !c.noDemand)
         id
     }
@@ -48,6 +51,7 @@ class ModifierRepo(private val db: EfaDb) {
             db.daysOff().cancelBySource(dates.map { it.toString() }, "period_off")   // H1: the use stays in the tally
             dates.forEach { db.tasks().deleteOpenByPrefix("dayoff:$it|%") }
         }
+        if (inst?.preset == Preset.NIGHT) db.meta().put(MetaRow(META_WAKE_CHOSEN, "0"))
         db.modifiers().delete(id)
     }
 }

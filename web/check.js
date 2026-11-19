@@ -5,6 +5,7 @@
 export const COLUMNS = ['kind', 'date', 'end_date', 'start', 'end', 'title', 'type', 'venue', 'heaviness', 'study', 'action', 'notes'];
 export const EVENT_TYPES = ['lecture', 'tutorial', 'mytutor', 'training', 'match', 'gym', 'church', 'errand', 'travel', 'reminder'];
 export const PERIOD_TYPES = ['assignment_week', 'catch_up_week'];
+export const FILE_PRESETS = ['catch_up', 'lecture_free', 'late_start', 'run_over', 'add_event', 'cancel', 'recovery', 'guests', 'away', 'night'];
 export const MAX_BYTES = 1_000_000;
 export const MAX_ROWS = 2000;
 
@@ -56,14 +57,14 @@ export function checkCsv(text) {
     const line = i + 2;
     if (r.length !== header.length) { err(line, '', `This line has ${r.length} cells and the header has ${header.length}. Every cell must be present, even if empty.`); return; }
     const kind = at(r, 'kind').toLowerCase();
-    if (!['event', 'deadline', 'period', 'replace'].includes(kind)) { err(line, 'kind', 'kind must be event, deadline, period or replace.'); return; }
+    if (!['event', 'deadline', 'period', 'replace', 'modifier', 'anchor', 'keep'].includes(kind)) { err(line, 'kind', 'kind must be event, deadline, period, replace, modifier, anchor or keep.'); return; }
     const d = date(at(r, 'date'));
     if (!d) err(line, 'date', 'The date must be like 2026-11-02 or 02/11/2026, and a real day.');
     const action = at(r, 'action').toLowerCase();
     if (!['', 'add', 'cancel'].includes(action)) err(line, 'action', 'action must be empty, add or cancel.');
     const study = at(r, 'study').toLowerCase();
     if (!['', 'standard', 'light', 'none'].includes(study)) err(line, 'study', 'study must be empty, standard, light or none.');
-    if (kind !== 'period' && kind !== 'replace' && at(r, 'title') === '') err(line, 'title', 'A title is needed.');
+    if (['event', 'deadline'].includes(kind) && at(r, 'title') === '') err(line, 'title', 'A title is needed.');
     if (at(r, 'title').length > 120) err(line, 'title', 'The title is over 120 characters.');
     if (kind === 'event') {
       const s = minutes(at(r, 'start')); const e = minutes(at(r, 'end'));
@@ -71,6 +72,22 @@ export function checkCsv(text) {
       if (e === null) err(line, 'end', 'The end must be a 24-hour time like 10:00.');
       if (s !== null && e !== null && e <= s) err(line, 'end', 'The end must be after the start, on the same day.');
       if (!EVENT_TYPES.includes(at(r, 'type').toLowerCase())) err(line, 'type', `type must be one of: ${EVENT_TYPES.join(', ')}.`);
+    } else if (kind === 'keep') {
+      const s = minutes(at(r, 'start')); const e = minutes(at(r, 'end'));
+      if (s === null) err(line, 'start', 'The start must be a 24-hour time like 20:00.');
+      if (e === null) err(line, 'end', 'The end must be a 24-hour time like 23:59.');
+      if (s !== null && e !== null && e <= s) err(line, 'end', 'The end must be after the start, on the same day.');
+    } else if (kind === 'anchor') {
+      if (minutes(at(r, 'start')) === null) err(line, 'start', 'Lights out must be a 24-hour time like 02:30.');
+      if (minutes(at(r, 'end')) === null) err(line, 'end', 'Wake must be a 24-hour time like 10:30.');
+      for (const part of at(r, 'notes').split(';').filter((p) => p.trim() !== '')) if (!/^[^=]+=.+$/.test(part.trim())) err(line, 'notes', `"${part.trim()}" is not key=value. Separate settings with ;`);
+    } else if (kind === 'modifier') {
+      const e = date(at(r, 'end_date'));
+      if (!e) err(line, 'end_date', 'A modifier needs a last day.');
+      else if (d && e < d) err(line, 'end_date', 'The last day is before the first day.');
+      if (!FILE_PRESETS.includes(at(r, 'type').toLowerCase())) err(line, 'type', `type must be one of: ${FILE_PRESETS.join(', ')}.`);
+      for (const k of ['start', 'end']) if (at(r, k) !== '' && minutes(at(r, k)) === null) err(line, k, 'A time must be 24-hour like 09:00, or empty.');
+      for (const part of at(r, 'notes').split(';').filter((p) => p.trim() !== '')) if (!/^[^=]+=.+$/.test(part.trim())) err(line, 'notes', `"${part.trim()}" is not key=value. Separate settings with ;`);
     } else if (kind === 'replace') {
       const s = minutes(at(r, 'start')); const e = minutes(at(r, 'end'));
       if (s === null) err(line, 'start', 'The start must be a 24-hour time like 20:00.');

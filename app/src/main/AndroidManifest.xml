@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <!-- D3: lets Check Canvas see whether the Canvas app is installed. Nothing is read from it. -->
     <!-- A9: asked in the app with its reason, only when a proof photo is taken. In-app camera only; there is no gallery picker (A7). -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- SL2: NFC tags are an option. Readers are used only while Spark is open and the setting is on. -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <!-- SL9: greyscale at wind-down. Granted once from the PC with adb; without it nothing changes. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <!-- A8, A9: location is read once, when a proof photo is taken, to check attendance. Never in the background. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -141,6 +146,10 @@
         <receiver android:name=".LectureCodeReceiver" android:exported="false" />
         <receiver android:name=".PhotoReceiver" android:exported="false" />
         <receiver android:name=".EventReminderReceiver" android:exported="false" />
+        <receiver android:name=".MealCheckReceiver" android:exported="false" />
+        <receiver android:name=".MealAnswerReceiver" android:exported="false" />
+        <receiver android:name=".ReminderReceiver" android:exported="false" />
+        <receiver android:name=".ReminderAnswerReceiver" android:exported="false" />
         <service android:name=".AlarmService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <activity
             android:name=".AlarmActivity"

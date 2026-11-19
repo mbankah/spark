@@ -85,3 +85,27 @@ test('RP2: a replace row is read, and one that ends before it starts is an error
 test('RP1: a reminder is an event type', () => {
   assert.deepEqual(checkCsv(`${H}\nevent,2026-11-15,,23:00,23:05,Melatonin 3mg,reminder,,,none,,\n`).errors, []);
 });
+
+test('IX6: modifier, anchor and keep rows are read, and a bad one names its line and column', () => {
+  assert.deepEqual(checkCsv(`${H}\nmodifier,2026-11-23,2026-11-25,,,,lecture_free,,,,,\nanchor,2026-11-23,,02:30,10:30,,,,,,,winddown_min=45\nkeep,2026-11-23,,15:00,16:00,Call,,,,,,\n`).errors, []);
+  const bad = checkCsv(`${H}\nmodifier,2026-11-23,2026-11-25,,,,holiday,,,,,\nkeep,2026-11-23,,16:00,15:00,,,,,,,\nanchor,2026-11-23,,02:30,10:30,,,,,,,broken\n`).errors;
+  assert.ok(bad.some((e) => e.line === 2 && e.column === 'type'));
+  assert.ok(bad.some((e) => e.line === 3 && e.column === 'end'));
+  assert.ok(bad.some((e) => e.line === 4 && e.column === 'notes'));
+});
+
+import fs from 'node:fs';
+test('IX9: every shared fixture reads the same way here as in the app', () => {
+  const dir = new URL('../../core/src/test/resources/csv/', import.meta.url);
+  const files = fs.readdirSync(dir);
+  assert.ok(files.length > 10);
+  for (const f of files.filter((n) => n.startsWith('good-'))) {
+    const e = checkCsv(fs.readFileSync(new URL(f, dir), 'utf8')).errors;
+    assert.deepEqual(e, [], `${f} should be accepted`);
+  }
+  for (const f of files.filter((n) => n.startsWith('bad-'))) {
+    const m = /^bad-(\d+)-([a-z_]+)-/.exec(f); const col = m[2] === 'file' ? '' : m[2];
+    const e = checkCsv(fs.readFileSync(new URL(f, dir), 'utf8')).errors;
+    assert.ok(e.some((x) => String(x.line) === m[1] && (m[2] === 'file' || x.column === col)), `${f} expected ${m[1]}:${col} got ${JSON.stringify(e.map((x) => `${x.line}:${x.column}`))}`);
+  }
+});

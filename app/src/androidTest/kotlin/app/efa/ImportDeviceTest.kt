@@ -335,6 +335,9 @@ class ImportIntentTest {
 
     @Before fun clean() {
         listOf("overlay_item", "period", "import_log", "task").forEach { db.openHelper.writableDatabase.execSQL("DELETE FROM $it") }
+        // CE5, CE6: these flows import many times in a row, so the weekly count starts clear and the first-use trial is on
+        db.openHelper.writableDatabase.execSQL("DELETE FROM meta WHERE `key` = 'change_log'")
+        db.openHelper.writableDatabase.execSQL("INSERT OR REPLACE INTO meta(`key`, value) VALUES('first_use_epoch_ms', '${System.currentTimeMillis()}')")
     }
 
     private val fri = dayAfter(5, DayOfWeek.FRIDAY)
@@ -425,19 +428,16 @@ class ImportIntentTest {
         }
     }
 
-    @Test fun IM12_removing_an_import_needs_the_wall_and_then_removes_it() {
+    @Test fun IM12_CE8_removing_an_import_within_24_hours_is_free_and_gives_the_count_back() {
         launch(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, goodCsv)).use {
             rule.waitUntil(10_000) { rule.onAllNodesWithText("Apply").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithText("Apply").performClick(); rule.waitUntil(10_000) { rule.onAllNodesWithText("DONE").fetchSemanticsNodes().isNotEmpty() }
-            rule.onNodeWithText("Remove").performScrollTo().performClick()
-            rule.waitUntil(10_000) { rule.onAllNodesWithText("TYPE THIS BY HAND").fetchSemanticsNodes().isNotEmpty() }
             assertEquals(1, count("task WHERE source LIKE 'import%'"))
-            val target = rule.onNodeWithContentDescription("Characters to type", substring = true).fetchSemanticsNode().config
-                .let { c -> c[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].first().removePrefix("Characters to type: ") }
-            val field = rule.onNodeWithContentDescription("Type the characters here")
-            target.forEach { ch -> field.performTextInput(ch.toString()) }
+            assertEquals(1, db.openHelper.readableDatabase.query("SELECT value FROM meta WHERE `key` = 'change_log'").use { c -> if (c.moveToFirst()) c.getString(0).lines().filter { l -> l.isNotBlank() }.size else 0 })
+            rule.onNodeWithText("Remove").performScrollTo().performClick()
             rule.waitUntil(15_000) { count("import_log") == 0 }
             assertEquals(0, count("task WHERE source LIKE 'import%'"))
+            rule.waitUntil(10_000) { db.openHelper.readableDatabase.query("SELECT value FROM meta WHERE `key` = 'change_log'").use { c -> !c.moveToFirst() || c.getString(0).isBlank() } }
         }
     }
 }

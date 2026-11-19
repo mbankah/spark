@@ -26,6 +26,7 @@ class ModifyFlowTest {
     @Before fun clean() {
         val w = EfaDb.get(ApplicationProvider.getApplicationContext<Context>()).openHelper.writableDatabase
         w.execSQL("DELETE FROM modifier"); w.execSQL("DELETE FROM day_off"); w.execSQL("DELETE FROM task WHERE source IN ('modifier','dayoff')")
+        w.execSQL("DELETE FROM meta WHERE `key` IN ('change_log','door_uses')")          // CE, DP: earlier tests counted changes and door uses in this same database
     }
 
     private fun openModify() {

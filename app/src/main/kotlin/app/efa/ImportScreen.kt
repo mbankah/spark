@@ -21,7 +21,7 @@ import efa.summaryLines
 /** Where the import screen is (IM5). Nothing is applied until [Checked] is confirmed. */
 sealed interface ImportUi {
     data object Idle : ImportUi
-    data class Checked(val name: String, val verification: Verification, val fileHash: String) : ImportUi
+    data class Checked(val name: String, val verification: Verification, val fileHash: String, val text: String = "", val mode: efa.ImportMode = efa.ImportMode.ADD) : ImportUi
     data class Done(val lines: List<String>) : ImportUi
     data class Failed(val message: String) : ImportUi
 }
@@ -35,6 +35,7 @@ sealed interface ImportUi {
 fun ImportScreen(
     ui: ImportUi, imports: List<ImportLogRow>,
     onChoose: () -> Unit, onCopyFormat: () -> Unit, onApply: () -> Unit, onRemove: (ImportLogRow) -> Unit, onBack: () -> Unit,
+    onMode: (efa.ImportMode) -> Unit = {}, meter: String? = null, economy: String? = null,
 ) {
     val c = LocalColors.current
     Column(
@@ -58,7 +59,7 @@ fun ImportScreen(
                 Label("DONE")
                 ui.lines.forEach { BasicText(it, style = Ts(c.text, 15.sp)) }
             }
-            is ImportUi.Checked -> Checked(ui, onApply)
+            is ImportUi.Checked -> Checked(ui, onApply, onMode, meter, economy)
         }
 
         if (imports.isNotEmpty()) {
@@ -67,6 +68,7 @@ fun ImportScreen(
                 Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     BasicText(i.name, style = Ts(c.text, 16.sp, FontWeight.Bold))
                     BasicText(i.summary, style = Ts(c.muted, 13.sp))
+                    if (System.currentTimeMillis() - i.atMs < 24L * 3_600_000L) BasicText("Within 24 hours: removing it is free and gives the count back.", style = Ts(c.muted, 12.sp))
                     Btn("Remove", { onRemove(i) }, description = "Remove the import ${i.name}. Needs the typed wall.")
                 }
             }
@@ -76,9 +78,19 @@ fun ImportScreen(
 }
 
 @Composable
-private fun Checked(ui: ImportUi.Checked, onApply: () -> Unit) {
+private fun Checked(ui: ImportUi.Checked, onApply: () -> Unit, onMode: (efa.ImportMode) -> Unit, meter: String?, economy: String?) {
     val c = LocalColors.current
     val v = ui.verification
+    // IX2: the mode is chosen here, never by the file
+    Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Label("HOW TO USE THIS FILE")
+        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            efa.ImportMode.entries.forEach { m -> Chip(m.label, ui.mode == m, { onMode(m) }, m.label) }
+        }
+        BasicText(if (ui.mode == efa.ImportMode.ADD) "The file's events go on top of your plan." else "The file becomes the plan for its days. Lectures, their study cycles, meals, sleep, football, church, paid sessions and protected free time stay.", style = Ts(c.muted, 13.sp))
+        meter?.let { BasicText(it, style = Ts(c.muted, 12.sp)) }
+        economy?.let { BasicText(it, style = Ts(c.text, 13.sp, FontWeight.Bold)) }
+    }
     Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Label("FILE")
         BasicText(ui.name, style = Ts(c.text, 16.sp, FontWeight.Bold))

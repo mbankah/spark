@@ -61,6 +61,11 @@ You said "Go, everything", then "Build the rest and Push". This is the honest ac
 
 - **One order on the home page:** clock, Now (with the three reports inside its card), Next as a timeline of three, what is waiting for you (two, the rest one tap away), the Buffer, then the quieter cards. "Moved for you" is on Work it out now. The full emulator suite passed: 569 tests, none failed.
 
+## Built after that: files carry whole programmes (IX10, IX11)
+
+- **A file's modifier rows are checked in order, each on top of the last** (and of its own events), as they are applied. Before this a file with a catch-up and a late night was refused, because the night was checked before the lectures it would hide had gone. Nothing in the app knows any person's plan: it is a file, imported the normal way, and it still cannot cancel or create a study block (IM6).
+- **A known limit of the planner:** on a late-start day with chores, a film or church there may be no room for a catch-up block, and a project block may be left on it. The preview says what each day holds before you apply.
+
 ## Not built, by name
 
 - **The proof ladder is not one store yet**: photo, sleep and meal proofs are still separate stores; NFC taps and the runner write facts.

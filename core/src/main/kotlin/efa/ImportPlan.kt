@@ -118,20 +118,26 @@ fun verifyImport(
         periods += r; periodHashes += h
     }
 
-    // IX6: modifiers the file carries are checked like any modifier in the app: the same preview, the same guard rails, the same loosening
+    // IX6: modifiers the file carries are checked like any modifier in the app: the same preview, the same guard rails, the same loosening. They are checked in the order
+    // the file gives them, each on top of the ones before it and of the file's own events, and so is the app's apply: a catch-up row that cancels the lectures comes before a
+    // night row that would otherwise be refused for waking after a lecture. Work the file itself adds (its deadlines) counts as backlog for the rows after it.
     val mods = ArrayList<ImportedModifier>()
+    var modBase = cur
+    var modWork = work + newWork.map { DueWork(it.title, it.hours, it.heaviness, it.due) }
     for (r in parsed.rows.filterIsInstance<ModifierImport>()) {
         val h = r.hash()
         if (h in known) { already++; continue }
         val clash = modifierConflicts(r.instance, mods.map { it.instance })
         if (clash.isNotEmpty()) { errors += ImportIssue(r.line, "", clash.joinToString(" ")); continue }
-        val pv = previewOf(r.instance, cur, work, now, zone)
+        val pv = previewOf(r.instance, modBase, modWork, now, zone)
         if (!pv.canApply) { errors += ImportIssue(r.line, "", pv.problems.joinToString(" ")); continue }
         loosening += pv.compiled.loosening
         mods += ImportedModifier(r.instance, h, r.line)
+        modBase = applied(modBase, pv.compiled); modWork = modWork + pv.compiled.tasks
     }
+    cur = modBase
 
-    val extra = newWork.map { DueWork(it.title, it.hours, it.heaviness, it.due) }
+    val extra = newWork.map { DueWork(it.title, it.hours, it.heaviness, it.due) } + modWork.drop(work.size + newWork.size)          // what a modifier sets aside comes back as work, and counts
     val before = bufferNow(now, studyCycles(slots, now) + work, slots, shortSleep = false)
     val after = if (errors.isNotEmpty()) before else bufferNow(now, studyCycles(cur, now) + work + extra, cur, shortSleep = false)
     return Verification(

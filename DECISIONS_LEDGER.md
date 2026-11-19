@@ -768,6 +768,8 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | IX3 | Add: commitments win, study blocks are never shortened, refusals have reasons. | Default |
 | IX4 | Replace covers the file's span. Sleep, hard alarms, meals, protected free time, the wall and anything marked keep stay. Obligations are re-placed and any shortfall is shown. | Default |
 | IX5 | Replace is a Move if every obligation fits and a Loosen if any is dropped. A file may remove or shorten a study block only in Replace mode, inside its span, through the wall. | Default. Amends IM6 (Locked): needs your yes |
+| IX10 | The modifier rows of a file are checked in the order the file gives them, each on top of the ones before it and of the file's own events, which is also the order they are applied. A file can therefore carry a whole programme: lectures off, then nights that would otherwise be refused for hiding a lecture, then a catch-up laid out after the nights. Work a file adds counts as backlog for the rows after it. | Default; built |
+| IX11 | Order does not widen what a file may do: it still cannot cancel, shorten or create a study or project block (IM6), in any order. | Default; tested |
 | IX6 | Format v2 adds `modifier`, `anchor` and `keep` rows; v1 files still read. | Default; built: `modifier` (ten presets), `anchor` and `keep` rows, checked with the same preview and guard rails as the app, applied as modifiers, remembered by row hash, removed with the import. A `keep` row protects its time from a Replace |
 | IX7 | A restore point is written on every apply. | Default |
 | IX8 | The preview shows placed, moved, refused, shortfall and the Buffer before and after. | Default |

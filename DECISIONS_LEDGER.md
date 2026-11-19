@@ -961,6 +961,15 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 50. A catch-up for a late night
+
+Added on 19 November 2026 at your request ("find the last cycles"): a sleep reset moves the night later, so the evening has hours the 23:59 cut-off wasted, and the protected free time was the one big block left.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| LN1 | A catch-up row can say after_midnight: Study until is then the small hours of the next morning (for example 01:25), and the day runs to it, still stopping before the evening routine. Without it the day ends at 23:59 as before. | Default; built, tested |
+| LN2 | A catch-up row can say use_free: it gives up the protected free time on its days. It is said in the preview (Uses protected free time on ...) and it needs the typed wall. Without it protected free time is never touched. | Default; built, tested |
+
 ## 49. Overriding a protected block from a file
 
 Added on 19 November 2026 at your request: "include an override function in the CSVs: an override column that allows me to override with my CSV". The class: you sometimes know better than the protection (a study block that hides the wake a gentle sleep reset needs, a project block you are not doing this week). The protection stays the default; you can lift it in your own file, openly.

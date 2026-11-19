@@ -57,6 +57,42 @@ class ImportOrderTest {
         assertFalse(without.canApply); assertTrue(without.problems.any { "would be in the night" in it }, without.problems.toString())
     }
 
+    @Test fun LN1_a_late_nights_study_can_run_past_midnight_when_the_row_says_so() {
+        val night2 = "anchor,2026-11-22,,02:00,10:20,Sleep reset,,,,,,,"
+        val p = parse(lectureFree, night2, "modifier,2026-11-22,2026-11-22,,,Late study,catch_up,,,,,day_from=21:00;day_to=00:30;after_midnight=true;slot_h=1;slots_floor=3;slots_stretch=3;module_cap=4")
+        val v = verify(p, small)
+        assertTrue(v.ok, v.errors.toString())
+        var cur = small + v.overlay.map { it.slot }
+        val mods = p.rows.filterIsInstance<ModifierImport>()
+        val nights = mods.mapNotNull { nightAnchorsOf(it.instance) }.associateBy { it.night }
+        for (m in mods.dropLast(1)) cur = applied(cur, previewOf(m.instance, cur, emptyList(), now, zone, nights).compiled)
+        val pv = previewOf(mods.last().instance, cur, emptyList(), now, zone, nights)
+        assertTrue(pv.canApply, pv.problems.toString())
+        val study = slotsFor(applied(cur, pv.compiled), java.time.LocalDate.of(2026, 11, 22), zone).filter { it.slot.type == "study" && !it.slot.cancelled }
+        assertTrue(study.any { it.slot.endMin > 1440 }, "a block runs past midnight: ${study.map { it.slot.startMin to it.slot.endMin }}")
+        assertTrue(study.all { it.slot.endMin <= 1440 + 30 }, "and none past the 00:30 asked for")
+        val without = verify(parse(lectureFree, night2, "modifier,2026-11-22,2026-11-22,,,Late study,catch_up,,,,,day_from=21:00;day_to=00:30;slot_h=1;slots_floor=3;slots_stretch=3"), small)
+        assertFalse(without.ok); assertTrue(without.errors.any { "leaves no room" in it.message }, without.errors.toString())
+    }
+
+    @Test fun LN2_protected_free_time_is_used_only_when_the_row_says_so_and_then_it_needs_the_wall() {
+        val sat = java.time.LocalDate.of(2026, 11, 21)
+        val prot = protectedFree(base, weekStart(sat), zone).filter { it.first == sat }
+        assertTrue(prot.isNotEmpty(), "Saturday has protected free time in the pattern")
+        fun study(row: String): Pair<List<DatedSlot>, Verification> {
+            val p = parse(row)
+            val v = verify(p)
+            val cur = applied(base, previewOf(p.rows.filterIsInstance<ModifierImport>().single().instance, base, emptyList(), now, zone).compiled)
+            return slotsFor(cur, sat, zone).filter { it.slot.type == "study" && !it.slot.cancelled } to v
+        }
+        fun overlapsProtected(s: List<DatedSlot>) = s.any { b -> prot.any { (_, start) -> val end = slotsFor(base, sat, zone).first { it.slot.startMin == start }.slot.endMin; b.slot.startMin < end && b.slot.endMin > start } }
+        val cfg = "day_from=09:00;day_to=21:30;slot_h=1;slots_floor=6;slots_stretch=6;weekend=same"
+        val (kept, vk) = study("modifier,2026-11-21,2026-11-21,,,Catch-up,catch_up,,,,,$cfg")
+        assertFalse(overlapsProtected(kept)); assertTrue(vk.loosening.none { it.contains("protected free") })
+        val (used, vu) = study("modifier,2026-11-21,2026-11-21,,,Catch-up,catch_up,,,,,$cfg;use_free=true")
+        assertTrue(overlapsProtected(used)); assertTrue(vu.needsWall); assertTrue(vu.loosening.any { it.contains("Uses protected free time on") }, vu.loosening.toString())
+    }
+
     @Test fun IX11_a_file_still_cannot_cancel_a_study_or_project_block_whatever_order_its_rows_come_in() {
         for (t in listOf("code", "study", "study-standard")) assertFalse(parse("event,2026-11-22,,10:00,11:20,Battl.io,$t,,,none,cancel,").ok, t)
         val v = verify(parse(lectureFree, night, "event,2026-11-22,,10:00,11:20,Battl.io,errand,,,none,cancel,"))

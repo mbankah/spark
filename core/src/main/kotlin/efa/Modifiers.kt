@@ -113,6 +113,7 @@ object ModDefs {
         Preset.CATCH_UP -> listOf(
             d("day_from", "Study from", SettingKind.TIME, "09:00", help = "The first study block of a day starts no earlier than this"),
             d("day_to", "Study until", SettingKind.TIME, "21:30", help = "The last study block of a day ends by this"),
+            d("after_midnight", "Study until after midnight", SettingKind.BOOL, "false", help = "On for a late night: Study until is then the small hours of the next morning, for example 01:25"),
             d("wake", "The day starts at", SettingKind.OPT_TIME, "", help = "Leave it as normal, or choose a later start. Meals and the routine follow it"),
             d("slots_floor", "Study blocks a day (at least)", SettingKind.INT, "3", 1.0, 6.0, help = "Lecture cycles count toward it"),
             d("slots_stretch", "Study blocks on a good day", SettingKind.INT, "4", 1.0, 8.0, help = "Only while there is still backlog to clear"),
@@ -123,6 +124,7 @@ object ModDefs {
             d("module_cap", "Most blocks of one module a day", SettingKind.INT, "2", 1.0, 4.0),
             d("weekend", "Weekend", SettingKind.CHOICE, "same", choices = listOf("same", "lower", "none")),
             d("replace_code", "Also replace project and code blocks", SettingKind.BOOL, "true", help = "On gives the time of CS Project, the language lesson and your own projects to study. Off keeps them"),
+            d("use_free", "Study in protected free time too", SettingKind.BOOL, "false", help = "On gives up your protected free time on these days. It needs the typed wall"),
         )
         Preset.LATE_START -> listOf(
             d("from_now", "Start from now", SettingKind.BOOL, "false", help = "Today only: the day starts now, rounded up to 5 minutes. What was planned before now is already missed and comes back as work"),
@@ -277,7 +279,7 @@ fun validate(inst: Instance, today: LocalDate): List<String> {
         if (inst.preset == Preset.PERIOD_OFF && itemStr(item, "pin", inst.preset, "title").isBlank()) out += "$label needs a title."
     }
     if (inst.preset == Preset.CATCH_UP && out.none { it.contains("time like") }) {
-        val from = hm(inst.str("day_from")); val to = hm(inst.str("day_to"))
+        val from = hm(inst.str("day_from")); val to = hm(inst.str("day_to")) + (if (inst.bool("after_midnight")) 1440 else 0)
         if (to - from < MIN_STUDY_BLOCK_MIN) out += "Study from ${inst.str("day_from")} until ${inst.str("day_to")} leaves no room for a study block."
         val wake = inst.str("wake").takeIf { it.isNotBlank() }?.let { hm(it) }
         if (wake != null && wake !in 4 * 60..18 * 60) out += "The day starts between 04:00 and 18:00."
@@ -483,7 +485,8 @@ private fun compileCatchUp(inst: Instance, base: List<PatternSlot>, work: List<D
     val slotMin = Math.round(inst.dbl("slot_h") * 60 * if (rapid) inst.dbl("rapid_factor") else 1.0).toInt().coerceAtLeast(MIN_STUDY_BLOCK_MIN)
     val dates = inst.dates()
     val prot = protectedKeys(base, dates, zone)
-    val dayFrom = hm(inst.str("day_from")); val dayTo = hm(inst.str("day_to"))
+    val late = if (inst.bool("after_midnight")) 1440 else 0                    // LN1: a late night's study can run past midnight
+    val dayFrom = hm(inst.str("day_from")); val dayTo = hm(inst.str("day_to")) + late
     val wake = inst.str("wake").takeIf { it.isNotBlank() }?.let { hm(it) }
     var backlogLeft = Math.round(work.sumOf { it.hours } * 60).toInt()
     val slots = ArrayList<PatternSlot>(); val lines = ArrayList<String>(); val problems = ArrayList<String>(); val loosening = ArrayList<String>(); val droppedMeals = HashSet<String>()
@@ -498,7 +501,9 @@ private fun compileCatchUp(inst: Instance, base: List<PatternSlot>, work: List<D
         val dv = Devote(mods, slotMin, RESET_MIN, floor, max(floor, stretch), dayFrom, dayTo, inst.int("module_cap"), backlogMin = backlogLeft, replaceCode = inst.bool("replace_code"))
         // a start that has not come yet today can still be chosen; one that has passed is ignored
         val wakeToday = wake?.takeIf { date != now.toLocalDate() || it > now.hour * 60 + now.minute }
-        val b = buildDay(base, date, Rules(wake = wakeToday, from = if (wakeToday != null) min(from, 0) else from, to = to, devote = dv, protectedFree = prot), n, zone)
+        val useFree = inst.bool("use_free")
+        val b = buildDay(base, date, Rules(wake = wakeToday, from = if (wakeToday != null) min(from, 0) else from, to = to + late, devote = dv, protectedFree = if (useFree) emptySet() else prot), n, zone)
+        if (useFree && prot.any { it.first == date }) loosening += "Uses protected free time on ${label(date)}"           // LN2: it is said, and it needs the wall
         slots += b.slots; droppedMeals += b.droppedMeals; problems += b.problems
         if (wakeToday != null) loosening += startLoosening(base, date, wakeToday, b) else loosening += b.dropped
         blocks += b.blocks; backlogLeft = max(0, backlogLeft - b.slots.filter { !it.cancelled && it.type == "study" }.sumOf { it.endMin - it.startMin })

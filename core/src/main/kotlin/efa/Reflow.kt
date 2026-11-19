@@ -185,7 +185,8 @@ fun buildDay(base: List<PatternSlot>, date: LocalDate, rules: Rules, dayIndex: I
     val relay = wake != null && chain.isNotEmpty() && chain.all { weekly(it) && it.startMin >= rules.from }
     var laneStart: Int
     var lastMealEnd: Int? = null
-    val laneEnd = min(rules.to, night.firstOrNull()?.startMin ?: 1440)
+    // LN1: a late night's evening routine is dated (it moved with the night), so it is a fixed block and not the night; the lane then runs to the end the rules give, past midnight if they say so
+    val laneEnd = min(rules.to, night.firstOrNull()?.startMin ?: maxOf(1440, rules.to.takeIf { it > 1440 } ?: 1440))
     val notes = ArrayList<String>()
     if (relay && wake != null) {
         originals += chain

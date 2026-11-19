@@ -608,6 +608,7 @@ const val META_EMERGENCY_LOG = "emergency_log"             // EM1: quiet log of 
 const val META_FAMILY_HOME = "family_home"                 // HO2: latitude and longitude of the family home
 const val META_COACH_WD = "coach_winddown_date"            // CO2: the night the wind-down prompt was given
 const val META_FACTS = "facts_log"                         // FB1: facts, one a line
+const val META_SCOPED_ON = "scoped_on"                     // PA7: sleep audio, off by default; turning it on is a loosening and goes through the wall
 const val META_NFC_ON = "nfc_on"                           // SL2: NFC tags are an option, off by default
 const val META_NFC_TAGS = "nfc_tags"                       // SL2: tag hash to place
 const val META_DOOR_USES = "door_uses"                      // DP2: every use of a door, one per line, for the weekly pool

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import efa.Decision
+import efa.Signals
 import efa.browserFor
 import efa.guardedPage
 import efa.hostOf
@@ -13,7 +14,8 @@ import kotlinx.coroutines.*
 /**
  * Foreground-app detection (K1 to K3, LA7). On every window change it looks at every visible application window, not only the
  * focused one, so split screen, floating windows and picture-in-picture are covered. If a listed app is blocked right now it puts
- * the blocked card in front. It reads only package names: no text, no clicks, no gestures.
+ * the blocked card in front. It reads package names, and, only with sleep audio on and only for the apps it covers, the names of the views on screen and a count of scroll
+ * gestures (PA). It never reads what is written on the screen, and it makes no clicks or gestures.
  *
  * Limits, stated plainly: Android lets the user switch an accessibility service off in system settings. This service cannot
  * prevent that, only notice (U4, X5). It can be missed by an app that draws no window event, and by browsers' own tabs (K10 is
@@ -28,7 +30,52 @@ class BlockerService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         SleepCollector.start(applicationContext)          // layer 2: passive sleep logging lives as long as this service
-        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); PcLink.tick(applicationContext); TimeTrust.tick(applicationContext); checkWindows(); delay(60_000) } }
+        scope.launch { while (isActive) { BlockingState.refresh(applicationContext); syncEventTypes(); BufferNotifier.update(applicationContext); SleepCollector.tick(applicationContext); PcLink.tick(applicationContext); TimeTrust.tick(applicationContext); checkWindows(); delay(60_000) } }
+    }
+
+    private var scrollsOn = false
+
+    /**
+     * PA3: scroll events are subscribed to only while sleep audio is on. A service that listens to every scroll on the phone slows the other checks (the settings page check missed its
+     * window in a test), so the cost is paid only by someone who asked for the feature. Called every minute and when the option is switched.
+     */
+    fun syncEventTypes() {
+        val want = BlockingState.scoped != null
+        if (want == scrollsOn) return
+        try {
+            val info = serviceInfo ?: return
+            info.eventTypes = if (want) info.eventTypes or AccessibilityEvent.TYPE_VIEW_SCROLLED else info.eventTypes and AccessibilityEvent.TYPE_VIEW_SCROLLED.inv()
+            serviceInfo = info; scrollsOn = want
+        } catch (e: Exception) { /* X7: the option then works on surfaces only, and the scroll budget is not counted */ }
+    }
+
+    private val lastSurfaceCheck = HashMap<String, Long>()
+
+    /**
+     * PA1: for an app that is open at night on terms, read the names of the views on screen, and the label of any view that is selected (the chosen tab). Names only: no titles, no
+     * comments, no messages. Throttled, and capped in size, so a busy screen costs little. A failure reads as "nothing seen" and the surface stays as it was.
+     */
+    private fun checkSurface(pkg: String) {
+        if (!BlockingState.watchesSurface(pkg)) return
+        val now = System.currentTimeMillis()
+        if (now - (lastSurfaceCheck[pkg] ?: 0L) < 400) return
+        lastSurfaceCheck[pkg] = now
+        try {
+            val root = rootInActiveWindow ?: return
+            if (root.packageName?.toString() != pkg) { root.recycle(); return }
+            val ids = LinkedHashSet<String>(); val selected = LinkedHashSet<String>(); var seen = 0
+            fun walk(n: android.view.accessibility.AccessibilityNodeInfo, depth: Int) {
+                if (seen++ > 500 || depth > 30) return
+                n.viewIdResourceName?.substringAfter(":id/")?.takeIf { it.isNotBlank() }?.let { ids += it }
+                if (n.isSelected) (n.contentDescription ?: n.text)?.toString()?.takeIf { it.length in 1..24 }?.let { selected += it }
+                for (i in 0 until n.childCount) n.getChild(i)?.let { c -> walk(c, depth + 1) }
+            }
+            walk(root, 0); root.recycle()
+            if (ids.isEmpty() && selected.isEmpty()) return
+            val before = BlockingState.surfaces[pkg]
+            BlockingState.noteSignals(pkg, Signals(ids, selected))
+            if (BlockingState.surfaces[pkg] != before) checkWindows(pkg)
+        } catch (e: Exception) { /* X7: a screen that vanishes while being read changes nothing */ }
     }
 
     private val lastBrowserCheck = HashMap<String, Long>()
@@ -85,12 +132,17 @@ class BlockerService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+            // PA3: a scroll is counted, never read. Over the budget of the surface in front, the app is paused for a few minutes.
+            event.packageName?.toString()?.let { if (BlockingState.noteScroll(it)) checkWindows(it) }
+            return
+        }
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED || event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
-            event.packageName?.toString()?.let { checkBrowser(it); checkSettings(it) }
+            event.packageName?.toString()?.let { checkBrowser(it); checkSettings(it); checkSurface(it) }
             return
         }
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
-        event.packageName?.toString()?.let { checkBrowser(it); checkSettings(it) }
+        event.packageName?.toString()?.let { checkBrowser(it); checkSettings(it); checkSurface(it) }
         if (AlarmSession.ringing && event.packageName?.toString() != packageName && event.packageName?.toString() != "com.android.systemui") { showAlarm(); return }
         checkWindows(event.packageName?.toString().takeIf { event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED })
     }

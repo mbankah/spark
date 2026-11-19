@@ -957,6 +957,23 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 46. Part of an app
+
+Added on 19 November 2026 at your request: "allow podcasts but prevent scrolling". It reuses the earlier sections; where it seems to differ from them, this section says so. It is the general case of "an app that holds two uses at once", of which YouTube is the first.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| PA1 | An app can be told apart by what it is showing: a surface (a video, Shorts, a feed, search), recognised from the names of its views and the label of the selected tab. A table holds the names per app. | Default; built for YouTube; the names are the app's own and were not read off a real phone, so the log on the Work it out page shows what was recognised |
+| PA2 | Scrolling to find something is paid for from a finding credit: 40, a flick costs 1 in search and 2 on a feed or a surface nobody recognised, and every minute a video is in front earns 1 back. A playing video has a burst limit of 12 gestures a minute. Shorts has neither and is closed. | Default numbers; amended the same night: a per-minute limit on feeds and search made a slow search impossible |
+| PA3 | A scroll is a gesture, not an event: events within 0.7 seconds are one. Running the credit dry, or going over the burst limit, pauses the app for 3 minutes, and a pause leaves the credit at zero until listening earns more. | Default numbers |
+| PA4 | At night, and only then, a covered app is decided by its surface and its scroll trip: Allow, closed, or paused. | Default; built in `decide` |
+| PA5 | It opens nothing else: a work block, the getting-ready block, the morning and every other listed app stay as they were, and a night override still works the old way. | Default; tested over random cases |
+| PA6 | Both refusals say what happened and when it ends, in the voice of the manual. | Default |
+| PA7 | Off by default. Turning it on is a loosening, so it needs the typed wall and is counted in the change economy; turning it off is free. | Default |
+| PA8 | The accessibility service reads, for a covered app only and only with the option on, the names of the views and a count of scroll events. Never the text on the screen. | Default; amends the earlier statement that it reads only package names and a browser address bar |
+| PA9 | A failure to recognise a surface never traps the phone and never opens a feed: it is the surface with the smallest budget. | Default |
+| PA10 | The website of the app in a browser stays blocked at night as before; sleep audio covers the app only. | Default |
+
 ## 45. Voice and the manual
 
 Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MODEL.md. It reuses the earlier sections and where it seems to differ from them, the earlier locked rule wins unless a row below says it amends it.

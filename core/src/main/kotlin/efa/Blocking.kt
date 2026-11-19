@@ -4,7 +4,7 @@ import java.time.Duration
 import java.time.ZonedDateTime
 
 /** Why a blocked app is blocked right now. Shown on the blocked card (U7, W5). */
-enum class BlockReason { WORK_BLOCK, GETTING_READY, TRANSITION, PLANNING, NIGHT, MORNING_ALARM, MORNING_READY, APP_CAP, SCREEN_LIMIT }
+enum class BlockReason { WORK_BLOCK, GETTING_READY, TRANSITION, PLANNING, NIGHT, MORNING_ALARM, MORNING_READY, APP_CAP, SCREEN_LIMIT, SCOPED }
 
 /** M5, M6: the morning reasons cannot be passed with the typed wall, because the person chose the list once and the block ends with a photo (M6, M8). */
 val BlockReason.isMorning get() = this == BlockReason.MORNING_ALARM || this == BlockReason.MORNING_READY
@@ -72,6 +72,7 @@ fun decide(
     allow: Allowances = Allowances(), verifiedKeys: Set<String> = emptySet(), morning: MorningState? = null, lateness: Lateness = emptyMap(), earnedAccess: Boolean = false,
     essentials: Set<String> = ESSENTIAL_CORE, cap: AppCap? = null, capStart: Map<String, ZonedDateTime> = emptyMap(), inCall: Boolean = false,
     outUntil: ZonedDateTime? = null, atHome: Boolean? = null, limit: ScreenLimit? = null, limitStart: Map<String, ZonedDateTime> = emptyMap(),
+    scoped: ScopedAccess? = null, surface: Surface? = null, scrollTripUntil: ZonedDateTime? = null,
 ): Decision {
     // GT2: the WhatsApp cap comes before everything else, because WhatsApp is on your never-blocked list and would otherwise always be open
     if (cap != null && pkg in cap.apps) {
@@ -110,6 +111,12 @@ fun decide(
     if (window != null || sleeping) {
         if (allow.nightUntil?.isAfter(now) == true) return Decision.Allow
         val until = window?.wake ?: current!!.end
+        // PA4: an app that is open at night on terms (sleep audio) is judged by what it is showing and how much it is being scrolled. Work blocks and the morning never reach here.
+        if (scoped != null && pkg in scoped.apps) when (val v = scopedVerdict(scoped, surface, scrollTripUntil, now)) {
+            ScopedVerdict.Open -> return Decision.Allow
+            is ScopedVerdict.Closed -> return Decision.Block(BlockReason.SCOPED, v.surface.label, v.until, 0, night = false)
+            is ScopedVerdict.Tripped -> return Decision.Block(BlockReason.SCOPED, "scrolling", v.until, 0, night = false)
+        }
         return Decision.Block(BlockReason.NIGHT, "Night: past the cutoff", until, 0, night = true)
     }
     return Decision.Allow
@@ -138,4 +145,5 @@ fun refusalLine(reason: BlockReason, label: String, until: String): String = whe
     BlockReason.NIGHT -> "Past the night cutoff. It lifts at your wake time, $until."
     BlockReason.MORNING_ALARM -> "The alarm is ringing. Stop it with the photo first."
     BlockReason.MORNING_READY -> "Morning: social stays blocked until you photograph your ready spot. If you cannot, it ends by itself at $until."
+    BlockReason.SCOPED -> if (label == "scrolling") "The scrolling you get at night is used up. This app is paused until $until. Playing something earns more." else "At night this app is open for what you play and search for. Shorts stay closed until your wake time."
 }

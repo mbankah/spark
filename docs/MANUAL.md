@@ -119,6 +119,7 @@ The six routines Spark knows, each with its own steps, tiers and floor:
 | Never blocked | Calls, maps, authenticator, banking, Bible, clock, camera, notes | The safety floor | Locked |
 | Quiet mode | On | Holds non-essential notifications in blocks and at night | free |
 | WhatsApp cap | 10 minutes at a time, then a 30 minute cooldown | An active call is never cut off; SMS and calls are not capped | wall to end a cooldown; 24h to loosen the cap |
+| Sleep audio (YouTube) | Off | At night a video you play and your searches stay open, Shorts stay closed, and finding is paid for from a scrolling credit of 40 (search 1 a flick, a feed 2) that listening earns back at 1 a minute; when it runs dry YouTube pauses for 3 minutes. Work blocks and the morning stay shut | wall to turn on, free to turn off |
 | Greyscale and warm screen at wind-down | On if available | The screen loses its pull | free |
 | Do Not Disturb in blocks | On | Silence | free |
 

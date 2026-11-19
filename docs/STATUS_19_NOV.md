@@ -42,6 +42,11 @@ You said "Go, everything", then "Build the rest and Push". This is the honest ac
 - **Routines are prompted at their time (CO1, CO2)** and the Away zone is read by the day (PL1, PL3).
 - **Rules with tests**: GT1, DP5, HS7, HS8, VG1, VG3.
 
+## Built after the push: sleep audio (PA)
+
+- **Part-of-an-app access, first use YouTube.** At night, with the option on, a video you play and your searches stay open, Shorts are closed, and finding is paid for from a scrolling credit that listening earns back, and a playing video has a burst limit. Off by default; turning it on needs the typed wall. It is the general layer (a surface table, a scroll budget, a verdict in the one gate), so another app is one table row.
+- **Not checked on a real phone, and the part most likely to need a change:** the names of YouTube's views were not read off a phone, because the emulator has no YouTube. If Shorts are not closed, or a video is treated as something else, the card on the Work it out page lists what Spark recognised. Until then an unrecognised screen costs double from the scrolling credit, so the failure is a stricter YouTube, never a free feed.
+
 ## Not built, by name
 
 - **The proof ladder is not one store yet**: photo, sleep and meal proofs are still separate stores; NFC taps and the runner write facts.

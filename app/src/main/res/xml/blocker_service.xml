@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Foreground-app detection for blocking (K1 to K3, LA7). Window events, plus the text of a known browser's address bar (K10) and nothing else: no other text, no clicks, no gestures.
+<!-- Foreground-app detection for blocking (K1 to K3, LA7). Window events, the text of a known browser's address bar (K10), and, with sleep audio on, the names of the views of the apps it covers and, only while it is on, a count of scroll events added at run time (PA): no other text, no clicks, no gestures.
      flagRetrieveInteractiveWindows lets it see every visible window, so split screen, floating windows and picture-in-picture are covered. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged|typeWindowContentChanged|typeViewTextChanged"

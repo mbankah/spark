@@ -18,6 +18,7 @@ import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZonedDateTime
 import kotlin.test.*
 
 private fun pt(m: Int, d: Int, h: Int = 9) = at(LocalDate.of(2026, m, d), LocalTime.of(h, 0))
@@ -34,6 +35,41 @@ class LifeStorageTest {
         runBlocking { db.seedIfEmpty(pt(10, 21).toInstant().toEpochMilli(), LONDON.id) }
     }
     @After fun close() = db.close()
+
+    @Test fun PA3_finding_is_paid_for_from_a_credit_listening_earns_it_back_and_running_dry_pauses_the_app() {
+        val yt = "com.google.android.youtube"
+        var t = ZonedDateTime.of(2026, 11, 19, 3, 0, 0, 0, LONDON)
+        BlockingState.clockOverride = { t }; BlockingState.scoped = ScopedAccess(); BlockingState.scrollTrip = emptyMap(); BlockingState.surfaces = emptyMap(); BlockingState.findCredit = freshCredit()
+        try {
+            BlockingState.noteSignals(yt, Signals(setOf("rich_grid_renderer")))
+            assertEquals(Surface.FEED, BlockingState.surfaces[yt])
+            fun swipe() { repeat(8) { BlockingState.noteScroll(yt); t = t.plusNanos(20_000_000) }; t = t.plusSeconds(3) }          // one swipe is many events
+            repeat(20) { swipe() }
+            assertNull(BlockingState.scrollTrip[yt], "twenty flicks on a feed is finding, and is inside the credit")
+            assertEquals(0, BlockingState.creditLeft())
+            swipe()
+            val until = BlockingState.scrollTrip[yt]
+            assertNotNull(until, "the next one is over it"); assertTrue(until.isAfter(t.plusMinutes(2)))
+            BlockingState.scrollTrip = emptyMap()
+            BlockingState.noteSignals(yt, Signals(setOf("watch_player")))
+            assertEquals(Surface.WATCH, BlockingState.surfaces[yt])
+            t = t.plusMinutes(10)
+            assertEquals(10, BlockingState.creditLeft(), "ten minutes of listening earns ten back")
+            repeat(12) { swipe() }
+            assertNull(BlockingState.scrollTrip[yt], "twelve flicks on a playing video is inside its burst limit")
+            assertFalse(BlockingState.noteScroll("com.example.other"), "an app the option does not cover is never counted")
+            BlockingState.scoped = null
+            assertFalse(BlockingState.noteScroll(yt), "with the option off nothing is counted")
+        } finally { BlockingState.clockOverride = null; BlockingState.scoped = null; BlockingState.scrollTrip = emptyMap(); BlockingState.surfaces = emptyMap(); BlockingState.findCredit = freshCredit() }
+    }
+
+    @Test fun PA1_what_the_service_recognised_is_logged_by_name_only_and_the_log_is_short() {
+        BlockingState.surfaceLog.clear()
+        repeat(9) { BlockingState.noteSignals("com.google.android.youtube", Signals(setOf("view_$it", "reel_x"))) }
+        assertEquals(6, BlockingState.surfaceLog.size)
+        assertTrue(BlockingState.surfaceLog.first().contains("SHORTS") && BlockingState.surfaceLog.first().contains("reel_x"))
+        BlockingState.surfaceLog.clear(); BlockingState.surfaces = emptyMap()
+    }
 
     @Test fun IX6_a_file_with_a_modifier_applies_it_once_and_removing_the_import_removes_it() = runBlocking<Unit> {
         val plan = PlanRepo(db)
@@ -203,6 +239,21 @@ class LifeScreenTest {
         rule.onNodeWithContentDescription("Work it out page").performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Get up.").fetchSemanticsNodes().isNotEmpty() }
         for (s in listOf("Get up.", "Low light.", "No phone.", "Back to bed at 20 minutes.")) rule.onNodeWithText(s).performScrollTo().assertExists()
+    }
+
+    @Test fun PA7_sleep_audio_is_off_by_default_turning_it_on_asks_for_the_wall_and_turning_it_off_does_not() {
+        var asked: Triple<String, Int, () -> Unit>? = null
+        rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }, onWall = { title, _, len, action -> asked = Triple(title, len, action) }) } }
+        rule.onNodeWithText("SLEEP AUDIO (YOUTUBE)").performScrollTo().assertExists()
+        assertNull(runBlocking { db.meta().get(META_SCOPED_ON) }, "off by default")
+        rule.onNodeWithContentDescription("Sleep audio on").performScrollTo().performClick()
+        rule.waitUntil(5_000) { asked != null }
+        assertEquals("Sleep audio", asked!!.first); assertTrue(asked!!.second >= WallLength.IMPORT_LOOSEN, "a loosening: the typed wall")
+        assertNull(runBlocking { db.meta().get(META_SCOPED_ON) }, "nothing is on until the wall is passed")
+        asked!!.third()
+        rule.waitUntil(5_000) { runBlocking { db.meta().get(META_SCOPED_ON) } == "1" }
+        rule.onNodeWithContentDescription("Sleep audio off").performScrollTo().performClick()
+        rule.waitUntil(5_000) { runBlocking { db.meta().get(META_SCOPED_ON) } == "0" }
     }
 
     @Test fun PK1_an_idea_is_parked_kept_and_changes_nothing() {
@@ -379,5 +430,58 @@ class LifeScreenTest {
         for (l in listOf("Phone", "Msgs", "Maps", "Setup")) rule.onNodeWithText(l).performScrollTo().assertExists()
         rule.onNodeWithContentDescription("Phone. Opens your Phone app.").performScrollTo().assertExists()
         rule.onNodeWithText("Setup").performScrollTo().performClick(); assertEquals(1, set)
+    }
+}
+
+/** PA4, PA5, PA10 on the real database and the real plan: sleep audio at night, in a work block, and on the web. No service and no screen: the gate is asked directly. */
+@RunWith(AndroidJUnit4::class)
+class ScopedGateTest {
+    private val yt = "com.google.android.youtube"
+    private lateinit var ctx: Context
+    private lateinit var db: EfaDb
+    private fun t(d: Int, h: Int, m: Int = 0) = at(LocalDate.of(2026, 10, d), LocalTime.of(h, m))
+    private fun clockAt(z: java.time.ZonedDateTime) { BlockingState.clockOverride = { z }; runBlocking { BlockingState.refresh(ctx) } }
+
+    @Before fun setUp() = runBlocking<Unit> {
+        ctx = ApplicationProvider.getApplicationContext(); db = EfaDb.get(ctx)
+        db.seedIfEmpty(System.currentTimeMillis(), LONDON.id)
+        db.openHelper.writableDatabase.execSQL("DELETE FROM allowance")
+        BlockingRepo(db).saveList(setOf(yt)); db.meta().put(MetaRow(META_SCOPED_ON, "1"))
+    }
+    @After fun tearDown() = runBlocking<Unit> {
+        BlockingState.clockOverride = null; BlockingState.surfaces = emptyMap(); BlockingState.scrollTrip = emptyMap()
+        db.meta().put(MetaRow(META_SCOPED_ON, "0")); BlockingRepo(db).saveList(emptySet()); BlockingState.refresh(ctx)
+    }
+
+    @Test fun PA4_at_night_a_playing_video_is_open_and_shorts_are_shut() {
+        clockAt(t(24, 0, 30))                       // Saturday 00:30, past the night cutoff
+        BlockingState.surfaces = mapOf(yt to Surface.WATCH)
+        assertEquals(Decision.Allow, BlockingState.decide(yt))
+        BlockingState.surfaces = mapOf(yt to Surface.SHORTS)
+        val d = BlockingState.decide(yt)
+        assertTrue(d is Decision.Block && d.reason == BlockReason.SCOPED, d.toString())
+    }
+
+    @Test fun PA5_in_a_work_block_it_stays_shut_whatever_is_on_screen() {
+        clockAt(t(19, 10, 30))                      // Monday 10:30, inside a work block
+        BlockingState.surfaces = mapOf(yt to Surface.WATCH)
+        val d = BlockingState.decide(yt)
+        assertTrue(d is Decision.Block && d.reason == BlockReason.WORK_BLOCK, d.toString())
+    }
+
+    @Test fun PA10_the_website_stays_blocked_at_night_with_sleep_audio_on() {
+        clockAt(t(24, 0, 30))
+        BlockingState.surfaces = mapOf(yt to Surface.WATCH)
+        assertEquals(Decision.Allow, BlockingState.decide(yt), "the app is open on terms")
+        val web = BlockingState.decideHost("m.youtube.com")
+        assertNotNull(web, "the site is still blocked"); assertEquals(BlockReason.NIGHT, web.second.reason)
+    }
+
+    @Test fun PA7_with_the_option_off_the_night_is_as_it_was() {
+        runBlocking { db.meta().put(MetaRow(META_SCOPED_ON, "0")) }
+        clockAt(t(24, 0, 30))
+        BlockingState.surfaces = mapOf(yt to Surface.WATCH)
+        val d = BlockingState.decide(yt)
+        assertTrue(d is Decision.Block && d.reason == BlockReason.NIGHT, d.toString())
     }
 }

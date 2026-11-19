@@ -380,3 +380,7 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E138 | At 01:45, Work it out, what if lights-out 02:40 and wake 11:00, then add an event 02:15 to 02:32 with After midnight on. | The night is accepted as the night still running; the event is accepted before lights-out. |
 | E139 | Import a file with a `modifier` row (type lecture_free, three days). Apply. Open Modify Schedule. | The preview names the preset and the days; after Apply the span is listed as active. Importing the same file again says it is already imported. Removing the import removes the span. |
 | E140 | Import a file with an event over lunch. Apply. | Lunch moves out of the way inside its window; the event stands; a warning names anything that could not fit. |
+| E141 | At night (after the shutdown), Work it out, Sleep audio on, type the wall. Open YouTube and play a podcast. | The video plays and stays open. The log on the card shows WATCH with the view names. |
+| E142 | With sleep audio on at night, tap Shorts in YouTube. | The blocked card says Shorts stay closed until your wake time. Going back to your video opens it again. |
+| E143 | With sleep audio on at night, flick the Home feed four times in a minute. | YouTube pauses for 3 minutes with "That is a lot of scrolling". Search and a playing video are unaffected afterwards. |
+| E144 | With sleep audio on, open YouTube in a work block, and open Instagram at night. | Both are blocked as before. |

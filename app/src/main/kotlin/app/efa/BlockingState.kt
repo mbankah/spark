@@ -68,6 +68,65 @@ object BlockingState {
         cap = AppCap(windowMin = w, cooldownMin = c)
         capStart = cap.apps.mapNotNull { p -> db.meta().get(app.efa.data.META_CAP_START + p)?.toLongOrNull()?.takeIf { it > 0 }?.let { p to java.time.Instant.ofEpochMilli(it).atZone(LONDON) } }.toMap()
     }
+    /**
+     * PA: part-of-an-app access (sleep audio). [scoped] is null while the option is off. The surface each scoped app last showed, the scroll events seen, and when a scroll trip ends are held
+     * in memory like the snapshot. [surfaceLog] keeps the last few things the service recognised, with the view names it saw, so a change in an app's own names can be read off the phone.
+     */
+    @Volatile var scoped: ScopedAccess? = null
+    @Volatile var surfaces: Map<String, Surface> = emptyMap()
+    @Volatile var scrollTrip: Map<String, ZonedDateTime> = emptyMap()
+    private val scrolls = HashMap<String, ArrayDeque<java.time.Instant>>()
+    val surfaceLog = java.util.concurrent.ConcurrentLinkedDeque<String>()
+
+    /** Whether the service should look at what [pkg] is showing: the option is on and the app is one it covers. */
+    fun watchesSurface(pkg: String): Boolean = scoped?.apps?.contains(pkg) == true
+
+    /** PA2: the finding credit: what is left of the scrolling you get at night. It starts full when the option is switched on, and listening earns it back. */
+    @Volatile var findCredit: FindCredit = freshCredit()
+    @Volatile private var lastScrollAt: java.time.Instant? = null
+
+    /** PA2: whole credits left, for the card. */
+    fun creditLeft(): Int { val a = scoped ?: return 0; return creditAt(findCredit, now().toInstant(), a).credit.toInt() }
+
+    /** PA1: the service read the views of [pkg]. The surface is recognised and remembered; what was in front until now has earned or not, and a change of surface starts the burst count afresh. */
+    fun noteSignals(pkg: String, signals: Signals) {
+        val s = classifySurface(pkg, signals)
+        if (surfaces[pkg] != s) {
+            scoped?.let { findCredit = creditSurface(findCredit, now().toInstant(), s, it) }
+            surfaces = surfaces + (pkg to s); synchronized(scrolls) { scrolls[pkg]?.clear() }
+        }
+        val line = now().toLocalTime().withNano(0).toString() + " " + s.name + ": " + (signals.ids.take(10) + signals.selectedLabels.take(3).map { "[" + it + "]" }).joinToString(", ")
+        if (surfaceLog.firstOrNull()?.substringAfter(' ') != line.substringAfter(' ')) { surfaceLog.addFirst(line); while (surfaceLog.size > 6) surfaceLog.removeLast() }
+    }
+
+    /**
+     * PA3: a scroll event. One swipe is many events, so only the first of a run is a gesture. On a playing video a gesture counts toward the burst limit; on any other open surface it is paid for
+     * from the finding credit. Returns true when that was too much and the app is now paused.
+     */
+    fun noteScroll(pkg: String): Boolean {
+        val access = scoped ?: return false
+        if (pkg !in access.apps) return false
+        val now = now(); val t = now.toInstant()
+        val surface = surfaces[pkg] ?: Surface.OTHER
+        val gesture = lastScrollAt?.let { java.time.Duration.between(it, t).toMillis() > 700 } ?: true
+        lastScrollAt = t
+        if (!gesture) return false
+        var tripped = false
+        if (costOf(access, surface) != null) {
+            val (c, over) = spendGesture(findCredit, t, surface, access)
+            findCredit = c; tripped = over
+        } else {
+            val budget = budgetOf(access, surface) ?: return false
+            tripped = synchronized(scrolls) {
+                val q = scrolls.getOrPut(pkg) { ArrayDeque() }
+                q.addLast(t); while (q.size > 400 || (q.isNotEmpty() && q.first().isBefore(t.minusSeconds(budget.windowSec.toLong() + 5)))) q.removeFirst()
+                scrollTripped(q.toList(), t, budget)
+            }
+        }
+        if (tripped) { scrollTrip = scrollTrip + (pkg to now.plusMinutes(access.tripMinutes.toLong())); synchronized(scrolls) { scrolls[pkg]?.clear() } }
+        return tripped
+    }
+
     /** Tests move the clock here; the real service never sets it. */
     @Volatile var clockOverride: (() -> ZonedDateTime)? = null
 
@@ -90,6 +149,7 @@ object BlockingState {
             val pattern = plan.slots()
             try { RewardsRepo(db).closeWeeks(pattern, db.meta().get(META_FIRST_USE)?.toLongOrNull() ?: now.toInstant().toEpochMilli(), now) } catch (e: Exception) { /* a week closes next minute */ }
             try { loadCap(db) } catch (e: Exception) { /* keep the last cap state */ }
+            try { val was = scoped; scoped = if (db.meta().get(app.efa.data.META_SCOPED_ON) == "1") ScopedAccess() else null; if (was == null && scoped != null) findCredit = freshCredit(scoped!!) } catch (e: Exception) { /* PA7: keep the last state */ }
             try { zone = zoneFor(now.toLocalDate(), db.modifiers().all().filter { it.state == "active" }.mapNotNull { decodeInstance(it.instance) }) } catch (e: Exception) { zone = LONDON }
             try { RoutinePrompter.tick(ctx, pattern, now) } catch (e: Exception) { /* X7: a prompt that cannot go out changes nothing else */ }
             try { Backup.nightly(ctx) } catch (e: Exception) { /* CT1: a backup that cannot be written changes nothing else */ }
@@ -151,10 +211,12 @@ object BlockingState {
     /** QM1: whether quiet mode is on, whatever the time. */
     fun quietOn(): Boolean = snapshot?.quiet == true
 
-    fun decide(pkg: String): Decision {
+    /** [web] is true for the website of an app in a browser: sleep audio covers the app only (PA10), so the site is decided as if the option were off. */
+    fun decide(pkg: String, web: Boolean = false): Decision {
         val s = snapshot ?: return Decision.Allow
         val now = now()
-        return decide(pkg, now, s.pattern, s.list, s.allow, s.verified, s.morning, s.lateness, earnedAccess = earnedAccessActive(now, s.earnings, s.pattern), essentials = s.essentials, cap = cap, capStart = capStart, inCall = inCall, outUntil = outUntil, atHome = atHome, limit = if (limitMin > 0) ScreenLimit(s.list, limitMin) else null, limitStart = limitStart)
+        return decide(pkg, now, s.pattern, s.list, s.allow, s.verified, s.morning, s.lateness, earnedAccess = earnedAccessActive(now, s.earnings, s.pattern), essentials = s.essentials, cap = cap, capStart = capStart, inCall = inCall, outUntil = outUntil, atHome = atHome, limit = if (limitMin > 0) ScreenLimit(s.list, limitMin) else null, limitStart = limitStart,
+            scoped = if (web) null else scoped, surface = surfaces[pkg], scrollTripUntil = scrollTrip[pkg])
     }
 
     /**
@@ -164,7 +226,7 @@ object BlockingState {
     fun decideHost(host: String?): Pair<String, Decision.Block>? {
         val s = snapshot ?: return null
         val owner = ownerOfHost(host, domainOwners(s.list)) ?: return null
-        return (decide(owner) as? Decision.Block)?.let { owner to it }
+        return (decide(owner, web = true) as? Decision.Block)?.let { owner to it }
     }
 
     /** N5: whether the day this night belongs to was fully verified, which makes an override 45 minutes and not 30. */

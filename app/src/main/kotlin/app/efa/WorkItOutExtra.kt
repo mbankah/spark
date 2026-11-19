@@ -34,6 +34,8 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
     var facts by remember { mutableStateOf<List<Fact>>(emptyList()) }
     var taps by remember { mutableStateOf<Set<NfcPurpose>>(emptySet()) }
     var nfcOn by remember { mutableStateOf(false) }
+    var scopedOn by remember { mutableStateOf(false) }
+    var scopedMessage by remember { mutableStateOf<String?>(null) }
     var tags by remember { mutableStateOf<Map<String, NfcPurpose>>(emptyMap()) }
     var message by remember { mutableStateOf<String?>(null) }
     var glassOk by remember { mutableStateOf(false) }
@@ -44,7 +46,7 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
     LaunchedEffect(tick) {
         withContext(Dispatchers.IO) {
             val repo = FactRepo(db)
-            facts = repo.today(); taps = repo.recentTaps(); tags = repo.tags(); nfcOn = db.meta().get(META_NFC_ON) == "1"
+            facts = repo.today(); taps = repo.recentTaps(); tags = repo.tags(); nfcOn = db.meta().get(META_NFC_ON) == "1"; scopedOn = db.meta().get(META_SCOPED_ON) == "1"
             glassOk = breakGlassAvailable(DoorRepo(db).uses(), Instant.now())
             identity = db.meta().get(META_IDENTITY).orEmpty().lines().filter { it.isNotBlank() }
             Nfc.message?.let { message = it; Nfc.message = null }
@@ -136,6 +138,41 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
                 }
             }
             message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+        }
+
+        // PA7: sleep audio. YouTube at night, on terms: what you play and search for is open, Shorts are closed, scrolling has a budget.
+        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Label("SLEEP AUDIO (YOUTUBE)")
+            BasicText("At night YouTube is shut. With this on, a video you play and what you search for stay open, Shorts stay closed, and scrolling is paid for from a credit that starts at 40 and that listening earns back at one a minute. A flick in search costs 1 and on a feed 2, so looking for something for a while is fine; scrolling instead of listening runs it dry, and then YouTube pauses for 3 minutes. Work blocks and the morning stay shut, and so does every other app. It watches only the names of YouTube's screens and how often you scroll, never what is written on them. Off by default, because it loosens the night, so turning it on needs the typed wall.", style = Ts(c.muted, 13.sp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Sleep audio on", scopedOn, {
+                    if (!scopedOn) scope.launch(Dispatchers.IO) {
+                        val changes = ChangeRepo(db); val now = Instant.now()
+                        val decision = decideChange(changes.history(), ChangeClass.LOOSEN, false, now, changes.installedAt())
+                        when (decision) {
+                            is ChangeDecision.Locked -> scopedMessage = decision.reason
+                            is ChangeDecision.Cooldown -> scopedMessage = decision.reason
+                            else -> {
+                                val len = maxOf(WallLength.IMPORT_LOOSEN, (decision as? ChangeDecision.Wall)?.length ?: 0)
+                                withContext(Dispatchers.Main) {
+                                    onWall("Sleep audio", "This opens YouTube at night for what you play and search for. Shorts stay closed and scrolling has a budget. Type the characters below by hand.", len) {
+                                        scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(META_SCOPED_ON, "1")); changes.record(ChangeClass.LOOSEN, false, 0L); BlockingState.refresh(ctx); BlockerService.instance?.syncEventTypes(); scopedMessage = "Sleep audio is on."; tick++ }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }, "Sleep audio on")
+                Chip("Sleep audio off", !scopedOn, { scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(META_SCOPED_ON, "0")); BlockingState.refresh(ctx); BlockerService.instance?.syncEventTypes(); scopedMessage = "Sleep audio is off."; tick++ } }, "Sleep audio off")
+            }
+            scopedMessage?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+            if (scopedOn) {
+                BasicText("Scrolling left tonight: " + BlockingState.creditLeft() + " of 40.", style = Ts(c.text, 14.sp, FontWeight.Bold))
+                BasicText("What Spark last recognised in YouTube (only the names of its screens). If Shorts are not closed, or your video is treated as something else, this is what to send back.", style = Ts(c.muted, 13.sp))
+                val log = BlockingState.surfaceLog.toList()
+                if (log.isEmpty()) BasicText("Nothing yet. Open YouTube, then come back.", style = Ts(c.text, 13.sp))
+                else log.forEach { BasicText(it, style = Ts(c.text, 12.sp)) }
+            }
         }
 
         // CE7: break glass

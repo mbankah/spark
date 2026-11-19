@@ -57,6 +57,10 @@ You said "Go, everything", then "Build the rest and Push". This is the honest ac
 - **Nine pages on first open, drawn in the app's own theme, and Show the walkthrough in Setup.** Skip from any page; the last page has Start and Open Setup. The numbers on it come from the rules, so it cannot go out of date. Checked on the emulator by eye and by test.
 - **Not tried on your phone.** On a very small screen the last page may need a scroll; the pictures are flat shapes, so nothing depends on a particular device.
 
+## Built after that: the home layout (HS10)
+
+- **One order on the home page:** clock, Now (with the three reports inside its card), Next as a timeline of three, what is waiting for you (two, the rest one tap away), the Buffer, then the quieter cards. "Moved for you" is on Work it out now. The full emulator suite passed: 569 tests, none failed.
+
 ## Not built, by name
 
 - **The proof ladder is not one store yet**: photo, sleep and meal proofs are still separate stores; NFC taps and the runner write facts.

@@ -13,6 +13,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -159,67 +163,46 @@ private fun HomePage(
     onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit, onAdapt: (String) -> Unit = {},
 ) {
     val c = LocalColors.current
+    var allNeeds by remember { mutableStateOf(false) }
+    // HS2, AD: the home is laid out in one order, always. The clock, then NOW (the hero, with the three things you report from it), then NEXT, then what is waiting for an answer
+    // (the first two, the rest one tap away), then the Buffer, then the quieter cards. Nothing waiting for you is allowed to push Now off the first screen.
+    val needs = buildList<@Composable () -> Unit> {
+        s.photo?.let { add { PhotoCard(it, s.photoLeft, onPhoto) } }
+        s.morning?.let { add { InfoCard("MORNING", "Ready photo needed", onReady, it) } }
+        s.meal?.let { m -> add { MealCard(m, s.mealKey, onMeal) } }
+        s.adapt.driftLine?.let { line -> add { DriftCard(line, s.adapt.driftDetail, onAdapt) } }
+        s.proofDue?.let { add { InfoCard("PROOF DUE", it, onProofDue, null) } }
+        if (s.launcherPaused) add { InfoCard("LAUNCHER PAUSED", "Put Spark back as a home choice", onRestoreLauncher, "Spark crashed 3 times in 10 minutes. Blocking kept running.") }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Label(s.date)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { Label(s.date); s.period?.let { Label(it) } }
             if (s.phone != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.size(9.dp).background(if (s.phoneOpen) c.accent else c.muted, CircleShape))
                 Label(s.phone + if (s.earnedOn) ", earned" else "")
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            BasicText(s.time, style = Ts(c.text, 88.sp, FontWeight.Bold, letterSpacing = (-3.5).sp, lineHeight = 88.sp))
-            SparkLogo(44.dp)
+            BasicText(s.time, style = Ts(c.text, 72.sp, FontWeight.Bold, letterSpacing = (-3).sp, lineHeight = 72.sp))
+            SparkLogo(38.dp)
         }
-        s.period?.let { Label(it) }
-        s.photo?.let { PhotoCard(it, s.photoLeft, onPhoto) }
-        // AD1: the day and the plan have come apart. One proposal, free to take, easy to send away.
-        s.adapt.driftLine?.let { line ->
-            Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Label("YOU ARE BEHIND")
-                BasicText(line, style = Ts(c.text, 18.sp, FontWeight.Bold))
-                s.adapt.driftDetail?.takeIf { it.isNotBlank() }?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Btn("Replan from now", { onAdapt("drift") }, primary = true, description = "Replan the rest of today from now")
-                    Btn("Not now", { onAdapt("dismiss") }, description = "Not now")
-                }
-            }
-        }
-        s.adapt.levelLine?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
-        s.meal?.let { m ->
-            Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Label("DID YOU EAT?")
-                BasicText(m, style = Ts(c.text, 20.sp, FontWeight.Bold))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Btn("Ate", { onMeal(s.mealKey, true) }, primary = true, description = "Ate $m"); Btn("Not yet", { onMeal(s.mealKey, false) }, description = "Not yet, $m") }
-            }
-        }
-        if (s.launcherPaused) InfoCard("LAUNCHER PAUSED", "Put Spark back as a home choice", onRestoreLauncher, "Spark crashed 3 times in 10 minutes. Blocking kept running.")
-        s.morning?.let { InfoCard("MORNING", "Ready photo needed", onReady, it) }
-        if (s.mode.showsSecondary && s.moved.isNotEmpty()) InfoCard("MOVED FOR YOU", s.moved.first(), null, (s.moved.drop(1).take(2) + listOfNotNull(s.moved.size.minus(3).takeIf { it > 0 }?.let { "And $it more." })).joinToString(" ").ifBlank { null })
         if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read.")
-        else if (efa.WidgetKind.NOW_NEXT !in s.widgets) {}
-        else if (s.nowTitle == null) InfoCard("NOW", "Nothing scheduled", null, null, efa.CardKind.NOW)
-        else InfoCard((s.nowLabel ?: "Now").uppercase(), s.nowTitle, if (s.nowOpensBlock) onNow else null, s.nowDetail?.takeIf { it.isNotBlank() }, efa.CardKind.NOW, s.nowFraction, s.nowLeftMin)
-        // HM1, MX4: what happened is reported from the Now card and the evening. It is free. There is no general Change button, because a button that edits the plan invites changing it.
-        if (!s.unavailable && s.nowTitle != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Running over", false, { onReality("over") }, "Running over: this is taking longer")
-            Chip("Started late", false, { onReality("late") }, "Started late: start the day from now")
-        }
-        if (!s.unavailable) Chip("Something came up", false, { onReality("cameup") }, "Something came up: say what happened and Spark finds a place for it")
-        if (s.evening) Chip("Bed later tonight", false, { onReality("night") }, "Going to bed later tonight")
-        if (!s.lite) BufferCard(s.buffer, onBuffer)          // the Now card is the hero (HS2); the Buffer sits under it, in every mode but a lite day
-        s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
-        if (s.mode.showsSecondary && (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets)) InfoCard("SHOPPING", "Shopping list", onShopping, null)
-        s.newRoom?.takeIf { s.mode.showsSecondary }?.let { InfoCard("WHERE IS IT?", "Where is $it?", onNewRoom, "Put it on the map so attendance can be checked.") }
-        s.voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
-        s.review?.takeIf { s.mode.showsSecondary }?.let { InfoCard("HELP THE ESTIMATES", it, onReview, null) }
-        if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Open the digest.")
+        else if (efa.WidgetKind.NOW_NEXT in s.widgets) NowHero(s, onNow, onReality)
+        if (!s.unavailable && (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite)) NextCard(if (s.lite) s.next.take(2) else s.next)
+        needs.take(if (allNeeds) needs.size else 2).forEach { it() }
+        if (needs.size > 2 && !allNeeds) Chip("${needs.size - 2} more waiting", false, { allNeeds = true }, "Show ${needs.size - 2} more things waiting for you")
+        s.adapt.levelLine?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
         if (s.adapt.three.isNotEmpty()) Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Label("THREE THINGS THAT MATTER")
             s.adapt.three.forEach { BasicText(it, style = Ts(c.text, 15.sp)) }
             if (s.adapt.liteAuto) Chip("Back to the full day", false, { onAdapt("full") }, "Back to the full day")
         }
-        if (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite) NextCard(if (s.lite) s.next.take(2) else s.next)
+        if (!s.lite) BufferCard(s.buffer, onBuffer)
+        if (s.mode.showsSecondary && (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets)) InfoCard("SHOPPING", "Shopping list", onShopping, null)
+        s.newRoom?.takeIf { s.mode.showsSecondary }?.let { InfoCard("WHERE IS IT?", "Where is $it?", onNewRoom, "Put it on the map so attendance can be checked.") }
+        s.voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
+        s.review?.takeIf { s.mode.showsSecondary }?.let { InfoCard("HELP THE ESTIMATES", it, onReview, null) }
+        if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Open the digest.")
         if (s.mode.showsSecondary && efa.WidgetKind.WEEK_GLANCE in s.widgets && s.week.isNotEmpty()) InfoCard("WEEK", s.week.first(), null, s.week.drop(1).joinToString("\n"))
         if (s.mode.showsSecondary && !s.lite) MoneyCard(s, onMoney)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -238,6 +221,88 @@ private fun HomePage(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(efa.EmergencyAction.CALL_EMERGENCY, efa.EmergencyAction.HEALTH, efa.EmergencyAction.SHARE_LOCATION).forEach { a -> Chip(a.label, false, { onEmergency(a) }, "Emergency: ${a.label}") }
         }
+    }
+}
+
+/**
+ * NOW, the hero. What is on, how long is left as a ring, and under it the three things you report from here (HM1, MX4): it is running over, you started late, or something came up.
+ * They are free and one tap each, and they sit in the card so the card reads as one thing: what is happening, and what to do if it is not going to plan.
+ */
+@Composable
+private fun NowHero(s: HomeState, onNow: () -> Unit, onReality: (String) -> Unit) {
+    val c = LocalColors.current
+    val label = (s.nowLabel ?: "Now").uppercase(); val value = s.nowTitle ?: "Nothing scheduled"
+    val detail = s.nowDetail?.takeIf { it.isNotBlank() }
+    val opens = s.nowTitle != null && s.nowOpensBlock
+    val acts = buildList {
+        if (s.nowTitle != null) { add("Running over" to ("over" to "Running over: this is taking longer")); add("Started late" to ("late" to "Started late: start the day from now")) }
+        add("Something came up" to ("cameup" to "Something came up: say what happened and Spark finds a place for it"))
+    }
+    Column(Modifier.fillMaxWidth().card(efa.CardKind.NOW)) {
+        Row(
+            Modifier.fillMaxWidth().then(if (opens) Modifier.clip(CardShape).clickable(role = Role.Button, onClick = onNow) else Modifier).padding(horizontal = 16.dp, vertical = 16.dp)
+                .semantics { contentDescription = "$label. $value." + (detail?.let { " $it" } ?: "") + if (opens) " Tap to open." else "" },
+            horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Label(label)
+                BasicText(value, style = Ts(c.text, 23.sp, FontWeight.Bold, lineHeight = 28.sp))
+                detail?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
+            }
+            s.nowFraction?.let { f ->
+                Donut(listOf(Slice(f, c.accent)), 68.dp, 9.dp) {
+                    val left = s.nowLeftMin
+                    if (left != null) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        BasicText(if (left >= 100) "${left / 60}h" else "$left", style = Ts(c.text, 17.sp, FontWeight.Bold))
+                        BasicText(if (left >= 100) "left" else "min", style = Ts(c.muted, 10.sp, fontFamily = Mono))
+                    }
+                }
+            }
+        }
+        if (!s.unavailable) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(c.track))
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))) {
+                acts.forEachIndexed { i, (text, kd) ->
+                    if (i > 0) Box(Modifier.width(1.dp).fillMaxHeight().background(c.track))
+                    Box(
+                        Modifier.weight(if (kd.first == "cameup") 1.45f else 1f).heightIn(min = 50.dp).clickable(role = Role.Button) { onReality(kd.first) }.padding(horizontal = 6.dp).semantics { contentDescription = kd.second },
+                        contentAlignment = Alignment.Center,
+                    ) { BasicText(text, style = Ts(c.text, 13.sp, FontWeight.Medium).copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center), maxLines = 2) }
+                }
+            }
+            if (s.evening) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(c.track))
+                Box(
+                    Modifier.fillMaxWidth().heightIn(min = 50.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp)).clickable(role = Role.Button) { onReality("night") }.semantics { contentDescription = "Going to bed later tonight" },
+                    contentAlignment = Alignment.Center,
+                ) { BasicText("Bed later tonight", style = Ts(c.text, 13.5.sp, FontWeight.Medium)) }
+            }
+        }
+    }
+}
+
+/** AD1: the day and the plan have come apart. One proposal, free to take, easy to send away. */
+@Composable
+private fun DriftCard(line: String, detail: String?, onAdapt: (String) -> Unit) {
+    val c = LocalColors.current
+    Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Label("YOU ARE BEHIND")
+        BasicText(line, style = Ts(c.text, 17.sp, FontWeight.Bold, lineHeight = 22.sp))
+        detail?.takeIf { it.isNotBlank() }?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Btn("Replan from now", { onAdapt("drift") }, primary = true, description = "Replan the rest of today from now")
+            Btn("Not now", { onAdapt("dismiss") }, description = "Not now")
+        }
+    }
+}
+
+@Composable
+private fun MealCard(m: String, key: String, onMeal: (String, Boolean) -> Unit) {
+    val c = LocalColors.current
+    Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Label("DID YOU EAT?")
+        BasicText(m, style = Ts(c.text, 18.sp, FontWeight.Bold))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Btn("Ate", { onMeal(key, true) }, primary = true, description = "Ate $m"); Btn("Not yet", { onMeal(key, false) }, description = "Not yet, $m") }
     }
 }
 
@@ -309,11 +374,11 @@ private fun BufferCard(b: BufferState, onClick: () -> Unit) {
     }
     val spoken = if (b is BufferState.NoDeadline) "No deadline. Add one to see the Buffer." else lines.joinToString(". ") { "${it.first} ${it.second}" }
     Row(
-        Modifier.fillMaxWidth().card(efa.CardKind.BUFFER).clip(CardShape).clickable(enabled = b is BufferState.Value, role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp)
+        Modifier.fillMaxWidth().card(efa.CardKind.BUFFER).clip(CardShape).clickable(enabled = b is BufferState.Value, role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp)
             .semantics { contentDescription = "Buffer. $big. $small. $spoken." + if (b is BufferState.Value) " Tap for the working." else "" },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Dial(124.dp, fill, big, small)
+        Dial(100.dp, fill, big, small)
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             if (b is BufferState.NoDeadline) {
                 BasicText("No deadline.", style = Ts(c.text, 15.sp, FontWeight.SemiBold))
@@ -343,7 +408,7 @@ private fun Dial(size: Dp, fillDegrees: Float, big: String, small: String) {
             if (sweep > 0f) drawArc(c.accent, -90f, sweep, false, tl, sz, style = Stroke(w, cap = StrokeCap.Butt))
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            BasicText(big, style = Ts(c.text, 26.sp, FontWeight.Bold, letterSpacing = (-0.8).sp))
+            BasicText(big, style = Ts(c.text, if (size < 110.dp) 21.sp else 26.sp, FontWeight.Bold, letterSpacing = (-0.8).sp))
             Label(small)
         }
     }
@@ -378,18 +443,22 @@ private fun InfoCard(label: String, value: String, onClick: (() -> Unit)?, detai
 @Composable
 private fun NextCard(rows: List<NextRow>) {
     val c = LocalColors.current
-    Column(Modifier.fillMaxWidth().card(efa.CardKind.NEXT).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.fillMaxWidth().card(efa.CardKind.NEXT).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Label("Next")
-        if (rows.isEmpty()) BasicText("Nothing scheduled", style = Ts(c.text, 15.sp, FontWeight.Medium))
+        if (rows.isEmpty()) BasicText("Nothing scheduled", style = Ts(c.text, 15.sp, FontWeight.Medium), modifier = Modifier.padding(top = 4.dp))
+        // a timeline: a dot per thing, joined by a line, the first one filled and larger because it is the one that is coming
         rows.forEachIndexed { i, r ->
-            Row(Modifier.fillMaxWidth().padding(top = if (i == 0) 4.dp else 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-                BasicText(r.time, style = Ts(c.accentText, 14.sp, FontWeight.Medium, fontFamily = Mono), modifier = Modifier.width(48.dp))
-                Column {
-                    BasicText(r.title, style = Ts(c.text, 15.sp, FontWeight.Medium))
-                    if (r.detail.isNotBlank()) BasicText(r.detail, style = Ts(c.muted, 12.5.sp))
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.width(14.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.padding(top = if (i == 0) 9.dp else 7.dp).size(if (i == 0) 12.dp else 9.dp).background(if (i == 0) c.accent else c.track, CircleShape))
+                    if (i < rows.lastIndex) Box(Modifier.width(2.dp).weight(1f).background(c.track))
+                }
+                BasicText(r.time, style = Ts(c.accentText, 14.sp, FontWeight.Medium, fontFamily = Mono), modifier = Modifier.width(48.dp).padding(top = if (i == 0) 8.dp else 6.dp))
+                Column(Modifier.weight(1f).padding(top = if (i == 0) 5.dp else 4.dp, bottom = if (i < rows.lastIndex) 12.dp else 2.dp)) {
+                    BasicText(r.title, style = Ts(c.text, if (i == 0) 17.sp else 15.sp, if (i == 0) FontWeight.Bold else FontWeight.Medium))
+                    if (r.detail.isNotBlank()) BasicText(r.detail, style = Ts(c.muted, 12.5.sp), maxLines = 1)
                 }
             }
-            if (i < rows.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(c.track))
         }
     }
 }

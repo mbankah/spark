@@ -672,7 +672,7 @@ Added on 29 October 2026 at your request. The timetable can adapt from a CSV fil
 | RS5 | A missed block comes back once, however many times the app looks at it. | Locked |
 | RS6 | Work counts only with proof. A proven work block reduces the open tasks, earliest deadline first, by the minutes it credited (P8). | Locked |
 | RS7 | Missed time stays lost (P8, B6, W2). Bringing the work back does not restore the time. Only the claim in H6 can. | Locked |
-| RS8 | Every automatic move is shown with its reason, and the free time that turned into work is shown as work. | Locked |
+| RS8 | Every automatic move is shown with its reason, and the free time that turned into work is shown as work. | Locked; amended by Michael on 19 Nov 2026: it is shown on the Work it out page (third page), not on the home page |
 | RS9 | Tests: a bad file of every kind is rejected with its line and column, a good file applies, the same file twice changes nothing, a failed apply changes nothing, a loosening file needs the wall, missed work comes back once and is placed and split, protected free time is never converted, and the clock change on 25 October 2026 holds. | Locked |
 
 ## 26. Changes of 15 November 2026
@@ -830,6 +830,7 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HS1 | The home page has modes by the moment: Morning, In a block, Between, Free, Wind-down, Night, Out, Paused. | Default |
 | HS2 | Each mode has one hero and at most four cards above the fold. | Default |
 | HS3 | Page 2 (Schedule) stays as it is. | Default |
+| HS10 | The home page has one order, always: the clock, NOW (the hero, with Running over, Started late and Something came up in the card), NEXT as a timeline of the next three things, then what is waiting for an answer (two at most, the rest one tap away), then the Buffer, then the quieter cards. Nothing waiting for you can push Now off the first screen. | Default; built |
 | HS4 | Page 3 is a what-if page that changes nothing until Apply. | Default |
 | HS5 | There is no Change button. | Locked (Michael, 19 Nov 2026) |
 | HS6 | The bottom row is a dock with icons: Phone, Messages, Maps, Camera, Bank. Setup is a small gear. | Default; built: drawn icons in the dock |

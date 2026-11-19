@@ -305,9 +305,11 @@ class ImportScreenTest {
             period = "Assignment week, until Fri 6 Nov",
             moved = listOf("Missed Randomness lecture. Back in the Buffer: 1.0h, due Tue 22:00.", "Buffer +1.0h is under its margin, so free time on 2026-11-03 became work"),
         )
-        rule.setContent { EfaTheme { HomeScreen(state, {}, {}) } }
+        rule.setContent { EfaTheme { HomeScreen(state, {}, {}, third = { WorkItOutScreen(EfaDb.get(androidx.test.core.app.ApplicationProvider.getApplicationContext()), { _, _ -> }, moved = state.moved) }) } }
         rule.onNodeWithText("ASSIGNMENT WEEK, UNTIL FRI 6 NOV").assertExists()
-        rule.onNodeWithText("MOVED FOR YOU").assertExists()
+        rule.onNodeWithText("MOVED FOR YOU").assertDoesNotExist()          // the home page is for now and next
+        rule.onNodeWithContentDescription("Work it out page").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("MOVED FOR YOU").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Missed Randomness lecture. Back in the Buffer: 1.0h, due Tue 22:00.").assertExists()
     }
 

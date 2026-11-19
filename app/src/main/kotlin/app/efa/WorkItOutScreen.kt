@@ -48,7 +48,7 @@ private fun TextBox(value: String, onChange: (String) -> Unit, hint: String, des
  * Anything that would change the plan goes to the normal preview and its cost, through [onOpenPlan].
  */
 @Composable
-fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier: Modifier = Modifier, onWall: (String, String, Int, () -> Unit) -> Unit = { _, _, _, _ -> }) {
+fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier: Modifier = Modifier, onWall: (String, String, Int, () -> Unit) -> Unit = { _, _, _, _ -> }, moved: List<String> = emptyList()) {
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
@@ -89,6 +89,13 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         BasicText("Work it out", style = Ts(c.text, 30.sp, FontWeight.Bold, letterSpacing = (-0.8).sp))
         BasicText("Nothing here changes your plan. It shows what would happen, then you choose.", style = Ts(c.muted, 14.sp))
+
+        // RS8: what Spark moved on its own, with the reason. It lives here and not on the home page, which is for now and next.
+        if (moved.isNotEmpty()) Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Label("MOVED FOR YOU")
+            BasicText(moved.first(), style = Ts(c.text, 16.sp, FontWeight.Bold))
+            (moved.drop(1).take(2) + listOfNotNull(moved.size.minus(3).takeIf { it > 0 }?.let { "And $it more." })).forEach { BasicText(it, style = Ts(c.muted, 13.sp)) }
+        }
 
         // CX3: the day type is proposed from where you are and what is on the calendar; you confirm it once
         proposal?.let { p ->

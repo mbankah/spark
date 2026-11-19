@@ -1,6 +1,7 @@
 package app.efa
 
 import android.content.Context
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
@@ -136,5 +137,38 @@ class AdaptScreenTest {
         rule.waitUntil(10_000) { rule.onAllNodesWithText("WHAT SPARK FOUND").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Use this plan").performScrollTo().performClick()
         assertEquals(Preset.RECOVERY, plan!!.preset)
+    }
+}
+
+/** HS10: the home has one order, and nothing waiting for you pushes Now off the first screen. */
+@RunWith(AndroidJUnit4::class)
+class HomeLayoutTest {
+    @get:Rule val rule = createComposeRule()
+    private val next = listOf(NextRow("15:10", "Pre-football meal", "Away from the desk"), NextRow("16:10", "Campus League football", "Fixed: match time"), NextRow("17:30", "CS Project", "Shortened by the match"))
+    private fun busy() = HomeState(date = "Tue 24 Nov", phone = "Phone closed", phoneOpen = false, time = "15:05", buffer = BufferState.NoDeadline, nowLabel = "Now, until 15:10", nowTitle = "Notes and problems: Neural Computation",
+        nowDetail = "Recall 10", nowOpensBlock = true, next = next, freeToSpendPence = 1840, nowFraction = 0.9f, nowLeftMin = 5, mode = HomeMode.FREE, proofDue = "Language lesson", meal = "Lunch", mealKey = "k",
+        moved = listOf("Pre-football meal moved 20 minutes later."), adapt = AdaptView(driftLine = "You are 55 minutes behind. Replan the rest of today from now?", driftDetail = "Language lesson passed without a start."))
+
+    private fun y(text: String) = rule.onNodeWithText(text).fetchSemanticsNode().positionInRoot.y
+
+    @Test fun HS10_now_comes_first_then_next_then_what_waits_and_now_is_on_the_first_screen_whatever_is_waiting() {
+        rule.setContent { EfaTheme { HomeScreen(busy(), {}, {}) } }
+        val screen = rule.onRoot().fetchSemanticsNode().size.height
+        assertTrue(y("Notes and problems: Neural Computation") < y("NEXT"), "Now above Next"); assertTrue(y("NEXT") < y("DID YOU EAT?"), "Next above what waits")
+        assertTrue(y("Notes and problems: Neural Computation") < screen / 2, "Now is in the top half of the first screen")
+        for (a in listOf("Running over: this is taking longer", "Started late: start the day from now", "Something came up: say what happened and Spark finds a place for it")) rule.onNodeWithContentDescription(a).assertExists()
+    }
+
+    @Test fun HS10_two_things_waiting_show_and_the_rest_are_one_tap_away_and_moved_for_you_is_not_on_the_home_page() {
+        rule.setContent { EfaTheme { HomeScreen(busy(), {}, {}) } }
+        rule.onNodeWithText("DID YOU EAT?").assertExists(); rule.onNodeWithText("YOU ARE BEHIND").assertExists(); rule.onNodeWithText("PROOF DUE").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Show 1 more things waiting for you").performScrollTo().performClick()
+        rule.onNodeWithText("PROOF DUE").assertExists()
+        rule.onNodeWithText("MOVED FOR YOU").assertDoesNotExist()
+    }
+
+    @Test fun HS10_next_lists_the_next_three_things_in_time_order() {
+        rule.setContent { EfaTheme { HomeScreen(busy(), {}, {}) } }
+        assertTrue(y("Pre-football meal") < y("Campus League football") && y("Campus League football") < y("CS Project"))
     }
 }

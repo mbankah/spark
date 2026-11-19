@@ -632,7 +632,7 @@ class MainActivity : ComponentActivity() {
                                     "full" -> scope.launch(Dispatchers.IO) { AdaptState.fullDay(db, clock.toLocalDate()); BlockingState.refresh(applicationContext); reload++ }
                                 }
                             },
-                            third = { WorkItOutScreen(db, onOpenPlan = { inst, preview -> modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                            third = { WorkItOutScreen(db, moved = l?.moved.orEmpty(), onOpenPlan = { inst, preview -> modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
                                 if (preview) scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) } },
                                 onWall = { title, text, len, action -> wallBack = Screen.HOME; wallLength = len; wall = Triple(title, text, action); screen = Screen.GATE }) },
                             onNow = { nowRow?.photo?.slot?.let { selected = it; screen = Screen.BLOCK } },

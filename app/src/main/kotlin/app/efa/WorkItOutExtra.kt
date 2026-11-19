@@ -30,7 +30,7 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
     var running by remember { mutableStateOf<Routine?>(null) }
-    var tier by remember { mutableStateOf(Tier.FULL) }
+    var tier by remember { mutableStateOf(capTier(Tier.FULL, AdaptState.level)) }
     var facts by remember { mutableStateOf<List<Fact>>(emptyList()) }
     var taps by remember { mutableStateOf<Set<NfcPurpose>>(emptySet()) }
     var nfcOn by remember { mutableStateOf(false) }

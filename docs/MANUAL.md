@@ -123,6 +123,20 @@ The six routines Spark knows, each with its own steps, tiers and floor:
 | Greyscale and warm screen at wind-down | On if available | The screen loses its pull | free |
 | Do Not Disturb in blocks | On | Silence | free |
 
+### 4.3b Adapting
+
+| Option | Default | What it does | Change |
+| --- | --- | --- | --- |
+| Something came up | On the Now card | Say what happened, how long, and whether it can move. Spark finds a place and shows what it costs | free; work that cannot fit comes back as work |
+| You are behind | Offered when 20 minutes behind | One proposal: slide the rest of today so the block in front can still run whole | free to take, tap Not now to send it away |
+| The day steps down | Automatic | Short day, Floor day, then Three things (Lite). It steps back up when you catch up | tap Back to the full day, or switch Lite on yourself to keep it |
+
+### 4.3c Walkthrough
+
+| Option | Default | What it does | Change |
+| --- | --- | --- | --- |
+| Walkthrough | Opens once on first use | Nine short pages on what Spark does, the numbers taken from the rules themselves. Skip any time. Open it again from Setup, Show the walkthrough | free |
+
 ### 4.4 Sleep
 
 | Option | Default | What it does | Change |

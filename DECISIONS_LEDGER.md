@@ -957,6 +957,35 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 48. The walkthrough
+
+Added on 19 November 2026 at your request: "a really nicely designed walkthrough on first open, and leave it as an option in the app". It reuses the earlier sections (the look follows section 24 and AN1; the words follow section 45).
+
+| # | Decision | Status |
+| --- | --- | --- |
+| WK1 | The walkthrough opens by itself the first time Spark is opened, and never again by itself once it has been finished or skipped. A test build can turn it off. | Default; built |
+| WK2 | Nine pages, one idea each: the idea, the Buffer, the phone, proof, when life happens, wanting less, sleep, your data, and what to do first. Next, Back, and a drawn picture on every page. | Default; built |
+| WK3 | It can be skipped from any page except the last, which has Start and Open Setup. | Default; built |
+| WK4 | It is always there again: Setup, Show the walkthrough. Finishing a replay returns to Setup. | Default; built |
+| WK5 | The numbers on its pages come from the rules' own constants (the WhatsApp window and cooldown, the wall lengths, the free imports and moves), so a change to a rule changes the page. | Default; tested |
+| WK6 | Every word follows the voice rules and carries no motivation. It says what Android does not let Spark do, and promises nothing the app does not do. | Default; tested |
+| WK7 | It follows the look rules: flat colours from the current theme, no gradient, no looping motion, and none at all when Android's animations are off. It reads in about two minutes. | Default; built, with a word count test |
+
+## 47. Adapting to the situation
+
+Added on 19 November 2026 at your request: "a lack of adaptiveness is what makes me uninstall ... support the adaptivity". The class is a situation the app has no rule for. A menu of situations can never be complete, so Spark must not wait to be told in its own words. It reuses the earlier sections; where it seems to differ from them, this section says so.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| AD1 | Spark notices that the day and the plan have come apart: movable work that passed without a start, or a block that has not started. It offers one proposal, free to take and easy to send away, and never prompts in a lecture, at training, asleep or in the night. It says nothing until it has seen you start or finish at least one block in the last week, because before that it cannot tell not starting from not telling it. | Default; built |
+| AD2 | Whatever happened can be said in a few words with a length and whether it can move. Spark places it now, in free time, or at the next time it fits without giving anything up, today or in the next three days, and shows the Buffer before and after. It is an ordinary modifier, so the preview, the guard rails and the change count are the app's own. | Default; built |
+| AD3 | When you are behind the day steps down by itself: Full, Short, Floor, Three things. Nothing steps down while nothing is behind. It steps back up with a margin. A step caps routines at that tier and never raises one; the bottom step turns Lite on and shows the three things that matter. Your own Lite switch always wins, and "back to the full day" ends it for today. | Default; built |
+| AD4 | The wall is for wanting less, not for life happening. A proposal that only moves work is free. Work that has to give way around an event comes back as work due the next working day, so it is a move (counted, free within the week's moves) and not a loosening. A meal or the routine is never traded for an event without the wall. | Default; amends IX5 and CE2 for events said through Something came up |
+| AD5 | A drift never asks for the wall. If every way of replanning would give something up there is no proposal and no banner. | Default |
+| AD6 | A thing shorter than 15 minutes is planned at 15 and says so. A thing that fits nowhere is refused by name with the reason, never silently. | Default |
+| AD7 | Unwell is not an event but a lighter day (the Recovery modifier), with the existing pool and wall. This is the one adaptive path that can still need the wall, because a lighter day does give work up for a time. | Default; known limit |
+| AD8 | A scenario bank of thirty things life does without asking is run through the loop as a test: each gets a proposal or a named reason, nothing that never moves is moved, nothing overlaps, and at least 24 can be had without giving anything up. | Default |
+
 ## 46. Part of an app
 
 Added on 19 November 2026 at your request: "allow podcasts but prevent scrolling". It reuses the earlier sections; where it seems to differ from them, this section says so. It is the general case of "an app that holds two uses at once", of which YouTube is the first.

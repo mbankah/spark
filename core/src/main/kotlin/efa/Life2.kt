@@ -104,6 +104,10 @@ fun lifeContext(
 // ---------- CE3, CE4: modifiers are counted too ----------
 
 /** CE1: the class of a modifier. Reporting what happened is Reality; anything that removes an obligation (it needs the wall) is Loosen; the rest adds. */
+/** AD2: an event whose displaced work comes back as work is a move (same work, new times), counted but free within the week's moves; it is a loosening only if something is truly given up. */
+fun changeClassOfInstance(inst: Instance, loosens: Boolean, returnedTasks: Boolean): ChangeClass =
+    if (!loosens && inst.preset == Preset.ADD_EVENT && inst.bool("return_work") && returnedTasks) ChangeClass.MOVE else changeClassOfPreset(inst.preset, loosens)
+
 fun changeClassOfPreset(preset: Preset, loosens: Boolean): ChangeClass = when {
     loosens -> ChangeClass.LOOSEN
     preset == Preset.LATE_START || preset == Preset.RUN_OVER || preset == Preset.NIGHT || preset == Preset.CANCEL -> ChangeClass.REALITY

@@ -384,3 +384,11 @@ Android makes you switch the blocking service on yourself. On Android 13 or late
 | E142 | With sleep audio on at night, tap Shorts in YouTube. | The blocked card says Shorts stay closed until your wake time. Going back to your video opens it again. |
 | E143 | With sleep audio on at night, flick the Home feed four times in a minute. | YouTube pauses for 3 minutes with "That is a lot of scrolling". Search and a playing video are unaffected afterwards. |
 | E144 | With sleep audio on, open YouTube in a work block, and open Instagram at night. | Both are blocked as before. |
+| E145 | In a work block, do not start it and wait 25 minutes. | A banner "You are N minutes behind" with Replan from now and Not now. No banner during a lecture or at night. |
+| E146 | Tap Replan from now. | The preview shows what slides and the Buffer before and after; Apply is free. After it, no banner until a new block passes unstarted. |
+| E147 | Tap Something came up, type "friend turned up", 60 min, It cannot move, Find a place. | A place is found or a named reason; the Buffer before and after; Use this opens the preview. Work that has to give way is listed as coming back. |
+| E148 | Let two blocks pass without starting them, then another. | The home says Short day, then Floor day; at the bottom step Lite comes on by itself and shows three things. Back to the full day ends it for today. |
+| E149 | Install over a clean phone (or clear Spark data) and open Spark. | The walkthrough opens first, page 1 of 9, before Setup. Swiping and Next both move on; the pictures draw once per page. |
+| E150 | Tap Skip on page 3. Reopen Spark. | It goes to the normal screen and the walkthrough does not come back. |
+| E151 | Setup, Show the walkthrough, go to the last page, tap Open Setup. | You land in Setup. Start returns to Setup too. |
+| E152 | Turn Android animations off (Developer options) and open the walkthrough. | The pages and pictures change with no motion. |

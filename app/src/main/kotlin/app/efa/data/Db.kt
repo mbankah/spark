@@ -386,6 +386,8 @@ interface VenueDao {
 interface BlockDao {
     @Query("SELECT * FROM block WHERE `key` = :key") suspend fun get(key: String): BlockRow?
     @Query("SELECT `key` FROM block WHERE verified = 1") suspend fun verifiedKeys(): List<String>
+    /** AD1: the blocks that were started (a hold was recorded) since [sinceMs]. */
+    @Query("SELECT `key` FROM block WHERE holdAtMs IS NOT NULL AND startMs >= :sinceMs") suspend fun startedKeys(sinceMs: Long): List<String>
     @Query("SELECT COALESCE(SUM(creditedMin), 0) FROM block WHERE recovered = 1 AND provenAtMs >= :sinceMs") suspend fun recoveredMinutesSince(sinceMs: Long): Int
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(row: BlockRow): Long
     @Query("SELECT * FROM block WHERE verified = 1 AND startMs >= :fromMs AND startMs < :untilMs") suspend fun verifiedBetween(fromMs: Long, untilMs: Long): List<BlockRow>
@@ -608,6 +610,10 @@ const val META_EMERGENCY_LOG = "emergency_log"             // EM1: quiet log of 
 const val META_FAMILY_HOME = "family_home"                 // HO2: latitude and longitude of the family home
 const val META_COACH_WD = "coach_winddown_date"            // CO2: the night the wind-down prompt was given
 const val META_FACTS = "facts_log"                         // FB1: facts, one a line
+const val META_WALKTHROUGH_SEEN = "walkthrough_seen"       // WK1: "1" once the walkthrough has been finished or skipped
+const val META_DRIFT_ACK = "drift_ack"                     // AD1: when you last answered a drift proposal, in epoch ms
+const val META_LITE_AUTO = "lite_auto"                     // AD3: Lite was turned on by the ladder, not by you
+const val META_LITE_DISMISSED = "lite_dismissed"           // AD3: the date you sent the ladder's Lite away
 const val META_SCOPED_ON = "scoped_on"                     // PA7: sleep audio, off by default; turning it on is a loosening and goes through the wall
 const val META_NFC_ON = "nfc_on"                           // SL2: NFC tags are an option, off by default
 const val META_NFC_TAGS = "nfc_tags"                       // SL2: tag hash to place

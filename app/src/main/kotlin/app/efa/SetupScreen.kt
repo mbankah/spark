@@ -51,6 +51,7 @@ fun SetupScreen(
     mealChecks: Boolean = true, onMealChecks: (Boolean) -> Unit = {},
     quietMode: Boolean = false, onQuietMode: (Boolean) -> Unit = {},
     wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {},
+    onWalkthrough: () -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -58,6 +59,12 @@ fun SetupScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         BasicText("Setup", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("WALKTHROUGH")
+            BasicText("What Spark does, in nine short pages", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("The same tour you see on first open. It takes about two minutes and changes nothing.", style = Ts(c.muted, 14.sp))
+            Btn("Show the walkthrough", onWalkthrough, modifier = Modifier.fillMaxWidth(), description = "Show the walkthrough")
+        }
         BlockingCard(blocking, onOpenAccessibility, onChooseList)
         NotificationsCard(notifications, onOpenNotificationAccess, onAllowBufferNotice)
         SleepCard(sleep, blocking.serviceOn)

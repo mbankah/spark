@@ -171,7 +171,7 @@ object RoutinePrompter {
         if (level.ordinal <= (db.meta().get(key)?.toIntOrNull() ?: -1)) return
         if (!efa.mayPrompt(lastPromptAt, now.toInstant())) return
         db.meta().put(MetaRow(key, level.ordinal.toString())); lastPromptAt = now.toInstant()
-        val tier = efa.pickTier(r, efa.availableMinutes(now, cur.next?.start), null, null)
+        val tier = efa.capTier(efa.pickTier(r, efa.availableMinutes(now, cur.next?.start), null, null), AdaptState.level)
         val text = efa.promptLine(r, tier, level)
         when (level) {
             efa.PromptLevel.HAPTIC -> Coach.haptic(app, Haptic.START)

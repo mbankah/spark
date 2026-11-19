@@ -78,6 +78,7 @@ data class HomeState(
     val evening: Boolean = false,        // HM1: from 21:00 the evening offers "Bed later tonight"
     val lite: Boolean = false,          // LT1: the home shows now, next and the phone, nothing else
     val mode: efa.HomeMode = efa.HomeMode.FREE,   // HS1, HS2: the home follows the moment; a running block, the wind-down and the night show only what matters
+    val adapt: AdaptView = AdaptView(),           // AD: a drift to answer, the step the day is on, the three things that matter
 )
 
 /**
@@ -90,7 +91,7 @@ fun HomeScreen(
     onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {}, onNewRoom: () -> Unit = {},
     homeTick: Int = 0, onPhoto: () -> Unit = {}, onMeal: (String, Boolean) -> Unit = { _, _ -> }, onReality: (String) -> Unit = {},
     third: (@Composable () -> Unit)? = null,         // HS4: the third page, Work it out
-    onEmergency: (efa.EmergencyAction) -> Unit = {},
+    onEmergency: (efa.EmergencyAction) -> Unit = {}, onAdapt: (String) -> Unit = {},
 ) {
     val c = LocalColors.current
     val pager = rememberPagerState(pageCount = { if (third != null) 3 else 2 })
@@ -102,7 +103,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), pageSpacing = 20.dp, key = { it }) { page ->
-            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency)
+            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency, onAdapt)
             else if (page == 1) ScheduleScreen(s.schedule)
             else third?.invoke()
         }
@@ -155,7 +156,7 @@ private fun PageDots(page: Int, count: Int, onPage: (Int) -> Unit) {
 @Composable
 private fun HomePage(
     s: HomeState, onBuffer: () -> Unit, onNow: () -> Unit, onProofDue: () -> Unit, onSetup: () -> Unit, onHeld: () -> Unit, onEssential: (String) -> Unit,
-    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit,
+    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit, onAdapt: (String) -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -172,6 +173,19 @@ private fun HomePage(
         }
         s.period?.let { Label(it) }
         s.photo?.let { PhotoCard(it, s.photoLeft, onPhoto) }
+        // AD1: the day and the plan have come apart. One proposal, free to take, easy to send away.
+        s.adapt.driftLine?.let { line ->
+            Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Label("YOU ARE BEHIND")
+                BasicText(line, style = Ts(c.text, 18.sp, FontWeight.Bold))
+                s.adapt.driftDetail?.takeIf { it.isNotBlank() }?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Btn("Replan from now", { onAdapt("drift") }, primary = true, description = "Replan the rest of today from now")
+                    Btn("Not now", { onAdapt("dismiss") }, description = "Not now")
+                }
+            }
+        }
+        s.adapt.levelLine?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
         s.meal?.let { m ->
             Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Label("DID YOU EAT?")
@@ -191,6 +205,7 @@ private fun HomePage(
             Chip("Running over", false, { onReality("over") }, "Running over: this is taking longer")
             Chip("Started late", false, { onReality("late") }, "Started late: start the day from now")
         }
+        if (!s.unavailable) Chip("Something came up", false, { onReality("cameup") }, "Something came up: say what happened and Spark finds a place for it")
         if (s.evening) Chip("Bed later tonight", false, { onReality("night") }, "Going to bed later tonight")
         if (!s.lite) BufferCard(s.buffer, onBuffer)          // the Now card is the hero (HS2); the Buffer sits under it, in every mode but a lite day
         s.proofDue?.let { InfoCard("PROOF DUE", it, onProofDue, null) }
@@ -199,6 +214,11 @@ private fun HomePage(
         s.voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
         s.review?.takeIf { s.mode.showsSecondary }?.let { InfoCard("HELP THE ESTIMATES", it, onReview, null) }
         if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Open the digest.")
+        if (s.adapt.three.isNotEmpty()) Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Label("THREE THINGS THAT MATTER")
+            s.adapt.three.forEach { BasicText(it, style = Ts(c.text, 15.sp)) }
+            if (s.adapt.liteAuto) Chip("Back to the full day", false, { onAdapt("full") }, "Back to the full day")
+        }
         if (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite) NextCard(if (s.lite) s.next.take(2) else s.next)
         if (s.mode.showsSecondary && efa.WidgetKind.WEEK_GLANCE in s.widgets && s.week.isNotEmpty()) InfoCard("WEEK", s.week.first(), null, s.week.drop(1).joinToString("\n"))
         if (s.mode.showsSecondary && !s.lite) MoneyCard(s, onMoney)

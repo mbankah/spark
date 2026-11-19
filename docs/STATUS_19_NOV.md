@@ -47,6 +47,16 @@ You said "Go, everything", then "Build the rest and Push". This is the honest ac
 - **Part-of-an-app access, first use YouTube.** At night, with the option on, a video you play and your searches stay open, Shorts are closed, and finding is paid for from a scrolling credit that listening earns back, and a playing video has a burst limit. Off by default; turning it on needs the typed wall. It is the general layer (a surface table, a scroll budget, a verdict in the one gate), so another app is one table row.
 - **Not checked on a real phone, and the part most likely to need a change:** the names of YouTube's views were not read off a phone, because the emulator has no YouTube. If Shorts are not closed, or a video is treated as something else, the card on the Work it out page lists what Spark recognised. Until then an unrecognised screen costs double from the scrolling credit, so the failure is a stricter YouTube, never a free feed.
 
+## Built after that: adapting to the situation (AD)
+
+- **Drift, "Something came up" and the day ladder.** Spark notices when you are behind and offers one free proposal; you can say what happened in a few words and it finds a place and shows the cost; and a day you are behind on steps down by itself (short, floor, three things) and back up. Work that has to give way comes back as work, so moving it is free.
+- **Tested** on a thirty-situation bank in core and on the emulator. **Not tried on your phone.** What is still open: the proposal takes two taps (Use this, then Apply on the normal preview), unwell still goes through the lighter-day pool and wall, and the weekly count of moves (5 free) can still ask for the wall in a very busy week. It says nothing about being behind until it has seen you hold or finish a block in the last week, so a new install is not told it is behind all day. Learning from your patterns (the next step) needs real days of data first.
+
+## Built after that: the walkthrough (WK)
+
+- **Nine pages on first open, drawn in the app's own theme, and Show the walkthrough in Setup.** Skip from any page; the last page has Start and Open Setup. The numbers on it come from the rules, so it cannot go out of date. Checked on the emulator by eye and by test.
+- **Not tried on your phone.** On a very small screen the last page may need a scroll; the pictures are flat shapes, so nothing depends on a particular device.
+
 ## Not built, by name
 
 - **The proof ladder is not one store yet**: photo, sleep and meal proofs are still separate stores; NFC taps and the runner write facts.

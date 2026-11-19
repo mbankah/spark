@@ -162,6 +162,7 @@ object ModDefs {
             d("start", "From", SettingKind.TIME, "18:00"),
             d("end", "Until", SettingKind.TIME, "22:00"),
             d("after_midnight", "After midnight", SettingKind.BOOL, "false", help = "On: the times are after midnight and the event belongs to the night of the date, for example a 00:00 to 02:30 study session on the night of the 18th"),
+            d("return_work", "Work that cannot fit comes back", SettingKind.BOOL, "false", help = "On: work that has to give way to the event comes back as work due the next working day, so nothing disappears and the Buffer shows it. That is a move, not a loosening"),
         )
         Preset.NIGHT -> listOf(
             d("lights_out", "Lights out", SettingKind.TIME, "02:40", help = "Before 12:00 means after midnight. With the wake time this must leave 8 hours of sleep and 20 minutes to fall asleep"),
@@ -698,7 +699,25 @@ private fun compileAddEvent(inst: Instance, base: List<PatternSlot>, now: ZonedD
     val lines = ArrayList<String>()
     lines += "${inst.str("title").trim()} on ${label(date)}, ${wallClock(from)} to ${wallClock(to)}. Everything movable gives way around it, free time first."
     b.notes.forEach { lines += it }; b.dropped.forEach { lines += it }; b.problems.forEach { lines += "Not fully planned: $it" }
-    return Compiled(b.slots, emptyList(), emptyList(), lines, b.dropped.distinct(), b.problems, droppedMeals = b.droppedMeals)
+    var tasks = emptyList<DueWork>(); var loosening = b.dropped.distinct()
+    // AD2: with return_work, work that has to give way comes back as work instead of vanishing. The numbers carry it (the Buffer after counts it), so it is a move and not a loosening.
+    if (inst.bool("return_work") && b.problems.isEmpty()) {
+        val lost = lostWork(base, b.slots, date, zone)
+        if (lost.isNotEmpty()) {
+            val due = endOfDayCutoff(base, nextWorkingDay(base, date), zone)
+            tasks = returnedWork(lost, due, "Came back")
+            loosening = loosening.filterNot { line -> lost.any { line.startsWith(it.first) } }
+            lines += "${lost.size} block${if (lost.size == 1) "" else "s"} (${fmt1(lost.sumOf { it.second } / 60.0)}h) could not fit around it. They come back as work due ${label(due.toLocalDate())}, so nothing disappears."
+        }
+    }
+    return Compiled(b.slots, tasks, emptyList(), lines, loosening, b.problems, droppedMeals = b.droppedMeals)
+}
+
+/** AD2: the movable work a replan of [date] took away or shortened, as title and minutes lost. A block that only moved loses nothing. */
+private fun lostWork(base: List<PatternSlot>, replanned: List<PatternSlot>, date: LocalDate, zone: ZoneId): List<Pair<String, Int>> {
+    fun minutes(slots: List<PatternSlot>) = slotsFor(slots, date, zone).filter { it.slot.type in MOVABLE_WORK && !it.slot.cancelled }.groupBy { it.slot.title }.mapValues { (_, v) -> v.sumOf { it.slot.endMin - it.slot.startMin } }
+    val before = minutes(base); val after = minutes(base + replanned)
+    return before.mapNotNull { (title, m) -> val lost = m - (after[title] ?: 0); if (lost >= 5) title.substringBefore(" - ") to lost else null }
 }
 
 // ---------- Cancelled (YP4): time is freed ----------

@@ -185,6 +185,7 @@ object BlockingState {
                 }
                 ReminderAlarm.refresh(ctx, now)
             } catch (e: Exception) { /* X7 */ }
+            try { AdaptState.refresh(db, pattern, BlockRepo(ctx, db, pattern).verifiedKeys(), now) } catch (e: Exception) { /* X7: nothing adapts, nothing else changes */ }
             android.util.Log.i("efa-state", "snapshot loaded: ${pattern.size} blocks")
             snapshot = Snapshot(
                 pattern = pattern, list = repo.list().orEmpty(), allow = repo.allowances(now),

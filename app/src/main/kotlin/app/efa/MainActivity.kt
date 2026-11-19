@@ -72,7 +72,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS, PC, MODIFY, MOD_FORM, ADMIN, ESSENTIALS }
+private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS, PC, MODIFY, MOD_FORM, ADMIN, ESSENTIALS, CAME_UP, WALKTHROUGH }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -357,8 +357,11 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) { checkIncoming(ImportSource.read(applicationContext, i)) }
                 }
                 LaunchedEffect(screen, reload) { if (screen == Screen.IMPORT) imports = withContext(Dispatchers.IO) { db.imports().all() } }
+                // WK1: the walkthrough opens by itself the first time, and is always there again from Setup. null while the answer is being read.
+                var walkthroughSeen by remember { mutableStateOf<Boolean?>(null) }
+                LaunchedEffect(Unit) { walkthroughSeen = withContext(Dispatchers.IO) { !walkthroughDue(db.meta().get(app.efa.data.META_WALKTHROUGH_SEEN)) } }
                 var liteDay by remember { mutableStateOf(false) }
-                LaunchedEffect(reload, screen) { liteDay = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LITE) == "1" } }
+                LaunchedEffect(reload, screen, clock.minute) { liteDay = withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LITE) == "1" || db.meta().get(app.efa.data.META_LITE_AUTO) == "1" } }
                 LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Backup.nightly(applicationContext) } }          // CT1: a backup file about once a day
                 var importMeter by remember { mutableStateOf<String?>(null) }
                 var importEconomy by remember { mutableStateOf<String?>(null) }
@@ -533,7 +536,12 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = screen == Screen.HOME) { /* a home screen has nowhere to go back to */ }
 
                 when (screen) {
-                    Screen.HOME -> if (!setupLoaded && SetupGate.enforced) Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
+                    Screen.HOME -> if (WalkthroughGate.enforced && walkthroughSeen == null) Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
+                    else if (WalkthroughGate.enforced && walkthroughSeen == false) WalkthroughScreen(firstRun = true, onFinish = { openSetup ->
+                        walkthroughSeen = true; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_WALKTHROUGH_SEEN, WALKTHROUGH_SEEN_VALUE)) }
+                        if (openSetup) screen = Screen.SETUP
+                    })
+                    else if (!setupLoaded && SetupGate.enforced) Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
                     else if (setupNeeded) SetupFlowScreen(doneSteps, restore = everDone, onAct = act,
                         onEssential = { launchEssential(it) }, onOpenSetup = { screen = Screen.SETUP },
                         crashNotice = launcherPaused, onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ })
@@ -570,7 +578,7 @@ class MainActivity : ComponentActivity() {
                                 moneyNote = l?.money?.takeIf { !it.live }?.let { "Money starts ${DateTimeFormatter.ofPattern("EEE d MMM").format(it.liveFrom)}. Recorded until then." },
                                 earnedOn = l?.pattern?.let { p -> earnedAccessActive(clock, l.earnings, p) } == true,
                                 photo = photoFocus, photoLeft = photoFocus?.minutesLeft(clock)?.toInt(),
-                                meal = dueMeal?.title, mealKey = dueMeal?.key.orEmpty(), evening = clock.hour >= 21, lite = liteDay, mode = l?.pattern?.let { efa.homeModeOf(it, clock) } ?: efa.HomeMode.FREE,
+                                meal = dueMeal?.title, mealKey = dueMeal?.key.orEmpty(), evening = clock.hour >= 21, lite = liteDay, adapt = AdaptState.view(), mode = l?.pattern?.let { efa.homeModeOf(it, clock) } ?: efa.HomeMode.FREE,
                                 heldWaiting = heldWaiting,
                                 unavailable = l != null && l.pattern == null,
                                 launcherPaused = launcherPaused,
@@ -609,7 +617,19 @@ class MainActivity : ComponentActivity() {
                                 when (kind) {
                                     "night" -> { val tn = efa.nightOf(ZonedDateTime.now(LONDON)); open(Instance(Preset.NIGHT, tn, tn, emptyMap()), false) }
                                     "late" -> open(Instance(Preset.LATE_START, today, today, mapOf("from_now" to "true")), true)
+                                    "cameup" -> screen = Screen.CAME_UP
                                     else -> screen = Screen.MODIFY          // running over: the minutes are chosen under Right now
+                                }
+                            },
+                            onAdapt = { kind ->
+                                when (kind) {
+                                    "drift" -> AdaptState.proposal?.let { p ->
+                                        scope.launch(Dispatchers.IO) { AdaptState.acknowledge(db, System.currentTimeMillis()) }
+                                        modifyFromHome = true; modDraft = p.instance; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                                        scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(p.instance, ZonedDateTime.now(LONDON)) }
+                                    }
+                                    "dismiss" -> scope.launch(Dispatchers.IO) { AdaptState.acknowledge(db, System.currentTimeMillis()); reload++ }
+                                    "full" -> scope.launch(Dispatchers.IO) { AdaptState.fullDay(db, clock.toLocalDate()); BlockingState.refresh(applicationContext); reload++ }
                                 }
                             },
                             third = { WorkItOutScreen(db, onOpenPlan = { inst, preview -> modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
@@ -648,6 +668,7 @@ class MainActivity : ComponentActivity() {
                         })
                     }
                     Screen.SETUP -> SetupScreen(places,
+                        onWalkthrough = { screen = Screen.WALKTHROUGH },
                         onHome = { screen = Screen.MAP_HOME },
                         onVenue = { mapVenue = it; venueBack = Screen.SETUP; screen = Screen.MAP_VENUE },
                         onBack = { screen = Screen.HOME },
@@ -825,7 +846,7 @@ class MainActivity : ComponentActivity() {
                                     scope.launch(Dispatchers.IO) {
                                         val repo = app.efa.data.ModifierRepo(db)
                                         val changes = app.efa.data.ChangeRepo(db); val doors = app.efa.data.DoorRepo(db)
-                                        val cls = changeClassOfPreset(draft.preset, p.wallNeeded)
+                                        val cls = changeClassOfInstance(draft, p.wallNeeded, p.compiled.tasks.isNotEmpty())
                                         val decision = decideChange(changes.history(), cls, false, now.toInstant(), changes.installedAt())
                                         val obligation = obligationMinutesOf(draft, p.compiled)
                                         val door = if (obligation > 0) doors.decide(obligationDoor(if (draft.preset == Preset.PERIOD_OFF) Door.DAY_OFF else Door.RECOVERY, now.toInstant(), obligation), now.toInstant()) else null
@@ -848,6 +869,11 @@ class MainActivity : ComponentActivity() {
                             },
                             onBack = { screen = Screen.MODIFY })
                     } ?: run { screen = Screen.MODIFY }
+                    Screen.WALKTHROUGH -> WalkthroughScreen(firstRun = false, onFinish = { screen = Screen.SETUP })
+                    Screen.CAME_UP -> CameUpScreen(db,
+                        onPlan = { inst -> modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                            scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) } },
+                        onBack = { screen = Screen.HOME })
                     Screen.ADMIN -> AdminScreen(adminState, adminProblems,
                         onLoadSet = { l -> saveAdmin(adminState.copy(loadSet = l, on = emptySet(), off = emptySet())) },
                         onToggle = { j -> val on = adminState.enabled(j); saveAdmin(adminState.copy(on = if (on) adminState.on - j.id else adminState.on + j.id, off = if (on) adminState.off + j.id else adminState.off - j.id)) },

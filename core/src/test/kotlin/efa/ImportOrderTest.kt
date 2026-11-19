@@ -93,6 +93,17 @@ class ImportOrderTest {
         assertTrue(overlapsProtected(used)); assertTrue(vu.needsWall); assertTrue(vu.loosening.any { it.contains("Uses protected free time on") }, vu.loosening.toString())
     }
 
+    @Test fun LN3_a_late_wake_gives_up_breakfast_before_it_gives_up_lunch() {
+        val fri = java.time.LocalDate.of(2026, 11, 20)          // lunch is planned 12:10, breakfast 08:20
+        val late = replanDay(base, fri, Disturbance.StartsAt(11 * 60 + 50), emptySet(), zone)
+        assertTrue(late.dropped.any { it.startsWith("Breakfast") && "lunch" in it }, late.dropped.toString())
+        assertTrue(late.dropped.none { it.startsWith("Lunch") }, late.dropped.toString())
+        assertTrue(late.slots.any { it.title.startsWith("Lunch") && !it.cancelled } || slotsFor(base, fri, zone).any { it.slot.title.startsWith("Lunch") }, "lunch is still in the day")
+        val sun = java.time.LocalDate.of(2026, 11, 22)           // lunch is planned 13:40: a wake at 10:30 still has room for breakfast before it
+        val normal = replanDay(base, sun, Disturbance.StartsAt(10 * 60 + 30), emptySet(), zone)
+        assertTrue(normal.dropped.none { it.startsWith("Breakfast") }, "a wake at 10:30 on a Sunday keeps its breakfast: ${normal.dropped}")
+    }
+
     @Test fun IX11_a_file_still_cannot_cancel_a_study_or_project_block_whatever_order_its_rows_come_in() {
         for (t in listOf("code", "study", "study-standard")) assertFalse(parse("event,2026-11-22,,10:00,11:20,Battl.io,$t,,,none,cancel,").ok, t)
         val v = verify(parse(lectureFree, night, "event,2026-11-22,,10:00,11:20,Battl.io,errand,,,none,cancel,"))

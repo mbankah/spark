@@ -969,6 +969,7 @@ Added on 19 November 2026 at your request ("find the last cycles"): a sleep rese
 | --- | --- | --- |
 | LN1 | A catch-up row can say after_midnight: Study until is then the small hours of the next morning (for example 01:25), and the day runs to it, still stopping before the evening routine. Without it the day ends at 23:59 as before. | Default; built, tested |
 | LN2 | A catch-up row can say use_free: it gives up the protected free time on its days. It is said in the preview (Uses protected free time on ...) and it needs the typed wall. Without it protected free time is never touched. | Default; built, tested |
+| LN3 | A late wake gives up breakfast before it gives up lunch: a breakfast that would end so late that lunch could not keep its 2h30 after it is dropped, and lunch is kept. | Default; built, tested |
 
 ## 49. Overriding a protected block from a file
 

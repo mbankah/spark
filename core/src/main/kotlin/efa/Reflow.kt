@@ -74,14 +74,19 @@ object YieldPolicy {
 }
 
 /** The morning routine laid from [start] so that it ends by [limit]: whole if it fits, else breakfast goes, then the Bible and the wake are cut to their minimum. Null if even that does not fit. */
-private fun fitChain(chain: List<PatternSlot>, start: Int, limit: Int, date: LocalDate): Pair<List<Pair<PatternSlot, Int>>, List<String>>? {
+private fun fitChain(chain: List<PatternSlot>, start: Int, limit: Int, date: LocalDate, breakfastMustEndBy: Int = Int.MAX_VALUE): Pair<List<Pair<PatternSlot, Int>>, List<String>>? {
     val keep = BooleanArray(chain.size) { true }
     val len = chain.map { it.endMin - it.startMin }.toMutableList()
     val said = ArrayList<String>()
     fun end() = start + chain.indices.filter { keep[it] }.sumOf { len[it] }
     // breakfast is never placed after its cut-off, wherever it would fall
     var t = start
-    for (i in chain.indices) { if (chain[i].title.startsWith("Breakfast") && t > BREAKFAST_LATEST_START) { keep[i] = false; said += "Breakfast on ${label(date)} is dropped: the day starts at ${clock(start)}, too late for it." }; if (keep[i]) t += len[i] }
+    for (i in chain.indices) {
+        if (chain[i].title.startsWith("Breakfast") && t > BREAKFAST_LATEST_START) { keep[i] = false; said += "Breakfast on ${label(date)} is dropped: the day starts at ${clock(start)}, too late for it." }
+        // LN3: lunch is the meal that matters. A breakfast that ends so late that lunch could not keep its 2h30 after it goes first, so a late wake never costs the day its lunch.
+        else if (chain[i].title.startsWith("Breakfast") && t + len[i] > breakfastMustEndBy) { keep[i] = false; said += "Breakfast on ${label(date)} is dropped: it would leave no room for lunch, which is kept." }
+        if (keep[i]) t += len[i]
+    }
     if (end() > limit) chain.indices.filter { keep[it] && chain[it].title.startsWith("Breakfast") }.forEach { keep[it] = false; said += "Breakfast on ${label(date)} is dropped: there are only ${limit - start} minutes before ${clock(limit)}." }
     for (i in chain.indices.sortedBy { if (chain[it].title.startsWith("Bible")) 0 else 1 }) if (end() > limit && keep[i]) YieldPolicy.routineMin(chain[i].title)?.takeIf { it < len[i] }?.let { m ->
         said += "${chain[i].title.substringBefore(",")} on ${label(date)} is shortened from ${len[i]} to $m minutes: only ${limit - start} minutes before ${clock(limit)}."; len[i] = m
@@ -195,7 +200,8 @@ fun buildDay(base: List<PatternSlot>, date: LocalDate, rules: Rules, dayIndex: I
         var start: Int = wake
         while (true) { val running = commitments.firstOrNull { it.startMin <= start && it.endMin > start } ?: break; notes += "${label(date)}: ${running.title.substringBefore(" - ")} runs until ${clock(running.endMin)}, so the day starts then."; start = running.endMin }
         val limit = min(laneEnd, commitments.filter { it.startMin >= start }.minOfOrNull { it.startMin } ?: laneEnd)
-        val fit = fitChain(chain, start, limit, date)
+        val firstMeal = sorted.filter { it.slot.type == "meal" && it.slot.date == null }.minByOrNull { it.slot.startMin }?.slot
+        val fit = fitChain(chain, start, limit, date, firstMeal?.let { it.startMin + MEAL_FORWARD_MIN - MEAL_SPACING_MIN } ?: Int.MAX_VALUE)
             ?: return Built(problems = listOf("${label(date)}: the day cannot start at ${clock(start)}: ${commitments.firstOrNull { it.startMin >= start }?.title?.substringBefore(" - ") ?: "the night"} is at ${clock(limit)}, and the routine needs at least ${chain.sumOf { YieldPolicy.routineMin(it.title) ?: (it.endMin - it.startMin) } - (chain.firstOrNull { it.title.startsWith("Breakfast") }?.let { it.endMin - it.startMin } ?: 0)} minutes."))
         var t = start
         for ((c, l) in fit.first) { newBlocks += c.copy(startMin = t, endMin = t + l, date = date); if (c.title.startsWith("Breakfast")) lastMealEnd = t + l; t += l }

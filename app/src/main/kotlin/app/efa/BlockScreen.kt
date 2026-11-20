@@ -232,11 +232,14 @@ internal fun HoldButton(text: String, requiredMs: Long = 1000, onDone: () -> Uni
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     var progress by remember { mutableFloatStateOf(0f) }
-    val tracker = remember(requiredMs) { HoldTracker(requiredMs) }
+    // W1 (amended): once a hold completes the button starts again from empty, so the same button can be held for the next thing it is asked to do (a step, then the next step)
+    var generation by remember { mutableIntStateOf(0) }
+    val tracker = remember(requiredMs, generation) { HoldTracker(requiredMs) }
+    val done by rememberUpdatedState(onDone)
     Box(
         Modifier.fillMaxWidth().heightIn(min = 64.dp).background(c.track, CardShape)
             .semantics { contentDescription = "$text. Press and hold for ${if (requiredMs <= 1000L) "one second" else "${(requiredMs + 500) / 1000} seconds"}." }
-            .pointerInput(Unit) {
+            .pointerInput(tracker) {
                 detectTapGestures(onPress = {
                     // Frame time is monotonic on a phone and controllable in tests. The hold completes the instant one second is reached.
                     val ticker = scope.launch {
@@ -245,7 +248,7 @@ internal fun HoldButton(text: String, requiredMs: Long = 1000, onDone: () -> Uni
                             withFrameMillis { ms ->
                                 if (!started) { tracker.down(ms); started = true }
                                 progress = tracker.progress(ms).toFloat()
-                                if (progress >= 1f) { tracker.up(ms); onDone() }
+                                if (progress >= 1f) { tracker.up(ms); done(); progress = 0f; generation++ }
                             }
                         }
                     }
@@ -355,6 +358,7 @@ private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: (
             }
             VrStatus.RUNNING -> {
                 BasicText(v.title, style = Ts(c.text, 24.sp, FontWeight.Bold))
+                BasicText(v.todo, style = Ts(c.muted, 15.sp))
                 if (v.paused) BasicText("PAUSED  the clock is stopped", style = Ts(c.text, 16.sp, FontWeight.Bold))
                 if (v.over) {
                     BasicText("OVER  +" + clockMs(v.overMs), style = Ts(c.text, 34.sp, FontWeight.Bold, fontFamily = Mono), modifier = Modifier.semantics { contentDescription = "Over by ${clockMs(v.overMs)}" })

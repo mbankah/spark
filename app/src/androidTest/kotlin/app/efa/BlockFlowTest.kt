@@ -500,4 +500,12 @@ class BlockScreenTest {
         rule.onNodeWithText("Take proof photo").assertDoesNotExist()
         rule.onNodeWithText(Reason.OUTSIDE_WINDOW.text()).assertExists()
     }
+
+    @Test fun VR13_the_settings_card_turns_the_reminder_on_and_off_and_sets_how_often_it_repeats() {
+        val state = androidx.compose.runtime.mutableStateOf(VrConfig())
+        rule.setContent { EfaTheme { androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) { VrnpmSettingsCard(state.value) { state.value = it } } } }
+        rule.onNodeWithContentDescription("More: Remind again while over (min)").performScrollTo().performClick(); rule.waitForIdle(); assertEquals(10, state.value.overEvery)
+        rule.onNodeWithContentDescription("A reminder with a sound when a step ends", substring = true).performScrollTo().performClick(); rule.waitForIdle()
+        assertFalse(state.value.remind); rule.onNodeWithContentDescription("More: Remind again while over (min)").assertDoesNotExist()
+    }
 }

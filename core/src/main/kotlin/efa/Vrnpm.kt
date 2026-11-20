@@ -10,8 +10,12 @@ import java.time.temporal.TemporalAdjusters
 // One cycle in the order V video, R read, N notes, P practice, M marking, with breaks between them. Every step has a time. A step may overrun and never stops by itself,
 // but the overrun is always shown, as a count up, and kept. The times are settings (VrConfig); the N time is also tuned by timing real pages.
 
-enum class VrStep(val letter: Char, val label: String, val minutes: Int) {
-    V('V', "Video", 10), R('R', "Read", 5), N('N', "Notes", 45), P('P', "Practice", 30), M('M', "Marking", 15),
+enum class VrStep(val letter: Char, val label: String, val minutes: Int, val todo: String) {
+    V('V', "Video", 10, "Watch the lecture video or the slides."),
+    R('R', "Read", 5, "Read the section of the notes or the book for this lecture."),
+    N('N', "Notes", 45, "Copy the notes by hand, about four pages. Put the phone away."),
+    P('P', "Practice", 30, "Do the practice questions: all the Foundation and Building ones."),
+    M('M', "Marking", 15, "Mark each question and correct it now. A cross by each wrong one. Write C or U before you see the solution. Log one line per mistake: concept, method or arithmetic."),
 }
 
 /** One stretch of the cycle: a step, or the break after the step before it ([step] is null for a break). */
@@ -35,14 +39,17 @@ data class VrConfig(
     val capMin: Int = 0, val pagesPerCycle: Int = 4, val remedialMin: Int = REMEDIAL_MIN_PER_CYCLE, val redEngine: Boolean = false,
     /** VR10: V and R are done by an override (you did them elsewhere): a cycle starts at N, and V and R are shown as done by override, never as timed. */
     val skipVR: Boolean = false,
+    /** VR13: an alert when a step ends, saying what is next and what to do, and again every [overEvery] minutes while the step is over (0 is not again). */
+    val remind: Boolean = true, val overEvery: Int = 5,
 ) {
     fun clamped(): VrConfig = copy(
         v = v.coerceIn(5, 120), r = r.coerceIn(5, 120), n = n.coerceIn(5, 120), p = p.coerceIn(5, 120), m = m.coerceIn(5, 120),
         breakBetween = breakBetween.coerceIn(0, 15), breakAfterN = breakAfterN.coerceIn(0, 20),
         capMin = if (capMin <= 0) 0 else capMin.coerceIn(45, 240), pagesPerCycle = pagesPerCycle.coerceIn(2, 10), remedialMin = remedialMin.coerceIn(0, 60),
+        overEvery = overEvery.coerceIn(0, 15),
     )
 
-    fun encode(): String = listOf(v, r, n, p, m, breakBetween, breakAfterN, capMin, pagesPerCycle, remedialMin, if (redEngine) 1 else 0, if (skipVR) 1 else 0).joinToString(",")
+    fun encode(): String = listOf(v, r, n, p, m, breakBetween, breakAfterN, capMin, pagesPerCycle, remedialMin, if (redEngine) 1 else 0, if (skipVR) 1 else 0, if (remind) 1 else 0, overEvery).joinToString(",")
 
     /** The preset these step and break times match, or null when they are your own. */
     fun preset(): String? = when {
@@ -66,7 +73,7 @@ data class VrConfig(
             val p = text?.split(",")?.map { it.trim().toIntOrNull() } ?: return VrConfig()
             if (p.size < 11 || p.take(11).any { it == null }) return VrConfig()
             val x = p.map { it ?: 0 }
-            return VrConfig(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10] == 1, x.getOrElse(11) { 0 } == 1).clamped()
+            return VrConfig(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10] == 1, x.getOrElse(11) { 0 } == 1, x.getOrElse(12) { 1 } == 1, x.getOrElse(13) { 5 }).clamped()
         }
     }
 }
@@ -179,6 +186,8 @@ data class VrView(
     val chips: List<VrChip>, val plannedStepMin: Int, val actualMin: Int?, val summary: String,
     /** VR9: the cycle is paused now, and how many minutes have been paused in all. */
     val paused: Boolean = false, val pausedMin: Int = 0,
+    /** VR13: what to do in the step in hand. */
+    val todo: String = "",
 ) { val over: Boolean get() = overMs > 0 }
 
 private const val TOLERANCE_MS = 30_000L        // half a minute either way is on time
@@ -216,7 +225,7 @@ fun vrView(run: VrRun?, nowMs: Long, plan: List<Int>? = null): VrView {
     val p = phases[cur]; val plannedMs = p.plannedMin * 60_000L; val elapsed = spentMs(cur)
     val over = (elapsed - plannedMs).coerceAtLeast(0L)
     return VrView(status, cur, p.title, p.isBreak, plannedMs, elapsed, over, (plannedMs - elapsed).coerceAtLeast(0L), (elapsed.toFloat() / plannedMs.coerceAtLeast(1)).coerceIn(0f, 1f), chips, plannedStepMin, null,
-        (if (pausedNow) "Paused. " else "") + (if (over > TOLERANCE_MS) "Over by ${clockMs(over)}." else "${clockMs((plannedMs - elapsed).coerceAtLeast(0L))} left."), pausedNow, pausedMin)
+        (if (pausedNow) "Paused. " else "") + (if (over > TOLERANCE_MS) "Over by ${clockMs(over)}." else "${clockMs((plannedMs - elapsed).coerceAtLeast(0L))} left."), pausedNow, pausedMin, vrTodo(p))
 }
 
 /** m:ss for a length in milliseconds. */
@@ -289,7 +298,7 @@ enum class VrNoteMode { COUNTDOWN, OVER, PAUSED }
  * VR12: what the lock screen notification says for a running cycle. [whenMs] is the moment its live clock counts to (COUNTDOWN) or from (OVER), and 0 while PAUSED, when the clock is
  * stopped. [chips] is one line of the five steps: done, now, to come, or done by override.
  */
-data class VrNote(val title: String, val text: String, val chips: String, val mode: VrNoteMode, val whenMs: Long)
+data class VrNote(val title: String, val text: String, val chips: String, val mode: VrNoteMode, val whenMs: Long, val todo: String = "")
 
 fun vrNote(run: VrRun, nowMs: Long): VrNote {
     val v = vrView(run, nowMs)
@@ -300,8 +309,39 @@ fun vrNote(run: VrRun, nowMs: Long): VrNote {
         }
     }
     return when {
-        v.paused -> VrNote(v.title, "Paused, ${clockMs(v.remainingMs)} left", chips, VrNoteMode.PAUSED, 0L)
-        v.over -> VrNote(v.title, "OVER", chips, VrNoteMode.OVER, nowMs - v.overMs)
-        else -> VrNote(v.title, "left", chips, VrNoteMode.COUNTDOWN, nowMs + v.remainingMs)
+        v.paused -> VrNote(v.title, "Paused, ${clockMs(v.remainingMs)} left", chips, VrNoteMode.PAUSED, 0L, v.todo)
+        v.over -> VrNote(v.title, "OVER", chips, VrNoteMode.OVER, nowMs - v.overMs, v.todo)
+        else -> VrNote(v.title, "left", chips, VrNoteMode.COUNTDOWN, nowMs + v.remainingMs, v.todo)
     }
+}
+
+// ---------- VR13: what to do, and the reminder ----------
+
+/** What to do in a phase: the step's own instructions, or for a break the reset. */
+fun vrTodo(p: VrPhase): String = p.step?.todo ?: "Break: stand up, drink water, phone away."
+
+/** The words of a reminder: [title] says which step is up or over, [text] says what is next and what to do in it. */
+data class VrAlert(val title: String, val text: String)
+
+/**
+ * VR13: the reminder for the phase running at [nowMs]: it is up (the time has come) or over by some minutes, then what is next and what to do in it. Null when no cycle is running or it is paused.
+ * Phases of 0 minutes (a step done by override) are skipped when saying what is next.
+ */
+fun vrAlert(run: VrRun, nowMs: Long): VrAlert? {
+    val v = vrView(run, nowMs)
+    if (v.status != VrStatus.RUNNING || v.paused) return null
+    val phases = vrPhases(run.planMinutes)
+    val next = phases.drop(v.phaseIndex + 1).firstOrNull { it.plannedMin > 0 }
+    val overMin = ((v.overMs + 30_000L) / 60_000L).toInt()
+    val head = if (overMin >= 1) "${v.title} is over by $overMin min" else "${v.title} is up"
+    val tail = if (next == null) "That was the last step. Hold to finish the cycle, then take the proof photo of your notes."
+    else "Next: ${next.title}, ${next.plannedMin} min. ${vrTodo(next)}"
+    return VrAlert(head, tail)
+}
+
+/** VR13: the minutes from [nowMs] to the next reminder for a step that ends in [remainingMs] or is over by [overMs]: at its end, then every [every] minutes of overrun (0: never again). Null when there is none. */
+fun vrNextReminderMs(remainingMs: Long, overMs: Long, every: Int): Long? = when {
+    remainingMs > 0 -> remainingMs
+    every <= 0 -> null
+    else -> every * 60_000L - overMs % (every * 60_000L)
 }

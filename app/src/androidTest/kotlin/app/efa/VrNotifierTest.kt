@@ -70,4 +70,27 @@ class VrNotifierTest {
         val ch = ctx.getSystemService(NotificationManager::class.java).getNotificationChannel(VrNotifier.CHANNEL)
         assertEquals(NotificationManager.IMPORTANCE_LOW, ch.importance)         // quiet: no sound, no pop-up. Each notification is itself public (VISIBILITY_PUBLIC), which is what the lock screen reads.
     }
+
+    @Test fun VR13_the_reminder_makes_a_sound_over_the_lock_screen_and_says_what_is_next() {
+        val now = System.currentTimeMillis()
+        VrNotifier.alert(ctx, ds, VrRun(45, listOf(now - 10 * 60_000L - 5_000L)), now)
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        var n: Notification? = null
+        repeat(40) { n = nm.activeNotifications.firstOrNull { it.id == VrNotifier.ALERT_ID }?.notification; if (n == null) Thread.sleep(100) }
+        assertNotNull(n, "the reminder is up")
+        assertEquals("V Video is up", n!!.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertTrue(n!!.extras.getCharSequence(Notification.EXTRA_TEXT).toString().startsWith("Next: Break, 5 min."))
+        assertEquals(Notification.VISIBILITY_PUBLIC, n!!.visibility)
+        assertEquals(NotificationManager.IMPORTANCE_HIGH, nm.getNotificationChannel(VrNotifier.ALERT_CHANNEL).importance, "it is not the quiet clock channel")
+        VrNotifier.cancel(ctx)
+        repeat(40) { if (nm.activeNotifications.any { it.id == VrNotifier.ALERT_ID }) Thread.sleep(100) }
+        assertFalse(nm.activeNotifications.any { it.id == VrNotifier.ALERT_ID }, "it goes with the cycle")
+    }
+
+    @Test fun VR13_no_reminder_is_made_for_a_cycle_that_is_paused() {
+        val now = System.currentTimeMillis()
+        VrNotifier.alert(ctx, ds, VrRun(45, listOf(now - 20 * 60_000L), emptyList(), null, listOf(now - 15 * 60_000L)), now)
+        Thread.sleep(600)
+        assertFalse(ctx.getSystemService(NotificationManager::class.java).activeNotifications.any { it.id == VrNotifier.ALERT_ID })
+    }
 }

@@ -91,6 +91,7 @@ fun VrHero(active: VrActive, onAction: (VrAction) -> Unit) {
                 else if (v.over) BasicText("OVER", style = Ts(c.text, 13.sp, FontWeight.Bold))
             }
         }
+        BasicText(v.todo, style = Ts(c.muted, 15.sp), modifier = Modifier.fillMaxWidth())            // VR13: what to do now
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             v.chips.forEach { ch ->
                 val label = VrStep.entries.first { it.letter == ch.letter }.label

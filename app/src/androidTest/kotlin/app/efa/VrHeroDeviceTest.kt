@@ -78,4 +78,22 @@ class VrHeroDeviceTest {
         rule.setContent { EfaTheme { HomeScreen(home(null), {}, {}) } }
         rule.onNodeWithText("VRNPM").assertDoesNotExist()
     }
+
+    @Test fun VR13_the_hold_starts_again_from_empty_after_it_completes() {
+        val got = ArrayList<VrAction>()
+        rule.setContent { EfaTheme { VrHero(VrActive(study, runAt(3))) { got += it } } }
+        rule.mainClock.autoAdvance = false
+        for (round in 1..2) {
+            rule.onNodeWithContentDescription("Hold to finish V", substring = true).performTouchInput { down(center) }
+            rule.mainClock.advanceTimeBy(HOLD_END_MS + 700)
+            rule.onRoot().performTouchInput { up() }
+            rule.mainClock.advanceTimeBy(300)
+            assertEquals(round, got.count { it == VrAction.NEXT }, "hold $round counted")
+        }
+    }
+
+    @Test fun VR13_the_card_says_what_to_do_in_the_step() {
+        rule.setContent { EfaTheme { VrHero(VrActive(study, runAt(3))) {} } }
+        rule.onNodeWithText(VrStep.V.todo).assertExists()
+    }
 }

@@ -54,6 +54,9 @@ fun VrnpmSettingsCard(cfg: VrConfig, onChange: (VrConfig) -> Unit) {
         }
         Stepper("Pages in a cycle's notes", cfg.pagesPerCycle, 2..10, 1) { onChange(cfg.copy(pagesPerCycle = it)) }
         Stepper("Remedial a cycle (min)", cfg.remedialMin, 0..60, 10, shown = if (cfg.remedialMin == 0) "None" else cfg.remedialMin.toString()) { onChange(cfg.copy(remedialMin = it)) }
+        Chip(if (cfg.remind) "Reminder when a step ends: on" else "Reminder when a step ends: off", cfg.remind, { onChange(cfg.copy(remind = !cfg.remind)) },
+            if (cfg.remind) "A reminder with a sound when a step ends, saying what is next. Tap to turn it off" else "Turn on a reminder with a sound when a step ends, saying what is next")
+        if (cfg.remind) Stepper("Remind again while over (min)", cfg.overEvery, 0..15, 5, shown = if (cfg.overEvery == 0) "Never" else cfg.overEvery.toString()) { onChange(cfg.copy(overEvery = it)) }
         Chip(if (cfg.skipVR) "V and R done by override: on" else "V and R done by override: off", cfg.skipVR, { onChange(cfg.copy(skipVR = !cfg.skipVR)) },
             if (cfg.skipVR) "V and R are done by override: cycles start at notes. Tap to time them again" else "V and R done by override: a cycle starts at notes, and the timer says V and R were not timed")
         Chip(if (cfg.redEngine) "Red Engine built: on, no remedial" else "Red Engine built: off", cfg.redEngine, { onChange(cfg.copy(redEngine = !cfg.redEngine)) },

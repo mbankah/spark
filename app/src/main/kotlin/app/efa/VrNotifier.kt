@@ -35,6 +35,8 @@ object VrSignal { var tick by mutableIntStateOf(0) }
 object VrNotifier {
     const val CHANNEL = "vrnpm"
     const val ID = 4220
+    const val ALERT_CHANNEL = "vrnpm_alert"
+    const val ALERT_ID = 4221
     const val ACTION_PAUSE = "app.efa.VR_PAUSE"
     const val ACTION_RESUME = "app.efa.VR_RESUME"
     const val ACTION_STEP_END = "app.efa.VR_STEP_END"
@@ -59,7 +61,7 @@ object VrNotifier {
         val status = when (n.mode) { VrNoteMode.PAUSED -> n.text; VrNoteMode.OVER -> "OVER"; VrNoteMode.COUNTDOWN -> "left" }
         val b = NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_stat_cycle)
             .setContentTitle("${n.title}  ·  VRNPM").setContentText(n.chips).setSubText(ds.slot.title.substringBefore(" - "))
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$status\n${n.chips}"))
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$status\n${n.todo}\n${n.chips}"))
             .setOngoing(true).setOnlyAlertOnce(true).setSilent(true).setVisibility(NotificationCompat.VISIBILITY_PUBLIC).setCategory(NotificationCompat.CATEGORY_STATUS)
             .setContentIntent(open)
         when (n.mode) {
@@ -78,8 +80,27 @@ object VrNotifier {
     }
 
     fun cancel(ctx: Context) {
-        ctx.getSystemService(NotificationManager::class.java).cancel(ID)
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.cancel(ID); nm.cancel(ALERT_ID)
         stepEndAlarm(ctx, null, 0L)
+    }
+
+    /**
+     * VR13: the reminder. It makes a sound and shows over the lock screen, says which step is up or over, and what is next and what to do in it. It is replaced by the next one and goes
+     * when the cycle moves on.
+     */
+    fun alert(ctx: Context, ds: DatedSlot, run: VrRun, nowMs: Long = System.currentTimeMillis()) {
+        if (!canPost(ctx)) return
+        val a = vrAlert(run, nowMs) ?: return
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(ALERT_CHANNEL, "Study cycle reminders", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "A reminder when a step of the study cycle ends, and what to do next"; lockscreenVisibility = Notification.VISIBILITY_PUBLIC; enableVibration(true)
+        })
+        val open = PendingIntent.getActivity(ctx, 22, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        nm.notify(ALERT_ID, NotificationCompat.Builder(ctx, ALERT_CHANNEL).setSmallIcon(R.drawable.ic_stat_cycle).setContentTitle(a.title).setContentText(a.text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(a.text)).setSubText(ds.slot.title.substringBefore(" - "))
+            .setPriority(NotificationCompat.PRIORITY_HIGH).setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true).setContentIntent(open).build())
     }
 
     /** One alarm at the end of the step in hand, so the notification changes from counting down to OVER on time even with the screen off. */
@@ -94,11 +115,14 @@ object VrNotifier {
 
     /** Puts the notification in step with the cycle of [ds] as it is now: shown while it runs, gone when it is finished or was never started. */
     suspend fun refresh(ctx: Context, ds: DatedSlot) {
-        val run = VrRepo(EfaDb.get(ctx)).get(ds); val now = System.currentTimeMillis()
+        val repo = VrRepo(EfaDb.get(ctx)); val run = repo.get(ds); val now = System.currentTimeMillis()
         if (run == null || vrView(run, now).status != VrStatus.RUNNING) { cancel(ctx); return }
+        ctx.getSystemService(NotificationManager::class.java).cancel(ALERT_ID)          // the cycle moved on, so the last reminder is out of date
         post(ctx, ds, run, now)
-        val v = vrView(run, now)
-        if (!v.paused && !v.over) stepEndAlarm(ctx, blockKey(ds), now + v.remainingMs + 1_500L) else stepEndAlarm(ctx, null, 0L)
+        val v = vrView(run, now); val cfg = repo.config()
+        // one alarm: at the end of the step (to turn the clock into OVER, and to remind), then every few minutes of overrun when reminders are on
+        val next = when { v.paused -> null; v.remainingMs > 0 -> v.remainingMs + 1_500L; cfg.remind -> vrNextReminderMs(0L, v.overMs, cfg.overEvery); else -> null }
+        if (next != null) stepEndAlarm(ctx, blockKey(ds), now + next) else stepEndAlarm(ctx, null, 0L)
     }
 
     /** The block a notification's key names: its planned day, start and title (the same key the cycle is stored under). */
@@ -121,7 +145,9 @@ class VrReceiver : BroadcastReceiver() {
                 if (ds != null) {
                     val repo = VrRepo(EfaDb.get(app)); val now = System.currentTimeMillis()
                     when (action) { VrNotifier.ACTION_PAUSE -> repo.pause(ds, now); VrNotifier.ACTION_RESUME -> repo.resume(ds, now) }
-                    VrNotifier.refresh(app, ds); VrSignal.tick++
+                    VrNotifier.refresh(app, ds)
+                    if (action == VrNotifier.ACTION_STEP_END && repo.config().remind) repo.get(ds)?.let { VrNotifier.alert(app, ds, it) }       // VR13
+                    VrSignal.tick++
                 }
             } catch (_: Throwable) { } finally { pending.finish() }
         }

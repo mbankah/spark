@@ -17,9 +17,6 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZonedDateTime
 
-/** ST1: a block's Start button hands its routine to the runner here. The runner takes it as soon as it is on screen and clears it. */
-object RoutineLaunch { var pending by mutableStateOf<String?>(null) }
-
 private val RUNNABLE: List<Routine> get() = listOf(BIBLE, WAKE, GETTING_READY, STUDY_BLOCK, PASTA_AND_SHOWER, WIND_DOWN, LEAVE_HOME, ARRIVE_HOME)
 
 /**
@@ -32,8 +29,6 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit,
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
-    var running by remember { mutableStateOf<Routine?>(null) }
-    var tier by remember { mutableStateOf(capTier(Tier.FULL, AdaptState.level)) }
     var facts by remember { mutableStateOf<List<Fact>>(emptyList()) }
     var taps by remember { mutableStateOf<Set<NfcPurpose>>(emptySet()) }
     var nfcOn by remember { mutableStateOf(false) }
@@ -42,22 +37,8 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit,
     var tags by remember { mutableStateOf<Map<String, NfcPurpose>>(emptyMap()) }
     var message by remember { mutableStateOf<String?>(null) }
     var glassOk by remember { mutableStateOf(false) }
-    var reward by remember { mutableStateOf<String?>(null) }
     var identity by remember { mutableStateOf<List<String>>(emptyList()) }
     val nfcAvailable = remember { Nfc.available(ctx) }
-    // the tier is picked from the time there is before the next block and last night's sleep (RT5); the same for a tap on the list and for a Start button on a block (ST1)
-    val begin: (Routine) -> Unit = { rt ->
-        scope.launch(Dispatchers.IO) {
-            val now = ZonedDateTime.now(LONDON)
-            val nextStart = nowAndNext(PlanRepo(db).slots(), now).next?.start
-            val avail = nextStart?.let { java.time.Duration.between(now, it).toMinutes().toInt() } ?: 60
-            val sleep = db.nights().latest()?.sleepMin?.div(60.0)
-            tier = pickTier(rt, avail.coerceAtLeast(0), sleep, null); reward = null; running = rt
-        }
-    }
-    val launched = RoutineLaunch.pending
-    LaunchedEffect(launched) { if (part == WioPart.NOW && launched != null) { RoutineLaunch.pending = null; (RUNNABLE + ROUTINES).firstOrNull { it.id == launched }?.let(begin) } }
-
     LaunchedEffect(tick) {
         withContext(Dispatchers.IO) {
             val repo = FactRepo(db)
@@ -67,55 +48,10 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit,
             Nfc.message?.let { message = it; Nfc.message = null }
         }
     }
-    LaunchedEffect(running, nfcOn) { while (running != null || (nfcOn && Nfc.registering != null)) { delay(1500); tick++ } }
+    LaunchedEffect(nfcOn) { while (nfcOn && Nfc.registering != null) { delay(1500); tick++ } }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (part == WioPart.NOW) {
-        // RT, CO: the runner
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("RUN A ROUTINE")
-            val r = running
-            if (r == null) {
-                BasicText("One step at a time, at the tier today allows. Photo steps are taken on the home screen.", style = Ts(c.muted, 13.sp))
-                RUNNABLE.forEach { rt ->
-                    Btn(rt.title, { begin(rt) }, modifier = Modifier.fillMaxWidth(), description = "Run ${rt.title}")
-                }
-            } else {
-                BasicText("${r.title}: ${tier.name.lowercase()} tier, ${r.minutes(tier)} minutes", style = Ts(c.text, 17.sp, FontWeight.Bold))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Tier.entries.forEach { t -> Chip(t.name.lowercase().replaceFirstChar { it.uppercase() }, tier == t, { tier = t }, "Tier ${t.name.lowercase()}") } }
-                val steps = runSteps(r, tier, facts, taps, nfcOn)
-                steps.forEach { rs ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        BasicText((if (rs.done) "Done: " else "") + rs.step.say + (if (rs.step.minutes > 0) " (${rs.step.minutes} min)" else ""), style = Ts(if (rs.done) c.muted else c.text, 15.sp, FontWeight.Medium))
-                        when {
-                            rs.done -> {}
-                            rs.needsPhoto -> BasicText("Photo step: take it on the home screen.", style = Ts(c.muted, 12.sp))
-                            else -> {
-                                rs.tagPurpose?.let { tp -> BasicText("Or tap the ${tp.label} tag.", style = Ts(c.muted, 12.sp)) }
-                                if (rs.step.proof.rank >= ProofTier.SENSOR.rank) BasicText("Confirmed by tap: Spark cannot sense this one yet.", style = Ts(c.muted, 12.sp))
-                                Btn("Done", { scope.launch(Dispatchers.IO) { FactRepo(db).record(Fact(FactType.TAP, Instant.now(), "tap", 1.0, "step:${rs.step.id}")); Coach.haptic(ctx, Haptic.START); tick++ } }, modifier = Modifier.fillMaxWidth(), description = "Done: ${rs.step.say}")
-                            }
-                        }
-                    }
-                }
-                if (routineDone(steps)) {
-                    val doneId = "routine:${r.id}"
-                    LaunchedEffect(r.id, facts.size) {
-                        withContext(Dispatchers.IO) {
-                            if (facts.none { it.ref == doneId }) {
-                                FactRepo(db).record(Fact(FactType.TAP, Instant.now(), "routine", 1.0, doneId)); Coach.haptic(ctx, Haptic.REWARD)
-                                reward = rewardPick(db.meta().get(META_REWARDS).orEmpty().lines().filter { it.isNotBlank() }, System.currentTimeMillis())
-                                tick++
-                            }
-                        }
-                    }
-                    BasicText("${r.title} is done.", style = Ts(c.text, 18.sp, FontWeight.Bold))
-                    reward?.let { BasicText("Your reward: $it", style = Ts(c.text, 15.sp)) }
-                }
-                Btn("Close", { running = null }, modifier = Modifier.fillMaxWidth(), description = "Close the routine")
-            }
-        }
-
         // CO9, CO10: today's wins, three true facts
         val done = RUNNABLE.filter { rt -> facts.any { it.ref == "routine:${rt.id}" } }
         val steps = facts.count { it.ref.startsWith("step:") }

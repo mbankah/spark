@@ -204,15 +204,15 @@ def d_change():
 
 def d_do():
     d = Dg(1120, 520, 'One block can show up to four cards, and each has its own button and its own record. Only the Cycle and the Proof reach the screens and the Buffer. The start-and-end record is read by the Coach and nothing else.')
-    d.node('blk', C[0], 175, NW, 130, 'Block screen', ['one block, up to four cards:', 'study blocks show VRNPM and START;', 'routine blocks show Run and START;', 'blocks with proof show PROOF'], k='sur')
+    d.node('blk', C[0], 175, NW, 130, 'Block screen', ['one block, up to four cards:', 'study blocks show VRNPM;', 'routine blocks show Run and STEPS;', 'blocks with proof show PROOF'], k='sur')
     rows = [20, 140, 260, 380]
     cards = [('c1', 'VRNPM card', ['study blocks only', 'Start, hold, Pause, Page done']), ('c2', 'Run card', ['routine, meal, errand, planning', 'hold to start, finish, say']),
-             ('c3', 'START card', ['routine and study blocks', "'Start ...', one step at a time"]), ('c4', 'PROOF card', ['photo, git commit, attendance'])]
+             ('c3', 'STEPS card', ['routine blocks', 'the list, one tap a step']), ('c4', 'PROOF card', ['photo, git commit, attendance'])]
     for (id, t, s), y in zip(cards, rows):
         d.node(id, C[1], y, NW, 90, t, s, k='do')
     d.node('cycle', C[2], rows[0], NW, 90, 'Stored cycle', ['one record, V R N P M,', 'linked to its block; one card', 'on Home and the block screen'], k='do')
     d.node('rec', C[2], rows[1], NW, 90, 'Run record', ['real start, real end,', 'and the reason when it', 'did not happen'], k='do')
-    d.node('run', C[2], rows[2], NW, 90, 'Routine runner', ['third page of Home; steps by', 'tier. Found by title text:', "'Bible', 'Wake', ..."], k='do')
+    d.node('run', C[2], rows[2], NW, 90, 'Steps on the block', ['at the tier the time and sleep', 'allow. Routine found by type', "and title: 'Bible', 'Wake', ..."], k='do')
     d.node('ver', C[2], rows[3], NW, 90, 'Verified block', ['the proof, checked,', 'and the minutes credited'], k='do')
     d.node('seen', C[3], rows[0], NW, 90, 'Seen on', ['Home card, lock screen,', 'step-end alarm'], k='sur', style='ext')
     d.node('coach', C[3], rows[1], NW, 210, 'Coach prompts', ['when a routine block starts and', 'you have not started it:', 'the feel, a spoken line, a', 'notification, then the gate.', '', 'It counts a routine started,', 'or a Run record started.'], k='do')
@@ -338,10 +338,10 @@ def d_t1():
     d.panel(572, 0, 548, 420, 'Proposed')
     d.node('b1', 15, 130, 100, 70, 'Block', ['study'], k='sur')
     d.node('v', 160, 40, 170, 70, 'VRNPM card', ['its own hold'], k='do')
-    d.node('s', 160, 130, 170, 70, 'START card', ['opens the routine runner'], k='do', style='warn')
+    d.node('s', 160, 130, 170, 70, 'STEPS card', ['the steps, on the block'], k='do')
     d.node('p', 160, 220, 170, 70, 'PROOF card', ['photo at the end'], k='do')
     d.node('cy', 375, 40, 158, 70, 'Stored cycle', ['Home, lock screen'], k='do')
-    d.node('ru', 375, 130, 158, 70, 'Routine runner', ['third page'], k='do')
+    d.node('ru', 375, 130, 158, 70, 'Step facts', ['read by the Coach'], k='do')
     d.node('vf', 375, 220, 158, 70, 'Verified', ['to Count'], k='count', style='ext')
     d.node('co', 160, 320, 373, 70, 'Coach prompts', ['read the routine record and the Run record,', 'not the stored cycle, so a started cycle can be asked about'], k='do', style='warn')
     d.edge('b1', 'r', 'v', 'l', fa=.2, mx=138); d.edge('b1', 'r', 's', 'l', mx=138); d.edge('b1', 'r', 'p', 'l', fa=.8, mx=138)
@@ -431,15 +431,15 @@ def d_simple():
 # ===== page ====================================================================
 GAPS = [
     (1, 'A block had two starts.', 'Study blocks show the VRNPM card and, under it, a START card for the study routine. Routine blocks show the hold-to-start Run card and the same START card. Each has its own button and its own record.',
-     'BlockScreen.kt:137, :145, :155; RoutinePrompts.kt:15', 'Done 20 Nov (VR15): study blocks and blocks with the Run card have one Start, and the hold hands a routine to its runner.'),
+     'BlockScreen.kt:137, :145, :155; RoutinePrompts.kt:15', 'Done 20 Nov (VR15, BS1): study blocks and blocks with the Run card have one Start, and a routine block carries its steps, so no Start card is left.'),
     (2, 'Starting a cycle did not count as starting.', 'The Coach asks whether a routine was started by reading the routine record and the Run record. It never reads the cycle, so a running cycle can still be told it has not started.',
      'Coach.kt:169', 'Done 20 Nov (VR15): a cycle start writes the one run record that the Coach reads.'),
     (3, 'Start, end and say went nowhere.', 'The Run record is read by the Coach and by the day strip, and the strip is no longer on Home. Nothing in Rewards or the Buffer reads it. You asked how an unproven block earns a reward, and today a held start earns none.',
      'RunRepo and VrRepo are used only in BlockScreen, MainActivity, VrNotifier and Coach', 'Done 20 Nov (SR1): a held start earns 2 minutes of open phone, for 5 starts a day.'),
     (4, 'Wake time has three owners.', 'The weekly Wake block, the night preset (it writes the wake key from the anchors), and the Setup wake chooser. The chooser moves the alarm only. The Wake and getting-ready blocks stay where they were.',
      'ModifierRepo.kt:39; MainActivity.kt:776-790', "Done 20 Nov (CD2, CW1): the wake chooser is in the Change door and a later wake now moves the Wake block and the morning with it, through one Late start (picture 2)."),
-    (5, 'Routines are found by title text.', "A block gets its routine because its title starts with Bible, Wake or Breakfast, dress, or because its type is sleep or study. Rename a block and its routine goes. The runner is also a page of its own, not part of the block.",
-     'RoutinePrompts.kt:10-17', 'A block carries its routine id and its steps. The runner page goes.'),
+    (5, 'Routines are found by title text, and the runner was a page of its own.', "A block gets its routine because its title starts with Bible, Wake or Breakfast, dress, or because its type is sleep or study. Rename a block and its routine goes. The runner is also a page of its own, not part of the block.",
+     'RoutinePrompts.kt:10-17', 'Part done 20 Nov (BS1-BS3): the steps are on the block and the runner page is gone. The routine is still matched by type and title; a stored routine id per block needs a database change and is not done.'),
     (6, 'The plan had eight doors.', 'Home hero chips, Something came up, Quick add and Voice, and four Setup cards: Modify Schedule, Days off, Library, Timetable file. Modify Schedule describes a period off and the library again in its own text. Adapt is the eighth, and it is automatic.',
      'HomeScreen.kt:241-244; SetupScreen.kt:74-84, 207-225', 'Done 20 Nov (CD1): one Change the plan door; the four Setup cards moved into it. Work it out and Quick add still have their own entries.'),
     (7, 'Setup was 27 cards of three kinds.', 'Do-it-now actions (Modify, Days off, Library, Timetable, Shopping, Widgets), settings (Appearance, Quiet mode, Voice) and permission checks (Blocking, Notifications, Sleep, Browsers). Reminders are spread over five cards: Photo, Meals, Lecture code, Study cycle and Quiet mode.',
@@ -608,7 +608,7 @@ def build(simple=True):
     out.append('<div class="wrap">')
     out.append('<div class="kicker">Spark · read from the code, 20 November 2026</div>')
     out.append('<h1>Spark is one loop, and the fix is three moves.</h1>')
-    out.append('<p class="lead">Read from the code. All three moves and the confirmation system are built (20 November 2026). Still to do: a block carrying its own steps so the runner page can go, and what a held start is worth if you change your mind. The detail behind this page, with every system and the eight gaps, is folded at the bottom.</p>')
+    out.append('<p class="lead">Read from the code. All three moves, the steps on the block and the confirmation system are built (20 November 2026). Still to do: a stored routine id per block, which needs a database change. The detail behind this page, with every system and the eight gaps, is folded at the bottom.</p>')
     out.append('<nav class="nv" aria-label="Sections"><a href="#one">One picture</a><a href="#moves">Three moves</a><a href="#need">Decisions made</a></nav>')
 
     out.append('<h2 id="one">Spark in one picture</h2>')
@@ -617,7 +617,7 @@ def build(simple=True):
     out.append('<h2 id="moves">Three moves</h2>')
     out.append('<div class="gl">')
     for n, t, b in [(1, 'One Start per block (built)', 'A block has one hold to start it. Its type picks the engine: study runs the cycle, a routine runs its own steps, anything else is a plain run. It writes one run record, and the Coach, Count, Guard and every screen read that.'),
-                    (2, 'One door for change (built)', 'Late, over, came up, a new deadline, a day off, the library, a file and a week or period are all said in one place, Change the plan, and each shows what it does, what it costs and applies it. The wake time now moves the morning too. Still to do: a block carrying its own steps so the runner page can go.'),
+                    (2, 'One door for change (built)', 'Late, over, came up, a new deadline, a day off, the library, a file and a week or period are all said in one place, Change the plan, and each shows what it does, what it costs and applies it. The wake time now moves the morning too. The steps are now on the block and the runner page is gone.'),
                     (3, 'Fewer, plainer screens (built)', 'Setup is the Change card and five shelves, with the reminders in one card. Work it out is Right now: what is true now, and the rest on shelves.')]:
         out.append(f'<div class="gi"><div class="gn" style="background:var(--ink)">{n}</div><div><h4>{esc(t)}</h4><p>{esc(b)}</p></div></div>')
     out.append('</div>')

@@ -732,7 +732,7 @@ class MainActivity : ComponentActivity() {
                                     ?.let { "$it. A free slot is assigned the night before and does not change in the moment without the typed wall." }
                             override suspend fun currentFix(): Fix? = LocationFix.current(applicationContext)
                             override fun hasLocationPermission() = LocationFix.hasPermission(applicationContext)
-                        }, onBack = { reload++; screen = Screen.HOME }, onStartRoutine = { id -> RoutineLaunch.pending = id; reload++; screen = Screen.HOME },
+                        }, onBack = { reload++; screen = Screen.HOME }, steps = { d, r, done -> RoutineStepsCard(db, r, d, done) },
                             onShift = slide,
                             onCameUp = { reload++; screen = Screen.CAME_UP }, onTurnBack = { slot ->
                             wallBack = Screen.HOME; wallLength = efa.WallLength.FREE_SLOT_CHANGE

@@ -961,6 +961,22 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 61. The block carries its steps
+
+Added on 20 November 2026 at your request ("Block carries steps", from the systems map). The class: what a block asks you to do is on the block, so there is no second place to go and run it.
+
+The coherence check for this change: it is owned by Do; it reads the block, last night's sleep and the facts of today and writes the same facts as before (a step, a routine done), so the Coach, Count and Right now see no difference; it is shown on the block screen; the hold starts the block and the last step finishes it, so there is one start and one finish; it removes the runner list on Right now, the Start card and the hand-over to another page; a block with a cycle, a block nobody started, a routine done earlier and a rename are handled below; it is proven on the real card.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| BS1 | A block that is a routine (the wake and getting ready, the Bible, the wind-down, a code or other work block) carries its steps on its own screen: one list at the tier the time left in the block and last night's sleep allow (RT5), each step done by a tap, a registered tag or its proof, with the tier chips to change it. A study block has the cycle for its steps and shows no list. The Start card is gone; the hold on a block that can be started only starts it, and a block with steps and no hold (the sleep block) has just its steps. | Default; built, tested on the emulator |
+| BS2 | When the last step is done the routine is done: a fact is kept once for the block, a reward is offered, and a block that was started is finished by it, so no second hold is needed. A block nobody started is not given a start by finishing its steps. | Default; built, tested on the emulator |
+| BS3 | The runner is no longer a list on Right now, and a Start button no longer sends you to another page. Today's wins stay on Right now. The Coach counts a step done on the block as it counted one on the runner (the same fact). | Default; built, tested on the emulator |
+| ST1 | (amended again, 20 November 2026) There is no Start card. A routine block shows its steps (BS1). | Default; built, tested |
+| VR15 | (amended) The hold that starts a block no longer hands its routine to another page; the steps are on the block. | Default; built, tested |
+
+A block is still matched to its routine by its type and the start of its title (Bible, Wake, Breakfast dress, Evening prayer, a sleep block, a work block). Keeping a routine id with each block would need a change to the stored plan and its migration on the phone; it is left as it is, and a block renamed by hand would lose its steps.
+
 ## 60. The cycle is linked to its block, and drawn once
 
 Added on 20 November 2026 at your request (the cycle linked to its current study block, accurate icons on the main card, and a simpler subsystem). The class: a cycle belongs to one block and every card that shows it says which; and one thing is drawn by one piece of code.

@@ -63,7 +63,7 @@ private val HM = DateTimeFormatter.ofPattern("HH:mm")
  * and there is no review screen after the photo (G5). Each branch says what happens when it cannot finish (X7).
  */
 @Composable
-fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, onStartRoutine: (String) -> Unit = {}, onShift: (Int) -> Unit = {}, onCameUp: () -> Unit = {}, onBack: () -> Unit) {
+fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, steps: (@Composable (DatedSlot, Routine, () -> Unit) -> Unit)? = null, onShift: (Int) -> Unit = {}, onCameUp: () -> Unit = {}, onBack: () -> Unit) {
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     val proof = remember(ds) { proofFor(ds.slot) }
@@ -136,7 +136,7 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
         // ST2: a block with no proof is started with a hold, finished with a shorter one, and says what happened when it did not go to plan
         if (isRunnable(ds.slot)) RunCard(
             ds, run, now,
-            onStart = { scope.launch { actions.runStart(ds, System.currentTimeMillis()); run = actions.runRecord(ds); routineForSlot(ds.slot)?.let { r -> onStartRoutine(r.id) } } },          // VR15: one hold starts the block and, when it is a routine, its steps
+            onStart = { scope.launch { actions.runStart(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } },          // BS1: the steps are on this screen, so the hold only has to start the block
             onFinish = { scope.launch { actions.runFinish(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } },
             onSkip = { reason -> scope.launch { actions.runSkip(ds, reason); run = actions.runRecord(ds); if (reason == "Something came up") onCameUp() } },
             onShift = onShift,
@@ -150,12 +150,10 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
             onPause = { scope.launch { actions.vrPause(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
             onResume = { scope.launch { actions.vrResume(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
         )
-        // ST1: a block that is a routine (the wake, the Bible, getting ready, the wind-down, a study block) can be started from here: the runner opens on that routine, one step at a time
+        // BS1: a block that is a routine carries its steps (the wake and getting ready, the Bible, the wind-down, a code block). A study block has the cycle instead, which is its steps.
         val routine = remember(ds) { routineForSlot(ds.slot) }
-        if (routine != null && !verified && ds.slot.type !in VR_TYPES && !isRunnable(ds.slot)) Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("START")
-            BasicText("${routine.title}, one step at a time.", style = Ts(c.muted, 15.sp))
-            Btn("Start ${routine.title.lowercase()}", { onStartRoutine(routine.id) }, primary = proof == Proof.NONE, modifier = Modifier.fillMaxWidth(), description = "Start ${routine.title}, one step at a time")
+        if (routine != null && !verified && ds.slot.type !in VR_TYPES) steps?.invoke(ds, routine) {
+            scope.launch { val r = actions.runRecord(ds); if (r?.startMs != null && r.endMs == null) { actions.runFinish(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } }          // the last step is the finish
         }
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("PROOF")

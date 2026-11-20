@@ -331,14 +331,6 @@ class ImportScreenTest {
         rule.onNodeWithText("Missed Randomness lecture. Back in the Buffer: 1.0h, due Tue 22:00.").assertExists()
     }
 
-    @Test fun ST1_a_routine_waiting_from_a_Start_button_opens_the_third_page_with_that_routine_running() {
-        val state = HomeState(date = "Fri 20 Nov", phone = null, phoneOpen = true, time = "12:20", buffer = BufferState.NoDeadline, nowLabel = null, nowTitle = null, nowDetail = null, next = emptyList(), freeToSpendPence = null)
-        RoutineLaunch.pending = "ready"
-        rule.setContent { EfaTheme { HomeScreen(state, {}, {}, third = { WorkItOutScreen(EfaDb.get(androidx.test.core.app.ApplicationProvider.getApplicationContext()), { _, _ -> }) }) } }
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("Getting ready:", substring = true).fetchSemanticsNodes().isNotEmpty() }
-        assertNull(RoutineLaunch.pending, "the runner took it")
-    }
-
     @Test fun RS2_a_block_says_what_is_placed_in_it() {
         val state = HomeState(
             date = "Mon 2 Nov", phone = null, phoneOpen = true, time = "13:00", buffer = BufferState.NoDeadline,

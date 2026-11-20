@@ -1,6 +1,9 @@
 package app.efa
 
 import android.content.Context
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
@@ -372,10 +375,13 @@ class LifeScreenTest {
         rule.waitUntil(5_000) { runBlocking { db.meta().get(META_REMINDERS).orEmpty().contains("Test reminder") } }
     }
 
-    @Test fun RT_CO_the_runner_shows_the_steps_of_the_tier_and_finishes_the_bible_when_every_step_is_done() {
-        rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }) } }
-        rule.waitUntil(5_000) { rule.onAllNodesWithContentDescription("Run Bible").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription("Run Bible").performScrollTo().performClick()
+    private fun stepsSlot(prefix: String) = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.title.startsWith(prefix) }
+
+    private fun showSteps(r: Routine, ds: DatedSlot, done: () -> Unit = {}) = rule.setContent { EfaTheme { androidx.compose.foundation.layout.Column(Modifier.verticalScroll(rememberScrollState())) { RoutineStepsCard(db, r, ds, done) } } }
+
+    @Test fun RT_CO_BS1_the_steps_card_shows_the_steps_of_the_tier_and_finishes_the_bible_when_every_step_is_done() {
+        var finished = 0
+        showSteps(BIBLE, stepsSlot("Bible")) { finished++ }
         rule.waitUntil(5_000) { rule.onAllNodesWithContentDescription("Tier floor").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Tier floor").performScrollTo().performClick()
         for (s in listOf("Sit in the seat.", "Open the next passage.", "Read one chapter, or the first section.", "Write one sentence.")) {
@@ -385,16 +391,28 @@ class LifeScreenTest {
         }
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Bible is done.").fetchSemanticsNodes().isNotEmpty() }
         rule.waitUntil(5_000) { runBlocking { FactRepo(db).today().any { it.ref == "routine:bible" } } }
+        rule.waitUntil(5_000) { finished == 1 }
+        assertEquals(1, runBlocking { FactRepo(db).today().count { it.ref == "routine:bible" } }, "done once")
+    }
+
+    @Test fun CO9_a_routine_that_was_done_shows_in_todays_wins_on_Right_now() {
+        runBlocking { FactRepo(db).record(Fact(FactType.TAP, java.time.Instant.now(), "routine", 1.0, "routine:bible")) }
+        rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }) } }
         rule.waitUntil(5_000) { rule.onAllNodesWithText("TODAY'S WINS").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Bible done.").performScrollTo().assertExists()
     }
 
-    @Test fun RT3_a_photo_step_says_so_and_the_runner_never_fakes_it() {
-        rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }) } }
-        rule.waitUntil(5_000) { rule.onAllNodesWithContentDescription("Run Wake").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription("Run Wake").performScrollTo().performClick()
+    @Test fun RT3_a_photo_step_says_so_and_the_steps_card_never_fakes_it() {
+        showSteps(WAKE, stepsSlot("Wake"))
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Photo step: take it on the home screen.").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Photograph the setup.", substring = true).performScrollTo().assertExists()
+    }
+
+    @Test fun BS1_the_runner_is_no_longer_a_list_on_Right_now() {
+        rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }) } }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("LITE DAY").fetchSemanticsNodes().isNotEmpty() }
+        rule.onAllNodesWithText("RUN A ROUTINE").assertCountEquals(0)
+        rule.onAllNodesWithContentDescription("Run Bible").assertCountEquals(0)
     }
 
     @Test fun SL2_FB8_nfc_is_an_option_off_by_default_and_photos_stay_the_proof() {

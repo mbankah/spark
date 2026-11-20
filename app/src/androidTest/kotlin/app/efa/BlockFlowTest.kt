@@ -276,36 +276,52 @@ class BlockScreenTest {
         override suspend fun checkCommit(ds: DatedSlot, now: ZonedDateTime): Verdict { commitChecks++; return Verdict(true, Reason.OK, 70) }
     }
 
-    @Test fun VR15_a_routine_block_has_one_start_and_the_hold_hands_its_routine_to_the_runner() {
-        var got: String? = null; val fake = Fake()
+    @Test fun BS1_a_routine_block_carries_its_steps_and_has_one_start_the_hold() {
+        val fake = Fake()
         val wake = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.title.startsWith("Wake") }
-        rule.setContent { EfaTheme { BlockScreen(wake, fake, onStartRoutine = { got = it }) {} } }
+        rule.setContent { EfaTheme { BlockScreen(wake, fake, steps = { _, r, _ -> androidx.compose.foundation.text.BasicText("steps of ${r.id}") }) {} } }
+        rule.onNodeWithText("steps of ${GETTING_READY.id}").assertExists()
         rule.onNodeWithText("START").assertDoesNotExist()
         rule.mainClock.autoAdvance = false
         rule.onNodeWithContentDescription("Hold to start", substring = true).performTouchInput { down(center) }
         rule.mainClock.advanceTimeBy(holdMillis(60) + 800)
         rule.onRoot().performTouchInput { up() }
         rule.mainClock.autoAdvance = true
-        rule.waitUntil(5_000) { got != null }
-        assertEquals(GETTING_READY.id, got); assertNotNull(fake.rec?.startMs)
+        rule.waitUntil(5_000) { fake.rec?.startMs != null }
+        rule.onNodeWithText("steps of ${GETTING_READY.id}").assertExists()
     }
 
-    @Test fun VR15_a_block_that_is_only_a_routine_keeps_its_Start_button() {
-        var got: String? = null
+    @Test fun BS1_a_block_that_is_only_a_routine_carries_its_steps_and_has_no_Start_button() {
         val wind = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.type == "sleep" && routineForSlot(it.slot) == WIND_DOWN && !isRunnable(it.slot) }
-        rule.setContent { EfaTheme { BlockScreen(wind, Fake(), onStartRoutine = { got = it }) {} } }
-        rule.onNodeWithText("START").assertExists(); rule.onNodeWithText("Start ${WIND_DOWN.title.lowercase()}").performClick()
-        assertEquals(WIND_DOWN.id, got)
+        rule.setContent { EfaTheme { BlockScreen(wind, Fake(), steps = { _, r, _ -> androidx.compose.foundation.text.BasicText("steps of ${r.id}") }) {} } }
+        rule.onNodeWithText("steps of ${WIND_DOWN.id}").assertExists()
+        rule.onNodeWithText("START").assertDoesNotExist()
     }
 
-    @Test fun VR15_a_study_block_has_one_start_the_cycle_and_a_lecture_has_none() {
-        rule.setContent { EfaTheme { BlockScreen(past, Fake(), onStartRoutine = {}) {} } }
+    @Test fun BS1_a_study_block_has_the_cycle_for_its_steps_and_a_lecture_has_none() {
+        rule.setContent { EfaTheme { BlockScreen(past, Fake(), steps = { _, r, _ -> androidx.compose.foundation.text.BasicText("steps of ${r.id}") }) {} } }
         rule.onNodeWithText("VRNPM").assertExists()
-        rule.onNodeWithText("START").assertDoesNotExist()
-        rule.onNodeWithText("Start study block").assertDoesNotExist()
+        rule.onNodeWithText("steps of ${STUDY_BLOCK.id}").assertDoesNotExist()
         val lecture = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.type == "lecture" }
         assertTrue(routineForSlot(lecture.slot) == null, "a lecture is not a routine")
     }
+
+    @Test fun BS1_the_last_step_finishes_a_block_that_was_started() {
+        val fake = Fake(); fake.rec = RunRecord(startMs = System.currentTimeMillis() - 60_000L)
+        rule.setContent { EfaTheme { BlockScreen(wakeSlotFor(), fake, steps = { _, _, done -> Btn("Last step done", done) }) {} } }
+        rule.onNodeWithText("Last step done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { fake.rec?.endMs != null }
+    }
+
+    @Test fun BS1_the_last_step_does_not_invent_a_start_for_a_block_that_was_not_started() {
+        val fake = Fake()
+        rule.setContent { EfaTheme { BlockScreen(wakeSlotFor(), fake, steps = { _, _, done -> Btn("Last step done", done) }) {} } }
+        rule.onNodeWithText("Last step done").performScrollTo().performClick()
+        rule.waitForIdle(); Thread.sleep(500)
+        assertNull(fake.rec, "finishing the steps of a block nobody started leaves no run record")
+    }
+
+    private fun wakeSlotFor() = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.title.startsWith("Wake") }
 
     private val wakeSlot get() = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.title.startsWith("Wake") }
 

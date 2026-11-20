@@ -66,9 +66,14 @@ class VrRepo(private val db: EfaDb) {
     /** VR8: when the Red Engine is built the remedial it replaces is taken off the list: the ones not started and with no minutes done. Work already begun stays. */
     suspend fun removeOpenRemedial(): Int = db.tasks().deleteOpenRemedial()
 
-    /** VR11: the first of [slots] that is a study block with a cycle running now (started, not finished), for the home screen's card. */
-    suspend fun active(slots: List<DatedSlot>): Pair<DatedSlot, VrRun>? =
-        slots.filter { it.slot.type in setOf("study", "study-standard", "study-light") }.firstNotNullOfOrNull { ds -> get(ds)?.takeIf { vrView(it, System.currentTimeMillis()).status == VrStatus.RUNNING }?.let { ds to it } }
+    /** VR11, VR16: the cycle running now (started, not finished) in the study block that is on now, or failing that the one whose block ended last, for the home screen's card. */
+    suspend fun active(slots: List<DatedSlot>): Pair<DatedSlot, VrRun>? {
+        val now = System.currentTimeMillis()
+        val running = slots.filter { it.slot.type in setOf("study", "study-standard", "study-light") }.mapNotNull { ds -> get(ds)?.takeIf { vrView(it, now).status == VrStatus.RUNNING }?.let { ds to it } }
+        // VR16: with more than one running (one left over from an earlier block), the one in the block that is on now is the current one
+        val i = vrCurrent(running.map { VrCandidate(it.first.start.toInstant().toEpochMilli(), it.first.end.toInstant().toEpochMilli()) }, now) ?: return null
+        return running[i]
+    }
 
     /** The cycles finished on [date], for the day's count. */
     suspend fun finishedOn(date: LocalDate): Int =

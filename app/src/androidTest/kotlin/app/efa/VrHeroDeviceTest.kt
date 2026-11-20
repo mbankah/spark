@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.compose.ui.unit.dp
 import efa.*
 import org.junit.Rule
 import org.junit.Test
@@ -90,6 +91,44 @@ class VrHeroDeviceTest {
             rule.mainClock.advanceTimeBy(1_000)                       // the button waits a moment after a hold, then takes the next one
             assertEquals(round, got.count { it == VrAction.NEXT }, "hold $round counted")
         }
+    }
+
+    @Test fun VR16_the_card_is_linked_to_its_block_with_its_name_its_hours_and_where_the_cycle_stands_against_it() {
+        val got = ArrayList<VrAction>()
+        rule.setContent { EfaTheme { VrHero(VrActive(study, runAt(3))) { got += it } } }
+        val name = study.slot.title.substringBefore(" - ")
+        rule.onNodeWithText(name).assertExists()
+        rule.onNodeWithContentDescription("Study block. $name.", substring = true).assertExists()
+        rule.onNodeWithText("The block ended at", substring = true).assertExists()            // the block in these tests is in the past: the cycle outlives it, and the card says so
+        rule.onNodeWithContentDescription("Study block. $name.", substring = true).performClick(); assertEquals(VrAction.OPEN, got.last())
+    }
+
+    @Test fun VR16_a_cycle_in_the_block_that_is_on_now_is_the_Now_card_and_the_block_is_not_drawn_twice() {
+        val ds = study
+        val onNow = home(VrActive(ds, runAt(3))).copy(nowTitle = "Study block on now", nowLabel = "Now, until 12:15", nowKey = blockKey(ds))
+        rule.setContent { EfaTheme { HomeScreen(onNow, {}, {}) } }
+        rule.onNodeWithText("Study block on now").assertDoesNotExist()
+        rule.onNodeWithContentDescription("VRNPM. V Video.", substring = true).assertExists()
+    }
+
+    @Test fun VR16_a_cycle_left_over_from_another_block_does_not_hide_the_block_that_is_on_now() {
+        val onNow = home(VrActive(study, runAt(3))).copy(nowTitle = "A different block", nowLabel = "Now, until 12:15", nowKey = "some-other-block")
+        rule.setContent { EfaTheme { HomeScreen(onNow, {}, {}) } }
+        rule.onNodeWithText("A different block").assertExists()
+        rule.onNodeWithContentDescription("VRNPM. V Video.", substring = true).assertExists()
+    }
+
+    @Test fun VR17_each_step_has_its_own_icon_and_a_break_has_one_too() {
+        assertEquals(VrStep.V, vrStepOf(false, "V Video")); assertEquals(VrStep.R, vrStepOf(false, "R Read")); assertEquals(VrStep.N, vrStepOf(false, "N Notes"))
+        assertEquals(VrStep.P, vrStepOf(false, "P Practice")); assertEquals(VrStep.M, vrStepOf(false, "M Marking")); assertNull(vrStepOf(true, "Break"))
+        rule.setContent { EfaTheme { androidx.compose.foundation.layout.Row { VrStep.entries.forEach { VrIcon(it, 48.dp, androidx.compose.ui.graphics.Color.Black) }; VrIcon(null, 48.dp, androidx.compose.ui.graphics.Color.Black) } } }
+        save("vr_icons.png")
+    }
+
+    @Test fun VR18_the_chips_carry_their_icons_and_the_state_each_is_in() {
+        rule.setContent { EfaTheme { VrHero(VrActive(study, runAt(14, phasesDone = 4))) {} } }
+        rule.onNodeWithContentDescription("Video, done").assertExists(); rule.onNodeWithContentDescription("Notes, current", substring = true).assertExists()
+        rule.onNodeWithContentDescription("Marking, upcoming").assertExists()
     }
 
     @Test fun VR13_the_card_says_what_to_do_in_the_step() {

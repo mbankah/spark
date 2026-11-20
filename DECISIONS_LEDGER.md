@@ -961,6 +961,18 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 60. The cycle is linked to its block, and drawn once
+
+Added on 20 November 2026 at your request (the cycle linked to its current study block, accurate icons on the main card, and a simpler subsystem). The class: a cycle belongs to one block and every card that shows it says which; and one thing is drawn by one piece of code.
+
+The coherence check for this change: it is owned by Do; it reads the block's hours and the stored cycle and writes nothing; it is shown on Home and on the block screen, from the same card; it replaces the block screen's own copy of the running cycle and the Now card for a block whose cycle is running; the cycle that outlives its block, two cycles at once, and no cycle are handled below; it is proven on the real card and the real app.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| VR16 | The cycle card on Home is linked to its study block: the block's name and hours are at the top, with where the cycle stands against it (the block ends in 40 min, or ended at 12:30, 15 min ago, and the cycle runs on). Tapping the header or the ring opens the block. When the block is the one on now, this card is the Now card for it and the block is not drawn a second time; it carries Something came up and Change the plan, which can still happen mid-cycle. When a cycle is left over from an earlier block and another runs in the block that is on now, the one in the block that is on now is the current one; with none on now, the one whose block ended last. | Default; built, tested on the emulator |
+| VR17 | Each step has its own icon, drawn so it needs no font: V a screen with a play triangle, R an open book, N a pencil over a line, P a sheet with a question mark, M a tick and a cross, a break a cup with steam. The icon of the step in hand is in the middle of the ring, and every chip has its step's icon beside its letter. | Default; built, looked at on the emulator |
+| VR18 | The running cycle is one card, drawn once, on the home screen and on the block screen: the ring with the step icon and the time, what to do, the five chips, Pause or Resume, Page done on notes, and the hold. The block screen no longer has its own copy; it adds only the line about timed pages and, when not started or done, the chips and the start or the summary. | Default; built, tested on the emulator |
+
 ## 59. Shelves: Setup and Right now
 
 Added on 20 November 2026 at your request ("yes, build it", move 3 of the systems map). The class: a page with many things on it shows what matters and names the rest, so nothing has to be hunted for and nothing is shown that is not needed.

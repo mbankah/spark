@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import efa.BufferState
+import efa.blockKey
 import efa.fmt1
 import efa.pounds
 
@@ -52,6 +53,7 @@ data class HomeState(
     val nowTitle: String?,
     val nowDetail: String?,
     val nowOpensBlock: Boolean = false,
+    val nowKey: String? = null,         // VR16: the key of the block that is on now, so a cycle running in it is the Now card
     val next: List<NextRow> = emptyList(),
     val freeToSpendPence: Int?,         // null while money is in its 14-day record-only period (G6)
     val proofDue: String? = null,       // the newest finished work block still waiting for its photo
@@ -191,9 +193,10 @@ private fun HomePage(
             BasicText(s.time, style = Ts(c.text, 72.sp, FontWeight.Bold, letterSpacing = (-3).sp, lineHeight = 72.sp))
             SparkLogo(38.dp)
         }
-        s.vr?.let { if (!s.unavailable) VrHero(it, onVr) }                      // VR11: a running VRNPM cycle comes first, big
+        s.vr?.let { if (!s.unavailable) VrHero(it, onReality) { a -> onVr(a) } }                      // VR11: a running VRNPM cycle comes first, big
+        val vrIsNow = s.vr != null && s.nowKey != null && blockKey(s.vr.ds) == s.nowKey                     // VR16: it is the Now card for its block, so the block is not drawn twice
         if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read.")
-        else if (efa.WidgetKind.NOW_NEXT in s.widgets) NowHero(s, onNow, onReality)
+        else if (efa.WidgetKind.NOW_NEXT in s.widgets && !vrIsNow) NowHero(s, onNow, onReality)
         if (!s.unavailable && (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite)) NextCard(if (s.lite) s.next.take(2) else s.next)
         needs.take(if (allNeeds) needs.size else 2).forEach { it() }
         if (needs.size > 2 && !allNeeds) Chip("${needs.size - 2} more waiting", false, { allNeeds = true }, "Show ${needs.size - 2} more things waiting for you")

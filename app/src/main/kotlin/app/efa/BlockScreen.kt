@@ -343,55 +343,27 @@ private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: (
     val v = vrView(run, now.toInstant().toEpochMilli(), plan)
     Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Label("VRNPM")
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            v.chips.forEach { ch ->
-                val label = VrStep.entries.first { it.letter == ch.letter }.label
-                val (fill, ink) = when (ch.state) {
-                    VrChipState.UPCOMING -> c.track to c.muted
-                    VrChipState.CURRENT -> c.accent to c.bg
-                    VrChipState.OVER_NOW -> c.text to c.bg
-                    VrChipState.DONE -> c.accent.copy(alpha = 0.45f) to c.text
-                    VrChipState.DONE_OVER -> c.accent.copy(alpha = 0.45f) to c.text
-                    VrChipState.OVERRIDDEN -> c.track to c.text
-                }
-                val over = ch.state == VrChipState.OVER_NOW || ch.state == VrChipState.DONE_OVER
-                Box(
-                    Modifier.weight(1f).heightIn(min = 44.dp).background(fill, CardShape)
-                        .semantics { contentDescription = "$label, ${ch.state.name.lowercase().replace('_', ' ')}" },
-                    contentAlignment = Alignment.Center,
-                ) { BasicText(ch.letter.toString() + if (over) "+" else if (ch.state == VrChipState.OVERRIDDEN) "*" else "", style = Ts(ink, 18.sp, FontWeight.Bold)) }
-            }
-        }
         when (v.status) {
             VrStatus.NOT_STARTED -> {
+                VrChips(v)
                 val steps = vrPhases(plan)
                 val any0 = steps.any { !it.isBreak && it.plannedMin == 0 }
                 BasicText(steps.filter { !it.isBreak }.joinToString("  ") { if (it.plannedMin == 0) "${it.step!!.letter}*" else "${it.step!!.letter} ${it.plannedMin}" } + "   =  ${v.plannedStepMin} min, with breaks between" + (if (any0) ". * done by override, not timed." else ""), style = Ts(c.muted, 14.sp))
                 HoldButton("Hold to start the cycle", holdMillis(steps.sumOf { it.plannedMin })) { onStart() }
             }
             VrStatus.RUNNING -> {
+                // VR18: the same card as on the home screen
                 StartRewardNote()
-                BasicText(v.title, style = Ts(c.text, 24.sp, FontWeight.Bold))
-                BasicText(v.todo, style = Ts(c.muted, 15.sp))
-                if (v.paused) BasicText("PAUSED  the clock is stopped", style = Ts(c.text, 16.sp, FontWeight.Bold))
-                if (v.over) {
-                    BasicText("OVER  +" + clockMs(v.overMs), style = Ts(c.text, 34.sp, FontWeight.Bold, fontFamily = Mono), modifier = Modifier.semantics { contentDescription = "Over by ${clockMs(v.overMs)}" })
-                    Box(Modifier.fillMaxWidth().height(10.dp).background(c.text, CardShape))
-                } else {
-                    BasicText(clockMs(v.remainingMs) + " left", style = Ts(c.text, 34.sp, FontWeight.Bold, fontFamily = Mono))
-                    Box(Modifier.fillMaxWidth().height(10.dp).background(c.track, CardShape)) { Box(Modifier.fillMaxWidth(v.fraction).height(10.dp).background(c.accent, CardShape)) }
-                }
-                if (v.title.startsWith("N ")) {
+                val pagesNote = if (v.title.startsWith("N ")) {
                     val avg = run?.let { vrAveragePageMs(it) }
-                    BasicText(if (avg == null) "Time a page: tap Page done at the end of each one." else "${run?.pages?.size} page${if (run?.pages?.size == 1) "" else "s"}, ${clockMs(avg)} a page. ${cfg.pagesPerCycle} pages is about ${suggestedN(cfg.pagesPerCycle, avg)} min.", style = Ts(c.muted, 14.sp))
-                    Btn("Page done", onPage, modifier = Modifier.fillMaxWidth())
-                }
-                if (v.pausedMin > 0 || v.paused) BasicText("Paused ${v.pausedMin} min so far.", style = Ts(c.muted, 14.sp))
-                Btn(if (v.paused) "Resume" else "Pause", if (v.paused) onResume else onPause, modifier = Modifier.fillMaxWidth(), description = if (v.paused) "Resume the timer" else "Pause the timer. The time paused is not counted in the step")
-                val last = v.title.startsWith("M ")
-                HoldButton(if (v.isBreak) "Hold to start the next step" else if (last) "Hold to finish the cycle" else "Hold to finish ${v.title.first()}", HOLD_END_MS) { onNext() }
+                    if (avg == null) "Time a page: tap Page done at the end of each one." else "${run?.pages?.size} page${if (run?.pages?.size == 1) "" else "s"}, ${clockMs(avg)} a page. ${cfg.pagesPerCycle} pages is about ${suggestedN(cfg.pagesPerCycle, avg)} min."
+                } else null
+                VrCycleBody(run!!, now.toInstant().toEpochMilli(), { a ->
+                    when (a) { VrAction.NEXT -> onNext(); VrAction.PAGE -> onPage(); VrAction.PAUSE -> onPause(); VrAction.RESUME -> onResume(); VrAction.OPEN -> {} }
+                }, pagesNote = pagesNote)
             }
             VrStatus.DONE -> {
+                VrChips(v)
                 BasicText(v.summary, style = Ts(c.text, 16.sp, FontWeight.SemiBold))
                 BasicText("The cycle is done. Take the proof photo of your notes below. " + if (remedialBooked(cfg)) "A weekly remedial of ${cfg.remedialMin} minutes is booked for it." else "No remedial is booked" + (if (cfg.redEngine) ": the Red Engine does it." else "."), style = Ts(c.muted, 14.sp))
             }

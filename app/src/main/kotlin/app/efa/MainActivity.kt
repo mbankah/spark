@@ -615,6 +615,7 @@ class MainActivity : ComponentActivity() {
                                 nowFraction = nowRow?.let { r -> if (r.startAt == null || r.endAt == null) null else (java.time.Duration.between(r.startAt, clock).toMillis().toFloat() / java.time.Duration.between(r.startAt, r.endAt).toMillis().coerceAtLeast(1)).coerceIn(0f, 1f) },
                                 progressFraction = l?.money?.week?.takeIf { it.plannedHours > 0 }?.let { (it.verifiedHours / it.plannedHours).toFloat() },
                                 schedule = sched,
+                                nowKey = nowRow?.slot?.let { efa.blockKey(it) },
                                 nowOpensBlock = nowRow?.photo != null || nowRow?.slot?.let { ds -> isRunnable(ds.slot) || routineForSlot(ds.slot) != null } == true,
                                 next = hb.next.map { NextRow(it.start, it.title, it.detail) },
                                 freeToSpendPence = l?.money?.takeIf { it.live }?.week?.money?.freeToSpendPence,      // G6: record-only for the first 14 days

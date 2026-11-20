@@ -210,7 +210,7 @@ def d_do():
              ('c3', 'START card', ['routine and study blocks', "'Start ...', one step at a time"]), ('c4', 'PROOF card', ['photo, git commit, attendance'])]
     for (id, t, s), y in zip(cards, rows):
         d.node(id, C[1], y, NW, 90, t, s, k='do')
-    d.node('cycle', C[2], rows[0], NW, 90, 'Stored cycle', ['one record, V R N P M,', 'read every second by the', 'screens'], k='do')
+    d.node('cycle', C[2], rows[0], NW, 90, 'Stored cycle', ['one record, V R N P M,', 'linked to its block; one card', 'on Home and the block screen'], k='do')
     d.node('rec', C[2], rows[1], NW, 90, 'Run record', ['real start, real end,', 'and the reason when it', 'did not happen'], k='do')
     d.node('run', C[2], rows[2], NW, 90, 'Routine runner', ['third page of Home; steps by', 'tier. Found by title text:', "'Bible', 'Wake', ..."], k='do')
     d.node('ver', C[2], rows[3], NW, 90, 'Verified block', ['the proof, checked,', 'and the minutes credited'], k='do')

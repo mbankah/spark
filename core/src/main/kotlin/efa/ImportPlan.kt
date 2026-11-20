@@ -190,3 +190,10 @@ fun bufferText(b: BufferState): String = when (b) {
     is BufferState.Value -> b.result.label().removePrefix("Buffer ") + (b.result.deadlineLabel?.let { " to $it" } ?: "")
 }
 
+/** IM13: the words above a wall's field: how many things loosen and the first few, never the whole list (a long file has dozens, and the field must stay on the screen). */
+fun loosenWords(lines: List<String>, show: Int = 3): String {
+    if (lines.isEmpty()) return ""
+    val head = lines.take(show).joinToString("; ")
+    val rest = lines.size - show
+    return "${lines.size} thing${if (lines.size == 1) "" else "s"} loosen: $head" + (if (rest > 0) "; and $rest more (folded below)." else ".")
+}

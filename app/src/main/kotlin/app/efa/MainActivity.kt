@@ -189,6 +189,7 @@ class MainActivity : ComponentActivity() {
                 var wall by remember { mutableStateOf<Triple<String, String, () -> Unit>?>(null) }
                 var wallBack by remember { mutableStateOf(Screen.HOME) }
                 var wallLength by remember { mutableIntStateOf(efa.WallLength.IMPORT_LOOSEN) }
+                var wallDetails by remember { mutableStateOf<List<String>>(emptyList()) }          // IM13: the long list behind a wall folds on the wall screen; the words above the field stay short
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
                 var review by remember { mutableStateOf<ReviewTask?>(null) }
@@ -773,8 +774,8 @@ class MainActivity : ComponentActivity() {
                                     when (d) {
                                         is ChangeDecision.Cooldown -> importUi = ImportUi.Failed(d.reason + " It opens again " + java.time.ZonedDateTime.ofInstant(d.until, LONDON).format(java.time.format.DateTimeFormatter.ofPattern("EEE HH:mm")) + ".")
                                         is ChangeDecision.Locked -> importUi = ImportUi.Failed(d.reason)
-                                        is ChangeDecision.Wall -> { wallBack = Screen.IMPORT; wallLength = maxOf(d.length, if (v.needsWall) efa.WallLength.IMPORT_LOOSEN else 0); wall = Triple("Apply this file", d.reason + (if (v.needsWall) " " + v.loosening.joinToString(". ") + "." else "") + " Type the characters below by hand to apply it.", applyChecked); screen = Screen.GATE }
-                                        is ChangeDecision.Free -> if (v.needsWall) { wall = Triple("Apply a file that loosens", v.loosening.joinToString(". ") + ". Type the characters below by hand to apply it.", applyChecked); screen = Screen.IMPORT_WALL } else applyChecked()
+                                        is ChangeDecision.Wall -> { wallBack = Screen.IMPORT; wallLength = maxOf(d.length, if (v.needsWall) efa.WallLength.IMPORT_LOOSEN else 0); wallDetails = if (v.needsWall) v.loosening else emptyList(); wall = Triple("Apply this file", d.reason + (if (v.needsWall) " " + efa.loosenWords(v.loosening) else "") + " Type the characters below by hand to apply it.", applyChecked); screen = Screen.GATE }
+                                        is ChangeDecision.Free -> if (v.needsWall) { wallDetails = v.loosening; wall = Triple("Apply a file that loosens", efa.loosenWords(v.loosening) + " Type the characters below by hand to apply it.", applyChecked); screen = Screen.IMPORT_WALL } else applyChecked()
                                     }
                                 }
                             }
@@ -784,13 +785,13 @@ class MainActivity : ComponentActivity() {
                                 // CE8: an undo within 24 hours is free and gives the count back
                                 scope.launch(Dispatchers.IO) { PlanRepo(db).removeImport(row.id); app.efa.data.ChangeRepo(db).refund(row.atMs); BlockingState.refresh(applicationContext); reload++ }
                             } else {
-                                wall = Triple("Remove an import", "Removing ${row.name} can take away a commitment or a deadline, so it needs the wall.", {
+                                wallDetails = emptyList(); wall = Triple("Remove an import", "Removing ${row.name} can take away a commitment or a deadline, so it needs the wall.", {
                                     scope.launch(Dispatchers.IO) { PlanRepo(db).removeImport(row.id); BlockingState.refresh(applicationContext); reload++ }
                                 }); screen = Screen.IMPORT_WALL
                             }
                         },
                         onBack = { importUi = ImportUi.Idle; screen = Screen.SETUP })
-                    Screen.IMPORT_WALL -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { screen = Screen.IMPORT; w.third() }, onCancel = { screen = Screen.IMPORT }) } ?: run { screen = Screen.IMPORT }
+                    Screen.IMPORT_WALL -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { screen = Screen.IMPORT; w.third() }, onCancel = { screen = Screen.IMPORT }, details = wallDetails) } ?: run { screen = Screen.IMPORT }
                     Screen.MORNING -> MorningSetupScreen(morningUi, morningMessage,
                         onTake = { kind -> cameraKind = kind; morningMessage = null; screen = Screen.MORNING_CAMERA },
                         onClearStanding = { scope.launch(Dispatchers.IO) { ReferenceRepo(applicationContext, db).clear(RefKind.STANDING); refreshMorning() } },
@@ -972,7 +973,7 @@ class MainActivity : ComponentActivity() {
                             onBack = { screen = Screen.SETUP })
                     } ?: run { screen = Screen.SETUP }
                     Screen.MONEY -> l?.money?.let { MoneyScreen(it) { screen = Screen.HOME } } ?: run { screen = Screen.HOME }
-                    Screen.GATE -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { w.third(); screen = wallBack }, onCancel = { screen = wallBack }, length = wallLength) } ?: run { screen = Screen.HOME }
+                    Screen.GATE -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { w.third(); screen = wallBack }, onCancel = { screen = wallBack }, length = wallLength, details = wallDetails) } ?: run { screen = Screen.HOME }
                     Screen.READY -> {
                         // Read the morning fresh on every entry: it may have changed since the last tick, and an old copy would send you home.
                         var fresh by remember { mutableStateOf(false) }

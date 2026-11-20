@@ -271,7 +271,8 @@ class ImportScreenTest {
     @Test fun IM6_a_file_that_loosens_says_what_and_asks_for_the_wall() {
         val loosen = v(csv("event,2026-11-02,,09:00,10:00,Randomness lecture,lecture,,,,cancel,"))
         show(ImportUi.Checked("term.csv", loosen, "h"))
-        rule.onNodeWithText("THIS FILE LOOSENS").assertExists(); rule.onNodeWithText("Cancels Randomness", substring = true).assertExists()
+        rule.onNodeWithText("THIS FILE LOOSENS").assertExists(); rule.onNodeWithText("Cancels Randomness", substring = true).assertDoesNotExist()      // IM13: folded until asked for
+        rule.onNodeWithText("THIS FILE LOOSENS").performClick(); rule.onNodeWithText("Cancels Randomness", substring = true).assertExists()
         rule.onNodeWithText("Apply, with the wall").assertExists()
     }
 
@@ -291,6 +292,23 @@ class ImportScreenTest {
         show(ImportUi.Idle, listOf(row), remove = { removed = it })
         rule.onNodeWithText("term.csv").assertExists(); rule.onNodeWithText("1 deadline added").assertExists()
         rule.onNodeWithText("Remove").performScrollTo().performClick(); assertEquals(row, removed)
+    }
+
+    @Test fun IM13_the_Apply_button_is_on_the_first_screen_and_the_long_lists_are_folded() {
+        var applied = false
+        show(ImportUi.Checked("term.csv", v(csv("event,2026-11-02,,09:00,10:00,Randomness lecture,lecture,,,,cancel,")), "h"), apply = { applied = true })
+        rule.onNodeWithText("No problems found.").assertExists()
+        rule.onNodeWithText("Apply, with the wall").performClick(); assertTrue(applied)
+        rule.onAllNodesWithText("Show", substring = true).onFirst().assertExists()
+        rule.onNodeWithText("THIS FILE LOOSENS").performClick(); rule.onAllNodesWithText("Fold", substring = true).onFirst().assertExists()
+    }
+
+    @Test fun IM13_a_wall_with_dozens_of_loosenings_keeps_the_field_on_the_screen_and_folds_the_list() {
+        val many = (1..65).map { "Cancels Block $it on Fri 20 Nov" }
+        rule.setContent { EfaTheme { ImportWallGate("Apply a file that loosens", loosenWords(many) + " Type the characters below by hand to apply it.", {}, {}, details = many) } }
+        rule.onNodeWithText("TYPE THIS BY HAND").assertIsDisplayed()
+        rule.onNodeWithText("Cancels Block 30 on Fri 20 Nov").assertDoesNotExist()
+        rule.onNodeWithText("WHAT IT LOOSENS").performScrollTo().performClick(); rule.onNodeWithText("Cancels Block 30 on Fri 20 Nov").assertExists()
     }
 
     @Test fun IM6_the_wall_for_a_loosening_file_is_75_characters_by_hand() {

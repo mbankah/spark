@@ -86,4 +86,11 @@ class ImportFootballTest {
         assertTrue(rep.ok, rep.errors.toString())
         assertTrue(rep.overlay.any { it.slot.notes == "imported replace" && it.slot.title == "Sunday batch cook" }, "an unnamed work block is still replaced")
     }
+
+    @Test fun IM13_the_words_above_the_wall_are_short_however_many_things_loosen() {
+        val many = (1..65).map { "Cancels Block $it on Fri 20 Nov" }
+        val words = loosenWords(many)
+        assertTrue(words.length < 200, words.length.toString()); assertTrue(words.startsWith("65 things loosen: Cancels Block 1"), words); assertTrue(words.contains("and 62 more"), words)
+        assertEquals("1 thing loosen: Cancels X.", loosenWords(listOf("Cancels X")).replace("loosens", "loosen")); assertEquals("", loosenWords(emptyList()))
+    }
 }

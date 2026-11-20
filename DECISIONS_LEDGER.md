@@ -978,6 +978,7 @@ Added on 20 November 2026 at your request ("cancel the three somehow and build s
 | --- | --- | --- |
 | FB1 | The app's own personal football is a protected block, so it is cancelled the way the others are (OV1): a cancel row titled Personal football with yes in the override column cancels it on that date, found by title wherever the app put it (the time may be anything). Without the override the row is an error that says how. It needs the typed wall and the preview names it (OV2). The cancel stands: the planner counts the cancelled hours as dealt with and does not place that week again. Nothing else the app placed can be cancelled this way. | Default; built, tested |
 | RE1 | In Replace mode a block that the file cancels itself (a cancel row or an override row) is left to that row. Replace used to take it first and the row then found nothing, so a file could pass in Add mode and fail in Replace mode. A block the file does not name is still replaced. | Default; built, tested |
+| IM13 | The import preview is short at the top and its long lists fold (what it does, what it loosens, warnings), each header saying how many lines are inside. The Apply button sits right under the headline, so it is on the first screen. The wall screen scrolls, the words above its field say how many things loosen and show the first three, and the full list folds below the field, so the field can always be reached (a file with dozens of loosenings used to push it off the screen). | Default; built, tested on the emulator |
 
 ## 50. A catch-up for a late night
 

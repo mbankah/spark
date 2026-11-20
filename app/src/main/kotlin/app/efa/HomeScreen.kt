@@ -101,7 +101,9 @@ fun HomeScreen(
     val pager = rememberPagerState(pageCount = { if (third != null) 3 else 2 })
     val scope = rememberCoroutineScope()
     BackHandler(enabled = pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0) } }       // back from the schedule goes to the first page
-    LaunchedEffect(homeTick) { if (homeTick > 0) pager.animateScrollToPage(0) }                              // the home button always lands on the first page
+    LaunchedEffect(homeTick) { if (homeTick > 0) pager.animateScrollToPage(0) }
+    val waiting = RoutineLaunch.pending
+    LaunchedEffect(waiting) { if (waiting != null) { if (third != null) pager.scrollToPage(2) else RoutineLaunch.pending = null } }          // ST1: a Start button on a block lands on the runner                              // the home button always lands on the first page
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),

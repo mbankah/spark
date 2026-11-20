@@ -961,6 +961,13 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 53. Starting a block from the block
+
+Added on 20 November 2026 at your request ("I have not been able to start it", then "build the Start button"). The class: any block that stands for a routine can be started from the block, not only from the list on the third page.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| ST1 | A block that is a routine (the wake and getting ready, the Bible study, the wind-down and the shutdown, a study or code block) has a Start card on its block screen. Tapping it goes to the home screen's third page with that routine already running at the tier the time and last night's sleep allow (RT5), one step at a time. A block that is not a routine (a lecture, a meal) has no Start card. | Default; built, tested on the emulator |
 ## 52. The alarm's steps are not a dead end
 
 Added on 20 November 2026 from the first real morning on the phone: the alarm said steps could not be counted, because step counting had never been allowed, and the only way out was the wait. The class: every rung of the stop ladder (M10) says honestly why it is not available, can ask for what it needs, and has a way to the next rung.

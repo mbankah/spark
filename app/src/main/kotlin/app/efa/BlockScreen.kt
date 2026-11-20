@@ -47,7 +47,7 @@ private val HM = DateTimeFormatter.ofPattern("HH:mm")
  * and there is no review screen after the photo (G5). Each branch says what happens when it cannot finish (X7).
  */
 @Composable
-fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, onBack: () -> Unit) {
+fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, onStartRoutine: (String) -> Unit = {}, onBack: () -> Unit) {
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     val proof = remember(ds) { proofFor(ds.slot) }
@@ -105,6 +105,13 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
             }
         }
 
+        // ST1: a block that is a routine (the wake, the Bible, getting ready, the wind-down, a study block) can be started from here: the runner opens on that routine, one step at a time
+        val routine = remember(ds) { routineForSlot(ds.slot) }
+        if (routine != null && !verified) Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("START")
+            BasicText("${routine.title}, one step at a time.", style = Ts(c.muted, 15.sp))
+            Btn("Start ${routine.title.lowercase()}", { onStartRoutine(routine.id) }, primary = proof == Proof.NONE, modifier = Modifier.fillMaxWidth(), description = "Start ${routine.title}, one step at a time")
+        }
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("PROOF")
             BasicText(proofText(proof), style = Ts(c.text, 16.sp))

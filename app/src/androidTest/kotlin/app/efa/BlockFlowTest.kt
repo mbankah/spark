@@ -166,6 +166,22 @@ class BlockScreenTest {
         override suspend fun checkCommit(ds: DatedSlot, now: ZonedDateTime): Verdict { commitChecks++; return Verdict(true, Reason.OK, 70) }
     }
 
+    @Test fun ST1_a_routine_block_has_a_Start_button_that_hands_its_routine_to_the_runner() {
+        var got: String? = null
+        val wake = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.title.startsWith("Wake") }
+        rule.setContent { EfaTheme { BlockScreen(wake, Fake(), onStartRoutine = { got = it }) {} } }
+        rule.onNodeWithText("START").assertExists(); rule.onNodeWithText("Start getting ready").performClick()
+        assertEquals(GETTING_READY.id, got)
+    }
+
+    @Test fun ST1_a_study_block_can_be_started_too_and_a_lecture_has_no_Start_button() {
+        var got: String? = null
+        rule.setContent { EfaTheme { BlockScreen(past, Fake(), onStartRoutine = { got = it }) {} } }
+        rule.onNodeWithText("Start study block").performClick(); assertEquals(STUDY_BLOCK.id, got)
+        val lecture = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.type == "lecture" }
+        assertTrue(routineForSlot(lecture.slot) == null, "a lecture is not a routine")
+    }
+
     @Test fun W1_a_hold_shorter_than_one_second_does_not_finish() {
         val fake = Fake()
         rule.setContent { EfaTheme { BlockScreen(past, fake) {} } }

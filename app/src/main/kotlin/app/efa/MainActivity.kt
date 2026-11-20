@@ -661,7 +661,7 @@ class MainActivity : ComponentActivity() {
                                     ?.let { "$it. A free slot is assigned the night before and does not change in the moment without the typed wall." }
                             override suspend fun currentFix(): Fix? = LocationFix.current(applicationContext)
                             override fun hasLocationPermission() = LocationFix.hasPermission(applicationContext)
-                        }, onBack = { reload++; screen = Screen.HOME }, onTurnBack = { slot ->
+                        }, onBack = { reload++; screen = Screen.HOME }, onStartRoutine = { id -> RoutineLaunch.pending = id; reload++; screen = Screen.HOME }, onTurnBack = { slot ->
                             wallBack = Screen.HOME; wallLength = efa.WallLength.FREE_SLOT_CHANGE
                             wall = Triple("Make it a break", "This was free time that the Buffer turned into work. Type the characters below by hand to turn it back. It will not be turned into work again.", {
                                 scope.launch(Dispatchers.IO) { PlanRepo(db).turnBack(db, slot.plannedDay, slot.slot.startMin, slot.slot.endMin + RESET_MIN, System.currentTimeMillis()); BlockingState.refresh(applicationContext); reload++ }

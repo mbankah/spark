@@ -17,6 +17,9 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZonedDateTime
 
+/** ST1: a block's Start button hands its routine to the runner here. The runner takes it as soon as it is on screen and clears it. */
+object RoutineLaunch { var pending by mutableStateOf<String?>(null) }
+
 private val RUNNABLE: List<Routine> get() = listOf(BIBLE, WAKE, GETTING_READY, STUDY_BLOCK, PASTA_AND_SHOWER, WIND_DOWN, LEAVE_HOME, ARRIVE_HOME)
 
 /**
@@ -42,6 +45,18 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
     var reward by remember { mutableStateOf<String?>(null) }
     var identity by remember { mutableStateOf<List<String>>(emptyList()) }
     val nfcAvailable = remember { Nfc.available(ctx) }
+    // the tier is picked from the time there is before the next block and last night's sleep (RT5); the same for a tap on the list and for a Start button on a block (ST1)
+    val begin: (Routine) -> Unit = { rt ->
+        scope.launch(Dispatchers.IO) {
+            val now = ZonedDateTime.now(LONDON)
+            val nextStart = nowAndNext(PlanRepo(db).slots(), now).next?.start
+            val avail = nextStart?.let { java.time.Duration.between(now, it).toMinutes().toInt() } ?: 60
+            val sleep = db.nights().latest()?.sleepMin?.div(60.0)
+            tier = pickTier(rt, avail.coerceAtLeast(0), sleep, null); reward = null; running = rt
+        }
+    }
+    val launched = RoutineLaunch.pending
+    LaunchedEffect(launched) { if (launched != null) { RoutineLaunch.pending = null; (RUNNABLE + ROUTINES).firstOrNull { it.id == launched }?.let(begin) } }
 
     LaunchedEffect(tick) {
         withContext(Dispatchers.IO) {
@@ -62,15 +77,7 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
             if (r == null) {
                 BasicText("One step at a time, at the tier today allows. Photo steps are taken on the home screen.", style = Ts(c.muted, 13.sp))
                 RUNNABLE.forEach { rt ->
-                    Btn(rt.title, {
-                        scope.launch(Dispatchers.IO) {
-                            val now = ZonedDateTime.now(LONDON)
-                            val nextStart = nowAndNext(PlanRepo(db).slots(), now).next?.start
-                            val avail = nextStart?.let { java.time.Duration.between(now, it).toMinutes().toInt() } ?: 60
-                            val sleep = db.nights().latest()?.sleepMin?.div(60.0)
-                            tier = pickTier(rt, avail.coerceAtLeast(0), sleep, null); reward = null; running = rt
-                        }
-                    }, modifier = Modifier.fillMaxWidth(), description = "Run ${rt.title}")
+                    Btn(rt.title, { begin(rt) }, modifier = Modifier.fillMaxWidth(), description = "Run ${rt.title}")
                 }
             } else {
                 BasicText("${r.title}: ${tier.name.lowercase()} tier, ${r.minutes(tier)} minutes", style = Ts(c.text, 17.sp, FontWeight.Bold))

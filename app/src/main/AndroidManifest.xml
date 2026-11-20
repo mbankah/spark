@@ -84,6 +84,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity-alias>
+        <!-- VR12: Pause and Resume on the lock screen notification, and the alarm at the end of a step. Not exported. -->
+        <receiver android:name=".VrReceiver" android:exported="false" />
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

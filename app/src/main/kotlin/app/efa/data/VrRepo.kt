@@ -58,6 +58,10 @@ class VrRepo(private val db: EfaDb) {
     /** VR8: when the Red Engine is built the remedial it replaces is taken off the list: the ones not started and with no minutes done. Work already begun stays. */
     suspend fun removeOpenRemedial(): Int = db.tasks().deleteOpenRemedial()
 
+    /** VR11: the first of [slots] that is a study block with a cycle running now (started, not finished), for the home screen's card. */
+    suspend fun active(slots: List<DatedSlot>): Pair<DatedSlot, VrRun>? =
+        slots.filter { it.slot.type in setOf("study", "study-standard", "study-light") }.firstNotNullOfOrNull { ds -> get(ds)?.takeIf { vrView(it, System.currentTimeMillis()).status == VrStatus.RUNNING }?.let { ds to it } }
+
     /** The cycles finished on [date], for the day's count. */
     suspend fun finishedOn(date: LocalDate): Int =
         db.meta().withPrefix(PREFIX + date + "|").mapNotNull { VrRun.decode(it.value) }.count { vrView(it, Long.MAX_VALUE / 4).status == VrStatus.DONE }

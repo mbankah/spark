@@ -82,6 +82,7 @@ data class HomeState(
     val evening: Boolean = false,        // HM1: from 21:00 the evening offers "Bed later tonight"
     val lite: Boolean = false,          // LT1: the home shows now, next and the phone, nothing else
     val mode: efa.HomeMode = efa.HomeMode.FREE,   // HS1, HS2: the home follows the moment; a running block, the wind-down and the night show only what matters
+    val vr: VrActive? = null,            // VR11: a VRNPM cycle that is running, drawn big at the top
     val adapt: AdaptView = AdaptView(),           // AD: a drift to answer, the step the day is on, the three things that matter
 )
 
@@ -95,7 +96,7 @@ fun HomeScreen(
     onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {}, onNewRoom: () -> Unit = {},
     homeTick: Int = 0, onPhoto: () -> Unit = {}, onMeal: (String, Boolean) -> Unit = { _, _ -> }, onReality: (String) -> Unit = {},
     third: (@Composable () -> Unit)? = null,         // HS4: the third page, Work it out
-    onEmergency: (efa.EmergencyAction) -> Unit = {}, onAdapt: (String) -> Unit = {},
+    onEmergency: (efa.EmergencyAction) -> Unit = {}, onAdapt: (String) -> Unit = {}, onVr: (VrAction) -> Unit = {},
 ) {
     val c = LocalColors.current
     val pager = rememberPagerState(pageCount = { if (third != null) 3 else 2 })
@@ -109,7 +110,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), pageSpacing = 20.dp, key = { it }) { page ->
-            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency, onAdapt)
+            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency, onAdapt, onVr)
             else if (page == 1) ScheduleScreen(s.schedule)
             else third?.invoke()
         }
@@ -162,7 +163,7 @@ private fun PageDots(page: Int, count: Int, onPage: (Int) -> Unit) {
 @Composable
 private fun HomePage(
     s: HomeState, onBuffer: () -> Unit, onNow: () -> Unit, onProofDue: () -> Unit, onSetup: () -> Unit, onHeld: () -> Unit, onEssential: (String) -> Unit,
-    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit, onAdapt: (String) -> Unit = {},
+    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit, onAdapt: (String) -> Unit = {}, onVr: (VrAction) -> Unit = {},
 ) {
     val c = LocalColors.current
     var allNeeds by remember { mutableStateOf(false) }
@@ -188,6 +189,7 @@ private fun HomePage(
             BasicText(s.time, style = Ts(c.text, 72.sp, FontWeight.Bold, letterSpacing = (-3).sp, lineHeight = 72.sp))
             SparkLogo(38.dp)
         }
+        s.vr?.let { if (!s.unavailable) VrHero(it, onVr) }                      // VR11: a running VRNPM cycle comes first, big
         if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read.")
         else if (efa.WidgetKind.NOW_NEXT in s.widgets) NowHero(s, onNow, onReality)
         if (!s.unavailable && (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite)) NextCard(if (s.lite) s.next.take(2) else s.next)

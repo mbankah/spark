@@ -248,3 +248,60 @@ fun remedialSessions(cycles: Int, perCycleMin: Int = REMEDIAL_MIN_PER_CYCLE): Li
 fun remedialBooked(cfg: VrConfig): Boolean = !cfg.redEngine && cfg.remedialMin > 0
 
 const val REMEDIAL_TITLE = "Weekly remedial: new questions from your mistakes, then the Confident tier"
+
+// ---------- VR11: the ring on the home screen ----------
+
+/** One arc of the home screen's ring: where it starts and how wide it is (fractions of a turn), how full it is, whether it is a break, and whether its step has passed its time. */
+data class VrArc(val start: Float, val sweep: Float, val fill: Float, val isBreak: Boolean, val over: Boolean, val letter: Char?)
+
+/**
+ * VR11: the cycle as a ring, each phase as wide as its planned time (a step or a break; a step done by override has no width). A finished phase is full, the one running is filled by the time
+ * spent in it (the time paused left out), and the rest are empty. A running phase past its time is full and marked over.
+ */
+fun vrRing(run: VrRun?, nowMs: Long, plan: List<Int>? = null): List<VrArc> {
+    val phases = vrPhases(run?.planMinutes ?: plan ?: VR_DEFAULT_PLAN)
+    val total = phases.sumOf { it.plannedMin }.coerceAtLeast(1)
+    val b = run?.boundaries.orEmpty()
+    val done = b.size > phases.size
+    val cur = if (b.isNotEmpty() && !done) b.size - 1 else -1
+    var at = 0f; val out = ArrayList<VrArc>()
+    for ((i, p) in phases.withIndex()) {
+        if (p.plannedMin == 0) continue
+        val sweep = p.plannedMin.toFloat() / total
+        var fill = 0f; var over = false
+        if (done || i + 1 < b.size) fill = 1f
+        else if (i == cur) {
+            val spent = (nowMs - b[i]) - (run?.pausedMs(b[i], nowMs, nowMs) ?: 0L)
+            fill = (spent.toFloat() / (p.plannedMin * 60_000f)).coerceIn(0f, 1f)
+            over = spent > p.plannedMin * 60_000L + 30_000L
+        }
+        out += VrArc(at, sweep, fill, p.isBreak, over, p.step?.letter)
+        at += sweep
+    }
+    return out
+}
+
+// ---------- VR12: the lock screen notification ----------
+
+enum class VrNoteMode { COUNTDOWN, OVER, PAUSED }
+
+/**
+ * VR12: what the lock screen notification says for a running cycle. [whenMs] is the moment its live clock counts to (COUNTDOWN) or from (OVER), and 0 while PAUSED, when the clock is
+ * stopped. [chips] is one line of the five steps: done, now, to come, or done by override.
+ */
+data class VrNote(val title: String, val text: String, val chips: String, val mode: VrNoteMode, val whenMs: Long)
+
+fun vrNote(run: VrRun, nowMs: Long): VrNote {
+    val v = vrView(run, nowMs)
+    val chips = v.chips.joinToString("  ") { ch ->
+        ch.letter + when (ch.state) {
+            VrChipState.UPCOMING -> " ○"; VrChipState.CURRENT -> " ●"; VrChipState.OVER_NOW -> " ●+"
+            VrChipState.DONE -> " ✓"; VrChipState.DONE_OVER -> " ✓+"; VrChipState.OVERRIDDEN -> " *"
+        }
+    }
+    return when {
+        v.paused -> VrNote(v.title, "Paused, ${clockMs(v.remainingMs)} left", chips, VrNoteMode.PAUSED, 0L)
+        v.over -> VrNote(v.title, "OVER", chips, VrNoteMode.OVER, nowMs - v.overMs)
+        else -> VrNote(v.title, "left", chips, VrNoteMode.COUNTDOWN, nowMs + v.remainingMs)
+    }
+}

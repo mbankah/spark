@@ -228,7 +228,7 @@ private fun proofText(p: Proof) = when (p) {
 
 /** Hold for one second without letting go (W1). Completes the moment the second is reached; letting go early restarts it. */
 @Composable
-private fun HoldButton(text: String, requiredMs: Long = 1000, onDone: () -> Unit) {
+internal fun HoldButton(text: String, requiredMs: Long = 1000, onDone: () -> Unit) {
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     var progress by remember { mutableFloatStateOf(0f) }

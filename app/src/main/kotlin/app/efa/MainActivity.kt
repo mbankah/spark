@@ -78,7 +78,7 @@ private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where 
 
 /** Everything the screens need, loaded from the database. null pattern means the database failed (X7). */
 private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, val verified: Set<String> = emptySet(), val periods: List<PlannedPeriodRow> = emptyList(), val moved: List<String> = emptyList(), val sleep: SleepStatus = SleepStatus(),
-    val shortSleep: Boolean = false, val money: MoneyView? = null, val earnings: List<Earning> = emptyList(), val runs: Map<String, RunRecord> = emptyMap())
+    val shortSleep: Boolean = false, val money: MoneyView? = null, val earnings: List<Earning> = emptyList(), val runs: Map<String, RunRecord> = emptyMap(), val vrActive: VrActive? = null)
 
 class MainActivity : ComponentActivity() {
     /** An action asked for by the Buffer notification (LA11), consumed by the screen state once. */
@@ -335,6 +335,7 @@ class MainActivity : ComponentActivity() {
                         (getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager).getDefaultSensor(android.hardware.Sensor.TYPE_STEP_COUNTER) != null)
                 }
                 LaunchedEffect(screen, reload) { if (screen == Screen.MORNING || screen == Screen.SETUP) withContext(Dispatchers.IO) { refreshMorning() } }
+                LaunchedEffect(VrSignal.tick) { if (VrSignal.tick > 0) reload++ }                          // VR12: the lock screen's Pause or Resume changed the cycle
                 LaunchedEffect(screen) { if (screen == Screen.SETUP) vrCfg = withContext(Dispatchers.IO) { app.efa.data.VrRepo(db).config() } }
                 LaunchedEffect(screen, reload, clock) {
                     withContext(Dispatchers.IO) {
@@ -470,7 +471,8 @@ class MainActivity : ComponentActivity() {
                             val firstUse = db.meta().get(META_FIRST_USE)?.toLongOrNull() ?: nowZ.toInstant().toEpochMilli()
                             val rewards = RewardsRepo(db)
                             Loaded(pattern, db.tasks().open(), repo.verifiedKeys(), PlanRepo(db).periods(), moved, sleep,
-                                isShortSleepToday(db, nowZ), rewards.view(pattern, firstUse, nowZ), rewards.earnings(nowZ), app.efa.data.RunRepo(db).forDay(nowZ.toLocalDate()))
+                                isShortSleepToday(db, nowZ), rewards.view(pattern, firstUse, nowZ), rewards.earnings(nowZ), app.efa.data.RunRepo(db).forDay(nowZ.toLocalDate()),
+                                app.efa.data.VrRepo(db).active(listOf(-1L, 0L).flatMap { slotsFor(pattern, nowZ.toLocalDate().plusDays(it), nowZ.zone) })?.let { VrActive(it.first, it.second) })
                         } catch (e: Exception) { Loaded(null, emptyList()) }   // never show a wrong schedule or Buffer
                     }
                 }
@@ -599,7 +601,23 @@ class MainActivity : ComponentActivity() {
                                 review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
+                                vr = l?.vrActive,
                             ),
+                            onVr = { a ->
+                                val act = l?.vrActive
+                                if (act != null) {
+                                    if (a == VrAction.OPEN) { selected = act.ds; screen = Screen.BLOCK }
+                                    else scope.launch(Dispatchers.IO) {
+                                        val r = app.efa.data.VrRepo(db); val now = System.currentTimeMillis()
+                                        when (a) {
+                                            VrAction.PAUSE -> r.pause(act.ds, now); VrAction.RESUME -> r.resume(act.ds, now)
+                                            VrAction.NEXT -> r.advance(act.ds, now, act.ds.start.zone); VrAction.PAGE -> r.page(act.ds, now); VrAction.OPEN -> {}
+                                        }
+                                        VrNotifier.refresh(applicationContext, act.ds)
+                                        withContext(Dispatchers.Main) { reload++ }
+                                    }
+                                }
+                            },
                             onEssential = { key -> launchEssential(key) },
                             onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
                             onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ },
@@ -661,11 +679,11 @@ class MainActivity : ComponentActivity() {
                             override suspend fun vrRun(ds: DatedSlot): VrRun? = app.efa.data.VrRepo(db).get(ds)
                             override suspend fun vrPlannedN(): Int = app.efa.data.VrRepo(db).plannedN()
                             override suspend fun vrConfig(): VrConfig = app.efa.data.VrRepo(db).config()
-                            override suspend fun vrStart(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).start(ds, nowMs)
-                            override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).advance(ds, nowMs, ds.start.zone)
+                            override suspend fun vrStart(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).start(ds, nowMs); VrNotifier.refresh(applicationContext, ds) }
+                            override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).advance(ds, nowMs, ds.start.zone); VrNotifier.refresh(applicationContext, ds) }
                             override suspend fun vrPage(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).page(ds, nowMs)
-                            override suspend fun vrPause(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).pause(ds, nowMs)
-                            override suspend fun vrResume(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).resume(ds, nowMs)
+                            override suspend fun vrPause(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).pause(ds, nowMs); VrNotifier.refresh(applicationContext, ds) }
+                            override suspend fun vrResume(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).resume(ds, nowMs); VrNotifier.refresh(applicationContext, ds) }
                             override suspend fun runRecord(ds: DatedSlot): RunRecord? = app.efa.data.RunRepo(db).get(ds)
                             override suspend fun runStart(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).start(ds, nowMs)
                             override suspend fun runFinish(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).finish(ds, nowMs)

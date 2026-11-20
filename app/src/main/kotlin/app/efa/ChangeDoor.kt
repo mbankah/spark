@@ -77,7 +77,7 @@ fun WakeCard(wake: WakeUi, onWakeSet: (Int, Int) -> Unit, onWakeClear: () -> Uni
     Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Label("WAKE TIME")
         BasicText(wake.text.ifBlank { "Next alarm not worked out yet." }, style = Ts(c.text, 16.sp, FontWeight.Bold))
-        BasicText("Choose when the next alarm rings. The normal alarm is about 8 hours after you fall asleep, and the latest it can be is 12:00. A later time than the normal one needs the wall. Blocks you sleep through are missed and come back as work.", style = Ts(c.muted, 14.sp))
+        BasicText("Choose when the next alarm rings. The normal alarm is about 8 hours after you fall asleep, and the latest it can be is 12:00. A later time than the normal one needs the wall. The morning starts when you wake: Wake, Bible, breakfast and the day follow it, and anything fixed before it is missed and comes back as work.", style = Ts(c.muted, 14.sp))
         var minutes by remember(wake.hour, wake.minute) { mutableIntStateOf(wake.hour * 60 + wake.minute) }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Btn("− 15", { minutes = (minutes - 15 + 1440) % 1440 }, description = "Wake time 15 minutes earlier")

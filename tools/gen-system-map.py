@@ -287,12 +287,12 @@ def d_guard():
 
 
 def d_night():
-    d = Dg(1120, 440, 'The night sets the wake time and the wake time sets the alarm. The Setup wake chooser writes only the alarm, so the Plan does not move the morning blocks (badge 4).')
+    d = Dg(1120, 440, 'The night sets the wake time and the wake time sets the alarm. The wake chooser (now in Change the plan) writes the alarm and a Late start, so the Plan moves the morning blocks with it.')
     d.node('sleep', C[0], 30, NW, 70, 'Sleep sensing', ['screen, charging, movement,', 'light. No microphone.'], k='night')
     d.node('hc', C[0], 130, NW, 70, 'Health Connect', ['optional watch sleep, shown', 'beside the phone night'], k='night')
     d.node('eplan', C[0], 240, NW, 70, 'From Plan', ['the anchors: wake and', 'lights-out of the night'], k='plan', style='ext')
     d.node('ectx', C[0], 340, NW, 56, 'From Context', ['time zone, trusted clock'], k='ctx', style='ext')
-    d.node('choice', C[1], 20, NW, 90, 'Wake choice (Setup)', ['one night, 15-minute steps;', 'later than normal needs the', 'wall'], k='night', style='warn')
+    d.node('choice', C[1], 20, NW, 90, 'Wake choice (Change the plan)', ['one night, 15-minute steps;', 'later than normal needs the', 'wall; the morning follows it'], k='night', style='warn')
     d.node('night', C[1], 150, NW, 110, 'Night', ['cutoff = wake - 8 h - time to', 'fall asleep. Lights-out is the', 'cutoff. Lights-out later than', 'it needs the wall.'], k='night')
     d.node('mix', C[1], 310, NW, 70, 'To Count and Plan', ['short sleep raises estimates;', 'Lite day after a short night'], k='count', style='ext')
     d.node('alarm', C[2], 20, NW, 110, 'Wake alarm', ['rings at the wake of the night.', 'Stops with the step count or a', 'second way. Blocks slept', 'through come back as work.'], k='night')
@@ -437,7 +437,7 @@ GAPS = [
     (3, 'Start, end and say went nowhere.', 'The Run record is read by the Coach and by the day strip, and the strip is no longer on Home. Nothing in Rewards or the Buffer reads it. You asked how an unproven block earns a reward, and today a held start earns none.',
      'RunRepo and VrRepo are used only in BlockScreen, MainActivity, VrNotifier and Coach', 'Done 20 Nov (SR1): a held start earns 2 minutes of open phone, for 5 starts a day.'),
     (4, 'Wake time has three owners.', 'The weekly Wake block, the night preset (it writes the wake key from the anchors), and the Setup wake chooser. The chooser moves the alarm only. The Wake and getting-ready blocks stay where they were.',
-     'ModifierRepo.kt:39; MainActivity.kt:776-790', "Partly done 20 Nov (CD2): the wake chooser moved into the Change door. It still sets only the alarm; the one anchors record that moves the morning blocks is still to do (picture 2)."),
+     'ModifierRepo.kt:39; MainActivity.kt:776-790', "Done 20 Nov (CD2, CW1): the wake chooser is in the Change door and a later wake now moves the Wake block and the morning with it, through one Late start (picture 2)."),
     (5, 'Routines are found by title text.', "A block gets its routine because its title starts with Bible, Wake or Breakfast, dress, or because its type is sleep or study. Rename a block and its routine goes. The runner is also a page of its own, not part of the block.",
      'RoutinePrompts.kt:10-17', 'A block carries its routine id and its steps. The runner page goes.'),
     (6, 'The plan had eight doors.', 'Home hero chips, Something came up, Quick add and Voice, and four Setup cards: Modify Schedule, Days off, Library, Timetable file. Modify Schedule describes a period off and the library again in its own text. Adapt is the eighth, and it is automatic.',
@@ -617,7 +617,7 @@ def build(simple=True):
     out.append('<h2 id="moves">Three moves</h2>')
     out.append('<div class="gl">')
     for n, t, b in [(1, 'One Start per block (built)', 'A block has one hold to start it. Its type picks the engine: study runs the cycle, a routine runs its own steps, anything else is a plain run. It writes one run record, and the Coach, Count, Guard and every screen read that.'),
-                    (2, 'One door for change (built)', 'Late, over, came up, a new deadline, a day off, the library, a file and a week or period are all said in one place, Change the plan, and each shows what it does, what it costs and applies it. Still to do: wake time moving the morning blocks, and a block carrying its own steps so the runner page can go.'),
+                    (2, 'One door for change (built)', 'Late, over, came up, a new deadline, a day off, the library, a file and a week or period are all said in one place, Change the plan, and each shows what it does, what it costs and applies it. The wake time now moves the morning too. Still to do: a block carrying its own steps so the runner page can go.'),
                     (3, 'Fewer, plainer screens', 'Setup becomes five groups and loses its action cards. Work it out becomes Right now. Reminders become one list.')]:
         out.append(f'<div class="gi"><div class="gn" style="background:var(--ink)">{n}</div><div><h4>{esc(t)}</h4><p>{esc(b)}</p></div></div>')
     out.append('</div>')

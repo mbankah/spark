@@ -961,6 +961,18 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 58. The wake time moves the morning
+
+Added on 20 November 2026 at your request ("yes, do it", gap 4 of the systems map). The class: a wake time is one thing, so choosing it changes the alarm, the Wake block and everything that follows it together.
+
+The coherence check for this change: it is owned by Plan (the morning) and Night and morning (the alarm); it reads the day's Wake block and writes the alarm and one Late start; it is shown where the wake time is chosen, in Change the plan, and everything else (Home, the Schedule page, the blocker, the alarm) reads the calendar and the alarm as before; choosing again or going back takes the old one away; it replaces the old alarm-only choice and the line that said the blocks you sleep through are missed; a day with no Wake block, a wake not later than the planned one, a wake that cannot stand and one that needs the wall are handled below; it is proven on a real database.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| CW1 | Choosing a wake time later than the day's Wake block (by more than 5 minutes) sets the alarm and makes a Late start for that date, so Wake, Bible, breakfast and the rest of the day follow the time chosen. It is checked and priced like any Late start: if it cannot stand (it clashes with another change on that day, or the time is outside 04:00 to 18:00) it is refused with the reason and the normal alarm and morning stay; if it gives something up it needs the wall, as a wake later than Spark's own alarm already did. A wake that is not later leaves the morning where it is. | Default; built, tested on the emulator |
+| CW2 | Choosing again starts from the normal morning, so choices never stack, and Use the normal alarm takes the Late start away as well as the alarm. Only the Late start a wake choice made is taken away; a Late start you made yourself is never touched. | Default; built, tested on the emulator |
+| CD2 | (amended 20 November 2026) The wake card says the morning starts when you wake, and that anything fixed before it is missed and comes back as work. | Default; built, tested |
+
 ## 57. One door for change
 
 Added on 20 November 2026 at your request ("yes, build it", move 2 of the systems map). The class: every way of changing the plan is one place you go to and say what is happening, and each opens the screen that shows what it does, what it costs and applies it.
@@ -970,7 +982,7 @@ The coherence check for this change: it is owned by Change; it reads nothing new
 | # | Decision | Status |
 | --- | --- | --- |
 | CD1 | There is one place for every change to the plan, Change the plan: It is running over, I started late, Something came up, A new deadline, A day off or a weekend, A library period, A file from my timetable, and A week or a period (Modify Schedule). Each choice opens the screen it had before, which shows what it does before anything moves, what it costs and applies it, and its Back comes back to the door. It is reached from the Now card on Home (the chip Change the plan, beside the three that were there) and from Setup. Adapt stays automatic. | Default; built, tested on the emulator |
-| CD2 | The wake time for tonight is part of the same door and works as it did: a time in steps of 15 minutes, a later one than the normal alarm needs the wall, and going back to the normal alarm. It still sets the alarm only; the blocks of the morning do not move with it. | Default; built, tested on the emulator |
+| CD2 | The wake time for tonight is part of the same door and works as it did: a time in steps of 15 minutes, a later one than the normal alarm needs the wall, and going back to the normal alarm. (Amended the same day: it now moves the morning too, CW1.) | Default; built, tested on the emulator |
 | CD3 | Setup no longer has the Modify Schedule, Days off, Library, Timetable and Wake time cards. It has one card, Change the plan, which opens the door. | Default; built, tested on the emulator |
 | CD4 | The day off and library screens open before their data has been read, and used to go straight back when it had not; they now wait for it, and give up after 3 seconds. | Default; built, tested on the emulator |
 

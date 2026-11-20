@@ -41,6 +41,20 @@ class ModifierRepo(private val db: EfaDb) {
         id
     }
 
+    /** CW1: what choosing [chosen] as the wake would do to the morning: the Late start it needs (null when the morning stays), why it cannot stand, and whether it needs the wall. */
+    suspend fun wakeChoicePlan(chosen: ZonedDateTime, now: ZonedDateTime): WakeChoicePlan {
+        val inst = wakeChoiceInstance(plannedWakeMin(PlanRepo(db).slots(), chosen.toLocalDate(), chosen.zone), chosen) ?: return WakeChoicePlan(null, emptyList(), false)
+        val p = preview(inst, now)
+        return WakeChoicePlan(inst, p.problems, p.wallNeeded)
+    }
+
+    /** CW1: takes away the Late start a chosen wake made, so the morning is the normal one again. Returns how many were removed. */
+    suspend fun clearWakeChoices(): Int {
+        val rows = db.modifiers().all().filter { it.state == "active" && isWakeChoice(decodeInstance(it.instance)) }
+        rows.forEach { remove(it.id) }
+        return rows.size
+    }
+
     /** Removes a modifier and what it made that has not been started. Work already done stays. */
     suspend fun remove(id: Long) = db.withTransaction {
         val row = db.modifiers().get(id) ?: return@withTransaction

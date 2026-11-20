@@ -754,20 +754,37 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         wake = wakeUi.copy(message = wakeMessage),
-                        onWakeClear = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, null); wakeMessage = "Back to the normal alarm."; reload++ } },
+                        onWakeClear = { scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).clearWakeChoices(); AlarmScheduler.setChosenWake(applicationContext, null); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); wakeMessage = "Back to the normal alarm and the normal morning."; reload++ } },
                         onWakeSet = { h, m ->
                             scope.launch(Dispatchers.IO) {
                                 val now = BlockingState.now(); val chosen = nextClockTime(now, h, m)
                                 val onset = AlarmScheduler.liveOnset(app.efa.data.SleepRepo(db), now)
                                 val problem = wakeChoiceProblem(now, onset, chosen)
                                 if (problem != null) { wakeMessage = problem; return@launch }
+                                val mods = app.efa.data.ModifierRepo(db)
+                                mods.clearWakeChoices()                                       // CW1: start again from the normal morning, so a new choice never stacks on an old one
+                                val plan = mods.wakeChoicePlan(chosen, now)
+                                if (plan.problems.isNotEmpty()) {
+                                    AlarmScheduler.setChosenWake(applicationContext, null); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext)
+                                    wakeMessage = plan.problems.joinToString(" ") + " The normal alarm and morning are back."; reload++; return@launch
+                                }
                                 val normal = AlarmScheduler.planNow(applicationContext, now, useChosen = false)
                                 val withChoice = planAlarmWithDaysOff(now, onset, PlanRepo(db).slots(), chosen)
                                 val at = "%02d:%02d".format(chosen.hour, chosen.minute)
-                                val save = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, chosen); wakeMessage = "The next alarm is set for $at."; reload++ }; Unit }
-                                if (wakeNeedsWall(normal, withChoice)) {
+                                val save = {
+                                    scope.launch(Dispatchers.IO) {
+                                        wakeMessage = try {
+                                            AlarmScheduler.setChosenWake(applicationContext, chosen)
+                                            plan.inst?.let { mods.apply(it, ZonedDateTime.now(LONDON), 0) }
+                                            BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext)
+                                            "The next alarm is set for $at." + if (plan.inst != null) " The morning starts when you wake." else ""
+                                        } catch (e: Exception) { AlarmScheduler.setChosenWake(applicationContext, null); "Not set: ${e.message}" }
+                                        reload++
+                                    }; Unit
+                                }
+                                if (wakeNeedsWall(normal, withChoice) || plan.wallNeeded) {
                                     wallBack = Screen.CHANGE; wallLength = efa.WallLength.WAKE_LATER
-                                    wall = Triple("Wake later", "You will sleep until $at, later than Spark would have woken you. The blocks before then are missed, and come back as work. Type the characters below by hand.", { save() })
+                                    wall = Triple("Wake later", "You will sleep until $at, later than Spark would have woken you. The morning will start then, and anything fixed before it is missed and comes back as work. Type the characters below by hand.", { save() })
                                     screen = Screen.GATE
                                 } else save()
                             }

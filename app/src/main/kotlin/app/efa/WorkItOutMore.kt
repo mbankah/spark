@@ -58,12 +58,15 @@ private fun permissions(ctx: Context): List<Perm> {
     )
 }
 
+/** SH2: which half of the page Right now a piece draws: what is true now (always shown), or the shelves of everything else. */
+enum class WioPart { NOW, SHELVES }
+
 /**
- * The rest of the third page: the Emergency door (EM1), "I'm out" (EM2), the lost-phone steps (EM5), the university's routes (HO4), the nap (SL7), tomorrow's fun (SL4),
- * lite day (LT1), the coach (CO3, CO10, CO11), your reminders (SL6), the family home (HO2) and the permission list after a reinstall (CT4).
+ * The rest of Right now: lite day (LT1) and the nap (SL7) are shown; the Emergency door (EM1), "I'm out" (EM2), the lost-phone steps (EM5), the university's routes (HO4), tomorrow's fun (SL4) and
+ * the coach (CO3, CO10, CO11) are on shelves. Your reminders (SL6), the family home (HO2) and the permission list (CT4) are in Setup (SH2), where the other settings are.
  */
 @Composable
-fun WorkItOutMore(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit) {
+fun WorkItOutMore(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, part: WioPart) {
     val c = LocalColors.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -74,15 +77,8 @@ fun WorkItOutMore(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit) {
     var voice by remember { mutableStateOf(true) }
     var tone by remember { mutableStateOf(Tone.CALM) }
     var ident by remember { mutableStateOf(listOf("", "", "")) }
-    var reminders by remember { mutableStateOf<List<Reminder>>(emptyList()) }
-    var reminderLog by remember { mutableStateOf<List<String>>(emptyList()) }
-    var family by remember { mutableStateOf<String?>(null) }
     var nap by remember { mutableStateOf(false) }
     var fun_ by remember { mutableStateOf("") }
-    var rName by remember { mutableStateOf("") }
-    var rHour by remember { mutableIntStateOf(8) }
-    var rMin by remember { mutableIntStateOf(0) }
-    var perms by remember { mutableStateOf<List<Perm>>(emptyList()) }
     val today = remember { LocalDate.now(LONDON) }
 
     LaunchedEffect(tick) {
@@ -90,134 +86,178 @@ fun WorkItOutMore(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit) {
             outUntil = db.meta().get(META_OUT_UNTIL)?.toLongOrNull()?.takeIf { it > System.currentTimeMillis() }
             lite = db.meta().get(META_LITE) == "1"; voice = db.meta().get(META_COACH) != "0"; tone = Tone.of(db.meta().get(META_TONE))
             ident = (db.meta().get(META_IDENTITY).orEmpty().lines() + listOf("", "", "")).take(3)
-            reminders = decodeReminders(db.meta().get(META_REMINDERS))
-            reminderLog = db.meta().get(META_REMINDER_LOG).orEmpty().lines().filter { it.isNotBlank() }.takeLast(7).reversed().map { l -> l.split("|").let { p -> if (p.size == 3) java.time.Instant.ofEpochMilli(p[0].toLongOrNull() ?: 0).atZone(LONDON).format(DateTimeFormatter.ofPattern("EEE HH:mm")) + " " + p[1] + ": " + (if (p[2] == "TAKEN") "taken" else "not taken") else l } }
-            family = db.meta().get(META_FAMILY_HOME)
             nap = napOffer(db.nights().latest()?.sleepMin?.div(60.0), ZonedDateTime.now(LONDON))
-            perms = permissions(ctx)
         }
     }
     fun put(key: String, value: String) { scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(key, value)); tick++ } }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // EM1: never gated, no question, logged quietly
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("EMERGENCY")
-            BasicText("Always open. It asks nothing.", style = Ts(c.muted, 13.sp))
-            EmergencyAction.entries.forEach { a -> Btn(a.label, { scope.launch(Dispatchers.IO) { message = Emergency.run(ctx, a) } }, modifier = Modifier.fillMaxWidth(), description = "Emergency: ${a.label}") }
-            message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
-        }
+        if (part == WioPart.NOW) {
+            if (nap) Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Label("AFTER A SHORT NIGHT")
+                BasicText("A 20 minute nap before 15:00 is fine today. A longer or later one works against tonight.", style = Ts(c.text, 14.sp))
+            }
 
-        // EM2: out is honoured only away from home
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("I AM OUT")
-            val until = outUntil
-            if (until != null) {
-                BasicText("Out until ${java.time.Instant.ofEpochMilli(until).atZone(LONDON).format(HM_OUT)}. Blocking and the night rule are paused while the phone is away from home.", style = Ts(c.text, 14.sp))
-                Btn("I'm back", { scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(META_OUT_UNTIL, "0")); BlockingState.refresh(ctx); tick++ } }, modifier = Modifier.fillMaxWidth(), description = "I am back")
-            } else {
-                BasicText("Blocking and the night rule pause until the time you choose, but only while the phone is away from home. At home it does nothing.", style = Ts(c.muted, 13.sp))
+            // LT1
+            Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Label("LITE DAY")
+                BasicText("The home shows three things: now, next and the phone. Blocking stays. Pair it with a lighter day if you need the work set aside.", style = Ts(c.muted, 13.sp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(2, 4, 6).forEach { h -> Chip("${h}h", false, {
-                        scope.launch(Dispatchers.IO) {
-                            val fix = LocationFix.current(ctx, 6_000); val home = PlaceRepo(db).home()
-                            val away = fix != null && home != null && distanceM(fix.lat, fix.lon, home.first, home.second) > 250
-                            if (!away) { message = "You are at home, or the place could not be read, so out does not apply."; return@launch }
-                            val now = Instant.now()
-                            val d = DoorRepo(db).decide(gateDoor(Door.OUT, now, h * 60, verified = true), now)
-                            if (d is DoorDecision.Locked) { message = d.reason; return@launch }
-                            DoorRepo(db).record(gateDoor(Door.OUT, now, h * 60, verified = true))
-                            db.meta().put(MetaRow(META_OUT_UNTIL, now.plusSeconds(h * 3600L).toEpochMilli().toString())); BlockingState.refresh(ctx); message = null; tick++
+                    Chip("Lite on", lite, { put(META_LITE, "1") }, "Lite day on"); Chip("Lite off", !lite, { put(META_LITE, "0") }, "Lite day off")
+                }
+            }
+        } else {
+            Shelf("Emergency", "Call 999, I am out, a lost phone, the university") {
+                // EM1: never gated, no question, logged quietly
+                Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Label("EMERGENCY")
+                    BasicText("Always open. It asks nothing.", style = Ts(c.muted, 13.sp))
+                    EmergencyAction.entries.forEach { a -> Btn(a.label, { scope.launch(Dispatchers.IO) { message = Emergency.run(ctx, a) } }, modifier = Modifier.fillMaxWidth(), description = "Emergency: ${a.label}") }
+                    message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+                }
+
+                // EM2: out is honoured only away from home
+                Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Label("I AM OUT")
+                    val until = outUntil
+                    if (until != null) {
+                        BasicText("Out until ${java.time.Instant.ofEpochMilli(until).atZone(LONDON).format(HM_OUT)}. Blocking and the night rule are paused while the phone is away from home.", style = Ts(c.text, 14.sp))
+                        Btn("I'm back", { scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(META_OUT_UNTIL, "0")); BlockingState.refresh(ctx); tick++ } }, modifier = Modifier.fillMaxWidth(), description = "I am back")
+                    } else {
+                        BasicText("Blocking and the night rule pause until the time you choose, but only while the phone is away from home. At home it does nothing.", style = Ts(c.muted, 13.sp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(2, 4, 6).forEach { h -> Chip("${h}h", false, {
+                                scope.launch(Dispatchers.IO) {
+                                    val fix = LocationFix.current(ctx, 6_000); val home = PlaceRepo(db).home()
+                                    val away = fix != null && home != null && distanceM(fix.lat, fix.lon, home.first, home.second) > 250
+                                    if (!away) { message = "You are at home, or the place could not be read, so out does not apply."; return@launch }
+                                    val now = Instant.now()
+                                    val d = DoorRepo(db).decide(gateDoor(Door.OUT, now, h * 60, verified = true), now)
+                                    if (d is DoorDecision.Locked) { message = d.reason; return@launch }
+                                    DoorRepo(db).record(gateDoor(Door.OUT, now, h * 60, verified = true))
+                                    db.meta().put(MetaRow(META_OUT_UNTIL, now.plusSeconds(h * 3600L).toEpochMilli().toString())); BlockingState.refresh(ctx); message = null; tick++
+                                }
+                            }, "I am out for $h hours") }
                         }
-                    }, "I am out for $h hours") }
+                    }
+                }
+
+                // EM5
+                Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Label("IF THE PHONE IS LOST OR BROKEN")
+                    LOST_PHONE_STEPS.forEachIndexed { i, s -> BasicText("${i + 1}. $s", style = Ts(c.text, 14.sp)) }
+                }
+
+                // HO4
+                Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Label("IF YOU ARE BEHIND OR STRUGGLING: THE UNIVERSITY")
+                    SUPPORT_ROUTES.forEach { r -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        BasicText("${r.name} (${r.when_})", style = Ts(c.text, 15.sp, FontWeight.Bold)); BasicText(r.what, style = Ts(c.muted, 13.sp))
+                    } }
+                    BasicText("From the University of Birmingham's own pages. Check them for the current rules.", style = Ts(c.muted, 12.sp))
+                }
+            }
+
+            // SL4
+            Shelf("Plan tomorrow", "Give something you want to do a real slot") {
+                Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Label("TOMORROW'S FUN")
+                    BasicText("Something you want to do tonight? Give it a real slot tomorrow at 17:00.", style = Ts(c.muted, 13.sp))
+                    Field(fun_, { fun_ = it }, "What is it?", "Tomorrow's fun")
+                    Btn("Put it tomorrow at 17:00", { onOpenPlan(tomorrowsFun(fun_, today), true); fun_ = "" }, modifier = Modifier.fillMaxWidth(), description = "Put it tomorrow at 17:00")
+                }
+            }
+
+            // CO3, CO10, CO11
+            Shelf("The coach", "Voice, tone and who you are trying to be") {
+                Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Label("THE COACH")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip("Voice on", voice, { put(META_COACH, "1") }, "Coach voice on"); Chip("Voice off", !voice, { put(META_COACH, "0") }, "Coach voice off")
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Tone.entries.forEach { t -> Chip(t.label, tone == t, { put(META_TONE, t.name) }, "Tone ${t.label}") } }
+                    Btn("Feel the patterns", { scope.launch(Dispatchers.IO) { Haptic.entries.forEach { Coach.haptic(ctx, it); kotlinx.coroutines.delay(900) } } }, modifier = Modifier.fillMaxWidth(), description = "Feel the haptic patterns")
+                    BasicText("Three sentences about who you are trying to be. They are quoted back, sparingly, with a fact.", style = Ts(c.muted, 13.sp))
+                    ident.forEachIndexed { i, s -> Field(s, { v -> ident = ident.toMutableList().also { it[i] = v } }, "I am someone who ...", "Identity sentence ${i + 1}") }
+                    Btn("Save", { put(META_IDENTITY, ident.joinToString("\n") { it.replace("\n", " ") }) }, modifier = Modifier.fillMaxWidth(), description = "Save the sentences")
                 }
             }
         }
+    }
+}
 
-        // EM5
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Label("IF THE PHONE IS LOST OR BROKEN")
-            LOST_PHONE_STEPS.forEachIndexed { i, s -> BasicText("${i + 1}. $s", style = Ts(c.text, 14.sp)) }
+/** SL6, SH2: your own reminders (whatever you and your prescriber decided), now with the other reminders in Setup. Spark logs taken or not taken and gives no advice. */
+@Composable
+fun OwnRemindersCard(db: EfaDb) {
+    val c = LocalColors.current
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var tick by remember { mutableIntStateOf(0) }
+    var reminders by remember { mutableStateOf<List<Reminder>>(emptyList()) }
+    var reminderLog by remember { mutableStateOf<List<String>>(emptyList()) }
+    var rName by remember { mutableStateOf("") }
+    var rHour by remember { mutableIntStateOf(8) }
+    var rMin by remember { mutableIntStateOf(0) }
+    LaunchedEffect(tick) {
+        withContext(Dispatchers.IO) {
+            reminders = decodeReminders(db.meta().get(META_REMINDERS))
+            reminderLog = db.meta().get(META_REMINDER_LOG).orEmpty().lines().filter { it.isNotBlank() }.takeLast(7).reversed().map { l -> l.split("|").let { p -> if (p.size == 3) java.time.Instant.ofEpochMilli(p[0].toLongOrNull() ?: 0).atZone(LONDON).format(DateTimeFormatter.ofPattern("EEE HH:mm")) + " " + p[1] + ": " + (if (p[2] == "TAKEN") "taken" else "not taken") else l } }
         }
-
-        // HO4
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("IF YOU ARE BEHIND OR STRUGGLING: THE UNIVERSITY")
-            SUPPORT_ROUTES.forEach { r -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                BasicText("${r.name} (${r.when_})", style = Ts(c.text, 15.sp, FontWeight.Bold)); BasicText(r.what, style = Ts(c.muted, 13.sp))
-            } }
-            BasicText("From the University of Birmingham's own pages. Check them for the current rules.", style = Ts(c.muted, 12.sp))
+    }
+    fun put(key: String, value: String) { scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(key, value)); tick++ } }
+    Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Label("YOUR REMINDERS")
+        BasicText("Whatever you and your prescriber decided. Spark logs taken or not taken for you to show them. It gives no advice on doses or times.", style = Ts(c.muted, 13.sp))
+        reminders.forEach { r -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            BasicText("${r.time.format(HM_OUT)} ${r.name}", style = Ts(c.text, 15.sp), modifier = Modifier.weight(1f))
+            Chip("Remove", false, { put(META_REMINDERS, encodeReminders(reminders - r)); scope.launch(Dispatchers.IO) { ReminderAlarm.refresh(ctx) } }, "Remove the reminder ${r.name}")
+        } }
+        Field(rName, { rName = it }, "Name", "Reminder name")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Chip("-", false, { rHour = (rHour + 23) % 24 }, "Earlier hour"); BasicText("%02d".format(rHour), style = Ts(c.text, 18.sp, FontWeight.Bold)); Chip("+", false, { rHour = (rHour + 1) % 24 }, "Later hour")
+            BasicText(":", style = Ts(c.text, 18.sp)); Chip("-", false, { rMin = (rMin + 55) % 60 }, "Earlier minutes"); BasicText("%02d".format(rMin), style = Ts(c.text, 18.sp, FontWeight.Bold)); Chip("+", false, { rMin = (rMin + 5) % 60 }, "Later minutes")
         }
+        Btn("Add the reminder", { if (rName.isNotBlank()) { put(META_REMINDERS, encodeReminders(reminders + Reminder(rName.trim(), LocalTime.of(rHour, rMin)))); scope.launch(Dispatchers.IO) { kotlinx.coroutines.delay(300); ReminderAlarm.refresh(ctx) }; rName = "" } }, modifier = Modifier.fillMaxWidth(), description = "Add the reminder")
+        reminderLog.forEach { BasicText(it, style = Ts(c.muted, 12.sp)) }
+    }
+}
 
-        if (nap) Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Label("AFTER A SHORT NIGHT")
-            BasicText("A 20 minute nap before 15:00 is fine today. A longer or later one works against tonight.", style = Ts(c.text, 14.sp))
-        }
+/** HO2, SH2: the family home, now with the other places in Setup. */
+@Composable
+fun FamilyHomeCard(db: EfaDb) {
+    val c = LocalColors.current
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var tick by remember { mutableIntStateOf(0) }
+    var family by remember { mutableStateOf<String?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(tick) { withContext(Dispatchers.IO) { family = db.meta().get(META_FAMILY_HOME) } }
+    Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Label("FAMILY HOME")
+        BasicText(if (family == null) "Not set. Stand at the family home and set it, so Spark can tell which home you are at." else "Set. Spark picks flat or family home when you are within 150 m of it.", style = Ts(c.muted, 13.sp))
+        Btn("Set the family home to where I am", { scope.launch(Dispatchers.IO) { val f = LocationFix.current(ctx, 8_000); if (f != null) { db.meta().put(MetaRow(META_FAMILY_HOME, "${f.lat}|${f.lon}")); tick++; message = "Family home set." } else message = "The place could not be read. Try near a window." } }, modifier = Modifier.fillMaxWidth(), description = "Set the family home here")
+        message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+    }
+}
 
-        // SL4
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("TOMORROW'S FUN")
-            BasicText("Something you want to do tonight? Give it a real slot tomorrow at 17:00.", style = Ts(c.muted, 13.sp))
-            Field(fun_, { fun_ = it }, "What is it?", "Tomorrow's fun")
-            Btn("Put it tomorrow at 17:00", { onOpenPlan(tomorrowsFun(fun_, today), true); fun_ = "" }, modifier = Modifier.fillMaxWidth(), description = "Put it tomorrow at 17:00")
-        }
-
-        // LT1
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("LITE DAY")
-            BasicText("The home shows three things: now, next and the phone. Blocking stays. Pair it with a lighter day if you need the work set aside.", style = Ts(c.muted, 13.sp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Lite on", lite, { put(META_LITE, "1") }, "Lite day on"); Chip("Lite off", !lite, { put(META_LITE, "0") }, "Lite day off")
+/** CT4, SH2: the permission list after a reinstall or a phone update, now with the other permission checks in Setup. */
+@Composable
+fun PermissionsCard() {
+    val c = LocalColors.current
+    val ctx = LocalContext.current
+    var tick by remember { mutableIntStateOf(0) }
+    var perms by remember { mutableStateOf<List<Perm>>(emptyList()) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(tick) { withContext(Dispatchers.IO) { perms = permissions(ctx) } }
+    Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Label("PERMISSIONS (AFTER A REINSTALL OR PHONE UPDATE)")
+        perms.forEach { p ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { BasicText((if (p.ok) "On: " else "Off: ") + p.name, style = Ts(c.text, 15.sp, FontWeight.Bold)); BasicText(p.why, style = Ts(c.muted, 12.sp)) }
+                if (!p.ok && p.open != null) Chip("Open", false, { try { ctx.startActivity(p.open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); tick++ } catch (e: Exception) { message = "That setting could not be opened." } }, "Open the setting for ${p.name}")
             }
         }
-
-        // CO3, CO10, CO11
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("THE COACH")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Voice on", voice, { put(META_COACH, "1") }, "Coach voice on"); Chip("Voice off", !voice, { put(META_COACH, "0") }, "Coach voice off")
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Tone.entries.forEach { t -> Chip(t.label, tone == t, { put(META_TONE, t.name) }, "Tone ${t.label}") } }
-            Btn("Feel the patterns", { scope.launch(Dispatchers.IO) { Haptic.entries.forEach { Coach.haptic(ctx, it); kotlinx.coroutines.delay(900) } } }, modifier = Modifier.fillMaxWidth(), description = "Feel the haptic patterns")
-            BasicText("Three sentences about who you are trying to be. They are quoted back, sparingly, with a fact.", style = Ts(c.muted, 13.sp))
-            ident.forEachIndexed { i, s -> Field(s, { v -> ident = ident.toMutableList().also { it[i] = v } }, "I am someone who ...", "Identity sentence ${i + 1}") }
-            Btn("Save", { put(META_IDENTITY, ident.joinToString("\n") { it.replace("\n", " ") }) }, modifier = Modifier.fillMaxWidth(), description = "Save the sentences")
-        }
-
-        // SL6
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("YOUR REMINDERS")
-            BasicText("Whatever you and your prescriber decided. Spark logs taken or not taken for you to show them. It gives no advice on doses or times.", style = Ts(c.muted, 13.sp))
-            reminders.forEach { r -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                BasicText("${r.time.format(HM_OUT)} ${r.name}", style = Ts(c.text, 15.sp), modifier = Modifier.weight(1f))
-                Chip("Remove", false, { put(META_REMINDERS, encodeReminders(reminders - r)); scope.launch(Dispatchers.IO) { ReminderAlarm.refresh(ctx) } }, "Remove the reminder ${r.name}")
-            } }
-            Field(rName, { rName = it }, "Name", "Reminder name")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Chip("-", false, { rHour = (rHour + 23) % 24 }, "Earlier hour"); BasicText("%02d".format(rHour), style = Ts(c.text, 18.sp, FontWeight.Bold)); Chip("+", false, { rHour = (rHour + 1) % 24 }, "Later hour")
-                BasicText(":", style = Ts(c.text, 18.sp)); Chip("-", false, { rMin = (rMin + 55) % 60 }, "Earlier minutes"); BasicText("%02d".format(rMin), style = Ts(c.text, 18.sp, FontWeight.Bold)); Chip("+", false, { rMin = (rMin + 5) % 60 }, "Later minutes")
-            }
-            Btn("Add the reminder", { if (rName.isNotBlank()) { put(META_REMINDERS, encodeReminders(reminders + Reminder(rName.trim(), LocalTime.of(rHour, rMin)))); scope.launch(Dispatchers.IO) { kotlinx.coroutines.delay(300); ReminderAlarm.refresh(ctx) }; rName = "" } }, modifier = Modifier.fillMaxWidth(), description = "Add the reminder")
-            reminderLog.forEach { BasicText(it, style = Ts(c.muted, 12.sp)) }
-        }
-
-        // HO2
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("FAMILY HOME")
-            BasicText(if (family == null) "Not set. Stand at the family home and set it, so Spark can tell which home you are at." else "Set. Spark picks flat or family home when you are within 150 m of it.", style = Ts(c.muted, 13.sp))
-            Btn("Set the family home to where I am", { scope.launch(Dispatchers.IO) { val f = LocationFix.current(ctx, 8_000); if (f != null) { db.meta().put(MetaRow(META_FAMILY_HOME, "${f.lat}|${f.lon}")); tick++; message = "Family home set." } else message = "The place could not be read. Try near a window." } }, modifier = Modifier.fillMaxWidth(), description = "Set the family home here")
-        }
-
-        // CT4
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("PERMISSIONS (AFTER A REINSTALL OR PHONE UPDATE)")
-            perms.forEach { p ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { BasicText((if (p.ok) "On: " else "Off: ") + p.name, style = Ts(c.text, 15.sp, FontWeight.Bold)); BasicText(p.why, style = Ts(c.muted, 12.sp)) }
-                    if (!p.ok && p.open != null) Chip("Open", false, { try { ctx.startActivity(p.open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); tick++ } catch (e: Exception) { message = "That setting could not be opened." } }, "Open the setting for ${p.name}")
-                }
-            }
-            Btn("Check again", { tick++ }, modifier = Modifier.fillMaxWidth(), description = "Check the permissions again")
-        }
+        message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+        Btn("Check again", { tick++ }, modifier = Modifier.fillMaxWidth(), description = "Check the permissions again")
     }
 }

@@ -326,7 +326,7 @@ class ImportScreenTest {
         rule.setContent { EfaTheme { HomeScreen(state, {}, {}, third = { WorkItOutScreen(EfaDb.get(androidx.test.core.app.ApplicationProvider.getApplicationContext()), { _, _ -> }, moved = state.moved) }) } }
         rule.onNodeWithText("ASSIGNMENT WEEK, UNTIL FRI 6 NOV").assertExists()
         rule.onNodeWithText("MOVED FOR YOU").assertDoesNotExist()          // the home page is for now and next
-        rule.onNodeWithContentDescription("Work it out page").performClick()
+        rule.onNodeWithContentDescription("Right now page").performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("MOVED FOR YOU").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Missed Randomness lecture. Back in the Buffer: 1.0h, due Tue 22:00.").assertExists()
     }

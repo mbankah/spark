@@ -87,8 +87,8 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
     fun save(key: String, lines: List<String>) { scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(key, lines.joinToString("\n"))); tick++ } }
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        BasicText("Work it out", style = Ts(c.text, 30.sp, FontWeight.Bold, letterSpacing = (-0.8).sp))
-        BasicText("Nothing here changes your plan. It shows what would happen, then you choose.", style = Ts(c.muted, 14.sp))
+        BasicText("Right now", style = Ts(c.text, 30.sp, FontWeight.Bold, letterSpacing = (-0.8).sp))
+        BasicText("What is true now. Nothing here changes your plan until you choose.", style = Ts(c.muted, 14.sp))
 
         // RS8: what Spark moved on its own, with the reason. It lives here and not on the home page, which is for now and next.
         if (moved.isNotEmpty()) Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -112,6 +112,10 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
             }
         }
 
+        WorkItOutMore(db, onOpenPlan, WioPart.NOW)
+        WorkItOutExtra(db, onWall, WioPart.NOW)
+
+        Shelf("Change something", "Sleep later or earlier tonight, the winter vacation") {
         // HS4, SA1: what if I sleep later or earlier tonight
         Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("WHAT IF: SLEEP LATER OR EARLIER TONIGHT")
@@ -150,6 +154,9 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
             if (winterArc(exams, today).isEmpty()) BasicText("The vacation has started, so nothing is left to plan ahead.", style = Ts(c.muted, 13.sp))
         }
 
+        }
+
+        Shelf("Calm and notes", "How you are, a place for ideas, your rewards, when you cannot sleep") {
         // CO5, CO6: how are you, and the people who can help after a run of hard days
         Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label("HOW ARE YOU?")
@@ -197,6 +204,7 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
             TextBox(awakeItem, { awakeItem = it }, "Something calm that is yours", "Your own calm thing")
             Btn("Add to the list", { if (awakeItem.isNotBlank()) { save(META_AWAKE, (awake + awakeItem.trim()).takeLast(10)); awakeItem = "" } }, modifier = Modifier.fillMaxWidth(), description = "Add to the cannot-sleep list")
         }
+        }
         // CT1, CT2, PK2, SL9: your data survives, and when something does not work you carry on
         val ctx = androidx.compose.ui.platform.LocalContext.current
         var backupMsg by remember { mutableStateOf<String?>(null) }
@@ -212,6 +220,7 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
                 if (msg.startsWith("Restored")) { kotlinx.coroutines.delay(800); val i = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName); i?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK); ctx.startActivity(i); Runtime.getRuntime().exit(0) }
             }
         }
+        Shelf("Your data and help", "Back up, restore, and say when something does not work") {
         Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label("YOUR DATA AND HELP")
             BasicText(lastBackup, style = Ts(c.muted, 13.sp))
@@ -223,8 +232,9 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
             backupMsg?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
             BasicText(if (grey) "Greyscale at wind-down is on." else "Greyscale at wind-down needs one command from your PC, once: " + WindDown.COMMAND, style = Ts(c.muted, 12.sp))
         }
-        WorkItOutMore(db, onOpenPlan)
-        WorkItOutExtra(db, onWall)
+        }
+        WorkItOutMore(db, onOpenPlan, WioPart.SHELVES)
+        WorkItOutExtra(db, onWall, WioPart.SHELVES)
         Spacer(Modifier.height(12.dp))
     }
 }

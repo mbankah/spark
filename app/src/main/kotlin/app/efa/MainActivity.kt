@@ -790,7 +790,7 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onBack = { screen = Screen.HOME })
-                    Screen.SETUP -> SetupScreen(places,
+                    Screen.SETUP -> SetupScreen(places, db = db,
                         onWalkthrough = { screen = Screen.WALKTHROUGH },
                         vrCfg = vrCfg,
                         onVrCfg = { new0 ->

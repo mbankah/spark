@@ -56,7 +56,7 @@ fun walkthroughPages(
     )),
     WalkPage("start", WalkArt.START, "START", "Two things first, then three pages", listOf(
         "Switch on blocking and choose your block list. Then import your timetable: Setup shows the file format an AI can write for you.",
-        "Swipe left for the Schedule, and again for Work it out. The gear opens Setup, and this walkthrough is there too.",
+        "Swipe left for the Schedule, and again for Right now. The gear opens Setup, and this walkthrough is there too.",
     )),
 )
 

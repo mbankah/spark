@@ -139,7 +139,7 @@ def d_map():
     d.edge('count', 'b', 'guard', 'r', 'earned|access', fa=.35, fb=.5)
     d.edge('ctx', 'r', 'night', 'l', 'place, clock,|time zone')
     d.node('sur', 30, 520, 1130, 160, 'Surfaces: where you see and tap all of the above', ['Several systems are drawn on more than one surface, so one fact can be shown in five places.'], k='sur')
-    names = [('Home', 'now, next, needs'), ('Schedule page', 'the calendar'), ('Work it out', 'about 20 sections'), ('Block screen', 'up to 4 cards'), ('Setup', '23 cards'), ('Lock screen', 'cycle, alarm, reminders'), ('Alarm screen', 'steps, photo')]
+    names = [('Home', 'now, next, needs'), ('Schedule page', 'the calendar'), ('Right now', 'what is true now, 7 shelves'), ('Block screen', 'up to 4 cards'), ('Setup', '5 shelves'), ('Lock screen', 'cycle, alarm, reminders'), ('Alarm screen', 'steps, photo')]
     for i, (n, s) in enumerate(names):
         d.node(f's{i}', 44 + i * 160, 596, 148, 62, n, [s], k='sur', style='ext')
     d.badge(668, 70, 1); d.badge(700, 70, 2); d.badge(732, 70, 3); d.badge(764, 70, 5)
@@ -442,10 +442,10 @@ GAPS = [
      'RoutinePrompts.kt:10-17', 'A block carries its routine id and its steps. The runner page goes.'),
     (6, 'The plan had eight doors.', 'Home hero chips, Something came up, Quick add and Voice, and four Setup cards: Modify Schedule, Days off, Library, Timetable file. Modify Schedule describes a period off and the library again in its own text. Adapt is the eighth, and it is automatic.',
      'HomeScreen.kt:241-244; SetupScreen.kt:74-84, 207-225', 'Done 20 Nov (CD1): one Change the plan door; the four Setup cards moved into it. Work it out and Quick add still have their own entries.'),
-    (7, 'Setup is 27 cards of three kinds.', 'Do-it-now actions (Modify, Days off, Library, Timetable, Shopping, Widgets), settings (Appearance, Quiet mode, Voice) and permission checks (Blocking, Notifications, Sleep, Browsers). Reminders are spread over five cards: Photo, Meals, Lecture code, Study cycle and Quiet mode.',
-     'SetupScreen.kt:63-253', 'Part done 20 Nov (CD3): the change cards and the wake card are out of Setup (27 cards down to 23). Reminders and the permission checks are still to group (table below).'),
-    (8, 'Work it out is a drawer of about 20 sections.', 'Emergency, mood, parked ideas, rewards, winter vacation, what-if sleep, Lite day, coach voice, your reminders, family home, permissions and more. Permissions are also in Setup, Lite day is also automatic through Adapt, and Emergency is also three chips on Home.',
-     'WorkItOutScreen.kt, WorkItOutMore.kt, WorkItOutExtra.kt', 'Shrink it to Right now; the rest goes where it belongs (table below).'),
+    (7, 'Setup was 27 cards of three kinds.', 'Do-it-now actions (Modify, Days off, Library, Timetable, Shopping, Widgets), settings (Appearance, Quiet mode, Voice) and permission checks (Blocking, Notifications, Sleep, Browsers). Reminders are spread over five cards: Photo, Meals, Lecture code, Study cycle and Quiet mode.',
+     'SetupScreen.kt:63-253', 'Done 20 Nov (CD3, SH2): the change cards and the wake card moved to the door, and Setup is the Change card and five shelves, with the reminders in one card (table below).'),
+    (8, 'Work it out was a drawer of about 20 sections.', 'Emergency, mood, parked ideas, rewards, winter vacation, what-if sleep, Lite day, coach voice, your reminders, family home, permissions and more. Permissions are also in Setup, Lite day is also automatic through Adapt, and Emergency is also three chips on Home.',
+     'WorkItOutScreen.kt, WorkItOutMore.kt, WorkItOutExtra.kt', 'Done 20 Nov (SH3): the page is Right now; the rest is on shelves, and the reminders, family home and permissions moved to Setup (table below).'),
 ]
 
 SYSTEMS = [
@@ -482,13 +482,13 @@ SETUP_ROWS = [
 ]
 
 WORK_ROWS = [
-    ('Moved for you; Today looks like', 'Stay: this is Right now'),
-    ('Lite day; After a short night', 'Stay, and say when Adapt turned it on'),
-    ('What if sleep later; Tomorrow\'s fun; Winter vacation', 'Move to the Change door as things you can say'),
-    ('Emergency; I am out; Lost phone', 'One Emergency shelf, reached from the Home chips'),
-    ('Routine runner', 'Goes: the block carries its steps (gap 5)'),
-    ('How are you; Park an idea; Cannot sleep; Coach; Your rewards', 'One calm shelf: Notes and calm'),
-    ('Your reminders; Permissions; Family home; Your data', 'Move to Setup groups'),
+    ('Moved for you; Today looks like', 'Shown: this is Right now'),
+    ('Lite day; After a short night', 'Shown'),
+    ('What if sleep later; Tomorrow\'s fun; Winter vacation', 'Shelves: Change something and Plan tomorrow (not yet in the Change door)'),
+    ('Emergency; I am out; Lost phone', 'The Emergency shelf (Home still has the three chips)'),
+    ('Routine runner', 'Stays shown for now: a block does not carry its own steps yet (gap 5)'),
+    ('How are you; Park an idea; Cannot sleep; Your rewards', 'The shelf Calm and notes; the coach has its own'),
+    ('Your reminders; Permissions; Family home; Your data', 'Moved to Setup'),
 ]
 
 VR_ROWS = [
@@ -608,7 +608,7 @@ def build(simple=True):
     out.append('<div class="wrap">')
     out.append('<div class="kicker">Spark · read from the code, 20 November 2026</div>')
     out.append('<h1>Spark is one loop, and the fix is three moves.</h1>')
-    out.append('<p class="lead">Read from the code. Moves 1 and 2 (the door) and the confirmation system are built (20 November 2026); move 3 and the rest of the gaps are proposed. The detail behind this page, with every system and the eight gaps, is folded at the bottom.</p>')
+    out.append('<p class="lead">Read from the code. All three moves and the confirmation system are built (20 November 2026). Still to do: a block carrying its own steps so the runner page can go, and what a held start is worth if you change your mind. The detail behind this page, with every system and the eight gaps, is folded at the bottom.</p>')
     out.append('<nav class="nv" aria-label="Sections"><a href="#one">One picture</a><a href="#moves">Three moves</a><a href="#need">Decisions made</a></nav>')
 
     out.append('<h2 id="one">Spark in one picture</h2>')
@@ -618,7 +618,7 @@ def build(simple=True):
     out.append('<div class="gl">')
     for n, t, b in [(1, 'One Start per block (built)', 'A block has one hold to start it. Its type picks the engine: study runs the cycle, a routine runs its own steps, anything else is a plain run. It writes one run record, and the Coach, Count, Guard and every screen read that.'),
                     (2, 'One door for change (built)', 'Late, over, came up, a new deadline, a day off, the library, a file and a week or period are all said in one place, Change the plan, and each shows what it does, what it costs and applies it. The wake time now moves the morning too. Still to do: a block carrying its own steps so the runner page can go.'),
-                    (3, 'Fewer, plainer screens', 'Setup becomes five groups and loses its action cards. Work it out becomes Right now. Reminders become one list.')]:
+                    (3, 'Fewer, plainer screens (built)', 'Setup is the Change card and five shelves, with the reminders in one card. Work it out is Right now: what is true now, and the rest on shelves.')]:
         out.append(f'<div class="gi"><div class="gn" style="background:var(--ink)">{n}</div><div><h4>{esc(t)}</h4><p>{esc(b)}</p></div></div>')
     out.append('</div>')
     out.append('<h2 id="need">Decisions made</h2>')
@@ -659,8 +659,8 @@ def build(simple=True):
 
     out.append('<h2 id="setup">Setup and Work it out, regrouped</h2>')
     out.append('<p>Both pages mix three kinds of thing: actions you take now, settings you leave alone, and checks that a permission is on. Grouping by kind, and moving the actions into the Change door, gives Setup five groups instead of 27 cards.</p>')
-    out.append(table(['Setup group (proposed)', 'What goes in it'], SETUP_ROWS))
-    out.append(table(['Work it out today', 'Proposed'], WORK_ROWS))
+    out.append(table(['Setup shelf (built)', 'What is in it'], SETUP_ROWS))
+    out.append(table(['Work it out was', 'Now (built)'], WORK_ROWS))
 
     out.append('<h2 id="vr">VRNPM: what it has to answer</h2>')
     out.append('<p>You asked for the settings to be precise about what happens in each circumstance. The ledger rows VR1 to VR14 say how the cycle runs when nothing goes wrong. They do not say what to do in these cases, so the app does whatever the code happens to do. Each needs a decision before more settings are added.</p>')

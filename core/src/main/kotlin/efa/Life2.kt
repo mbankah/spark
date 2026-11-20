@@ -23,7 +23,7 @@ val LOST_PHONE_STEPS: List<String> = listOf(
     "Use another phone or the PC to call your own number, then your network to block the SIM if it is stolen.",
     "Find My Device (Google) can ring, lock or locate it from any browser.",
     "Your day is on the PC and web view of Spark if you set it up (G9). Your alarm will not ring; set one on another device.",
-    "On a new phone, install Spark, open Work it out, Restore from a backup file, and choose your latest spark-backup file from Downloads/Spark.",
+    "On a new phone, install Spark, open Right now, open Your data and help, Restore from a backup file, and choose your latest spark-backup file from Downloads/Spark.",
     "Then give the permissions on the list Spark shows.",
 )
 

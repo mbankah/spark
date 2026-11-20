@@ -100,7 +100,7 @@ object Backup {
 
 /**
  * SL9: greyscale at wind-down. It needs a permission granted once from the PC (adb shell pm grant app.efa android.permission.WRITE_SECURE_SETTINGS). Without it nothing changes and
- * the Work it out page says how to grant it. Spark only turns greyscale off if Spark turned it on, so your own setting is never overridden.
+ * the Right now page says how to grant it. Spark only turns greyscale off if Spark turned it on, so your own setting is never overridden.
  */
 object WindDown {
     const val COMMAND = "adb shell pm grant app.efa android.permission.WRITE_SECURE_SETTINGS"

@@ -222,7 +222,7 @@ class LifeScreenTest {
 
     @Test fun HS4_the_third_page_offers_today_the_what_if_the_winter_arc_and_the_small_helpers_and_changes_nothing() {
         rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }) } }
-        rule.onAllNodesWithText("Work it out").onFirst().assertExists()
+        rule.onAllNodesWithText("Right now").onFirst().assertExists()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("TODAY LOOKS LIKE").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("WHAT IF: SLEEP LATER OR EARLIER TONIGHT").performScrollTo().assertExists()
         rule.onNodeWithText("WINTER VACATION, 14 DEC TO 8 JAN").performScrollTo().assertExists()
@@ -236,7 +236,7 @@ class LifeScreenTest {
         rule.setContent { EfaTheme { HomeScreen(HomeState(date = "Thu 19 Nov", phone = null, phoneOpen = true, time = "01:00", buffer = BufferState.NoDeadline, nowLabel = null, nowTitle = null, nowDetail = null, freeToSpendPence = null), {}, {}, third = { WorkItOutScreen(db, { _, _ -> }) }) } }
         rule.onNodeWithContentDescription("Schedule page").performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Schedule", substring = true).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithContentDescription("Work it out page").performClick()
+        rule.onNodeWithContentDescription("Right now page").performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Get up.").fetchSemanticsNodes().isNotEmpty() }
         for (s in listOf("Get up.", "Low light.", "No phone.", "Back to bed at 20 minutes.")) rule.onNodeWithText(s).performScrollTo().assertExists()
     }
@@ -262,6 +262,7 @@ class LifeScreenTest {
         rule.onNodeWithContentDescription("Idea").performScrollTo().performTextInput("A better wake plan")
         rule.onNodeWithContentDescription("Park this idea").performScrollTo().performClick()
         rule.waitUntil(5_000) { runBlocking { db.meta().get(META_IDEAS).orEmpty().contains("A better wake plan") } }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("A better wake plan").fetchSemanticsNodes().isNotEmpty() }          // the list reloads from storage a moment after it is saved
         rule.onNodeWithText("A better wake plan").performScrollTo().assertExists()
         assertFalse(opened, "parking an idea opens no plan change")
         assertEquals(0, runBlocking { db.modifiers().all().size })
@@ -341,7 +342,7 @@ class LifeScreenTest {
         rule.onNodeWithContentDescription("Buffer.", substring = true).assertDoesNotExist()
     }
 
-    @Test fun EM2_EM5_HO4_CT4_the_third_page_has_out_the_lost_phone_steps_the_support_routes_and_the_permission_list() {
+    @Test fun EM2_EM5_HO4_CT4_the_third_page_has_out_the_lost_phone_steps_the_support_routes() {
         rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }) } }
         rule.waitUntil(5_000) { rule.onAllNodesWithText("I AM OUT").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("I AM OUT").performScrollTo().assertExists()
@@ -351,11 +352,9 @@ class LifeScreenTest {
         rule.onNodeWithText("Find My Device", substring = true).performScrollTo().assertExists()
         rule.onNodeWithText("Reasonable Adjustment Plan", substring = true).performScrollTo().assertExists()
         rule.onNodeWithText("Coursework extension", substring = true).performScrollTo().assertExists()
-        rule.onNodeWithText("PERMISSIONS (AFTER A REINSTALL OR PHONE UPDATE)").performScrollTo().assertExists()
-        rule.onNodeWithText("Notifications", substring = true).performScrollTo().assertExists()
     }
 
-    @Test fun SL4_SL6_CO11_tomorrows_fun_opens_a_preview_the_tone_is_kept_and_a_reminder_is_stored() {
+    @Test fun SL4_CO11_tomorrows_fun_opens_a_preview_and_the_tone_is_kept() {
         var opened: Instance? = null
         rule.setContent { EfaTheme { WorkItOutScreen(db, { i, _ -> opened = i }) } }
         rule.waitUntil(5_000) { rule.onAllNodesWithText("TOMORROW'S FUN").fetchSemanticsNodes().isNotEmpty() }
@@ -364,6 +363,10 @@ class LifeScreenTest {
         assertEquals(Preset.ADD_EVENT, opened?.preset); assertEquals("Game night", opened?.str("title"))
         rule.onNodeWithContentDescription("Tone Plain").performScrollTo().performClick()
         rule.waitUntil(5_000) { runBlocking { db.meta().get(META_TONE) == "PLAIN" } }
+    }
+
+    @Test fun SL6_SH2_a_reminder_is_stored_from_Setup_where_your_reminders_are_now() {
+        rule.setContent { EfaTheme { SetupScreen(PlacesState(null, emptyList()), {}, {}, {}, db = db) } }
         rule.onNodeWithContentDescription("Reminder name").performScrollTo().performTextInput("Test reminder")
         rule.onNodeWithContentDescription("Add the reminder").performScrollTo().performClick()
         rule.waitUntil(5_000) { runBlocking { db.meta().get(META_REMINDERS).orEmpty().contains("Test reminder") } }

@@ -27,7 +27,7 @@ private val RUNNABLE: List<Routine> get() = listOf(BIBLE, WAKE, GETTING_READY, S
  * the night allow, shows its steps one by one, accepts a tap or a registered tag, and says plainly which steps are photo steps done on the home screen.
  */
 @Composable
-fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit) {
+fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit, part: WioPart) {
     val c = LocalColors.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -56,7 +56,7 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
         }
     }
     val launched = RoutineLaunch.pending
-    LaunchedEffect(launched) { if (launched != null) { RoutineLaunch.pending = null; (RUNNABLE + ROUTINES).firstOrNull { it.id == launched }?.let(begin) } }
+    LaunchedEffect(launched) { if (part == WioPart.NOW && launched != null) { RoutineLaunch.pending = null; (RUNNABLE + ROUTINES).firstOrNull { it.id == launched }?.let(begin) } }
 
     LaunchedEffect(tick) {
         withContext(Dispatchers.IO) {
@@ -70,6 +70,7 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
     LaunchedEffect(running, nfcOn) { while (running != null || (nfcOn && Nfc.registering != null)) { delay(1500); tick++ } }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (part == WioPart.NOW) {
         // RT, CO: the runner
         Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label("RUN A ROUTINE")
@@ -126,6 +127,7 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
             identityLine(identity, done.size, System.currentTimeMillis() / 86_400_000L)?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
         }
 
+        } else Shelf("Tools", "NFC tags, sleep audio, break glass") {
         // SL2: NFC, an option
         Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label("NFC TAGS (OPTIONAL)")
@@ -198,6 +200,7 @@ fun WorkItOutExtra(db: EfaDb, onWall: (String, String, Int, () -> Unit) -> Unit)
                 }
             }, modifier = Modifier.fillMaxWidth(), description = "Break glass")
             else BasicText("Used in the last 30 days.", style = Ts(c.text, 14.sp))
+        }
         }
     }
 }

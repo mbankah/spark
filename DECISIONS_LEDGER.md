@@ -961,6 +961,19 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 59. Shelves: Setup and Right now
+
+Added on 20 November 2026 at your request ("yes, build it", move 3 of the systems map). The class: a page with many things on it shows what matters and names the rest, so nothing has to be hunted for and nothing is shown that is not needed.
+
+The coherence check for this change: it is owned by Surfaces; it reads and writes nothing new, since every card keeps its own behaviour; it replaces the page Work it out with Right now and moves three of its sections to Setup, where the same kind of setting already was; a thing that was in two places (the permission checks, the reminders, the places) is now in one; a folded shelf starts folded and remembers nothing, so the page is the same every time you open it; it is proven by tests with the shelves folded, and the other tests run with them open.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| SH1 | A shelf is a group of cards under one heading and a line saying what is inside. It starts folded, a tap opens it and a tap folds it. | Default; built, tested on the emulator |
+| SH2 | Setup is the Change the plan card and five shelves: Permissions and health (blocking, notifications, the sleep log, browsers, Health Connect and the permission list), Reminders (photos, meals, lecture codes and quiet mode in one card, and your own reminders), Morning and study (the morning photos and the study cycle), Look and home (type to open, appearance, widgets, voice, your home, the family home and the lecture venues) and Links and tools (the university, a Windows PC, GitHub, the shopping list and the walkthrough). Your reminders, the family home and the permission list moved here from the third page. | Default; built, tested on the emulator |
+| SH3 | The third page is Right now (it was Work it out). It shows what is true now: what Spark moved for you, what today looks like, lite day, the nap offer after a short night, the routine runner and today's wins. The rest is on shelves: Change something (sleep later or earlier tonight, the winter vacation), Calm and notes (how you are, a place for ideas, your rewards, when you cannot sleep), Your data and help, Emergency (the Emergency door, I am out, the lost phone steps and the university's routes), Plan tomorrow, The coach and Tools (NFC tags, sleep audio, break glass). The Emergency door is still one tap from Home. | Default; built, tested on the emulator |
+| SH4 | The shelves start folded in the app. The tests switch them on so every card can be reached, and the shelf tests switch them off. | Default; built |
+
 ## 58. The wake time moves the morning
 
 Added on 20 November 2026 at your request ("yes, do it", gap 4 of the systems map). The class: a wake time is one thing, so choosing it changes the alarm, the Wake block and everything that follows it together.

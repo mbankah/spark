@@ -47,7 +47,7 @@ fun SetupScreen(
     photoReminders: Boolean = true, onPhotoReminders: (Boolean) -> Unit = {},
     mealChecks: Boolean = true, onMealChecks: (Boolean) -> Unit = {},
     quietMode: Boolean = false, onQuietMode: (Boolean) -> Unit = {},
-    onWalkthrough: () -> Unit = {},
+    onWalkthrough: () -> Unit = {}, db: app.efa.data.EfaDb? = null,
     vrCfg: efa.VrConfig = efa.VrConfig(), onVrCfg: (efa.VrConfig) -> Unit = {},
 ) {
     val c = LocalColors.current
@@ -57,160 +57,163 @@ fun SetupScreen(
     ) {
         BasicText("Setup", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("WALKTHROUGH")
-            BasicText("What Spark does, in nine short pages", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("The same tour you see on first open. It takes about two minutes and changes nothing.", style = Ts(c.muted, 14.sp))
-            Btn("Show the walkthrough", onWalkthrough, modifier = Modifier.fillMaxWidth(), description = "Show the walkthrough")
-        }
-        BlockingCard(blocking, onOpenAccessibility, onChooseList)
-        NotificationsCard(notifications, onOpenNotificationAccess, onAllowBufferNotice)
-        SleepCard(sleep, blocking.serviceOn)
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("CHANGE THE PLAN")
             BasicText("Everything that moves the plan, in one place", style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText("Running over, a late start, something that came up, a new deadline, a day off, a library period, a timetable file, a week or period, and the wake time.", style = Ts(c.muted, 14.sp))
             Btn("Change the plan", onChange, primary = true, modifier = Modifier.fillMaxWidth())
         }
 
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("BROWSERS")
-            BasicText("Websites of blocked apps", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("In work blocks Spark reads the address bar of a browser it knows and closes the sites of the apps you blocked, private tabs included. A browser it does not know, a web page inside another app, or a mirror site can slip through.", style = Ts(c.muted, 14.sp))
-            if (browsers.isEmpty()) BasicText("No browser found on this phone.", style = Ts(c.muted, 14.sp))
-            browsers.forEach { b -> BasicText("${b.name}: " + if (b.covered) "covered" else "NOT covered, so its sites are not blocked", style = Ts(c.text, 15.sp, if (b.covered) FontWeight.Normal else FontWeight.Bold)) }
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("TYPE TO OPEN")
-            BasicText("App icons and a grid", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Both are off. The home screen stays text only. A change, on or off, starts tomorrow, so it is decided in advance.", style = Ts(c.muted, 14.sp))
-            val today = java.time.ZonedDateTime.now(efa.LONDON).toLocalDate(); val e = look.effective(today)
-            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val icons = e.pendingIcons ?: e.icons; val grid = e.pendingGrid ?: e.grid
-                Chip(if (icons) "Icons: on" else "Icons: off", icons, { onLook(!icons, null) }, if (icons) "Turn icons off from tomorrow" else "Turn icons on from tomorrow")
-                Chip(if (grid) "Grid: on" else "Grid: off", grid, { onLook(null, !grid) }, if (grid) "Turn the grid off from tomorrow" else "Turn the grid on from tomorrow")
+        Shelf("Permissions and health", "Blocking, notifications, sleep, browsers, permissions") {
+            BlockingCard(blocking, onOpenAccessibility, onChooseList)
+            NotificationsCard(notifications, onOpenNotificationAccess, onAllowBufferNotice)
+            SleepCard(sleep, blocking.serviceOn)
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("BROWSERS")
+                BasicText("Websites of blocked apps", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("In work blocks Spark reads the address bar of a browser it knows and closes the sites of the apps you blocked, private tabs included. A browser it does not know, a web page inside another app, or a mirror site can slip through.", style = Ts(c.muted, 14.sp))
+                if (browsers.isEmpty()) BasicText("No browser found on this phone.", style = Ts(c.muted, 14.sp))
+                browsers.forEach { b -> BasicText("${b.name}: " + if (b.covered) "covered" else "NOT covered, so its sites are not blocked", style = Ts(c.text, 15.sp, if (b.covered) FontWeight.Normal else FontWeight.Bold)) }
             }
-            look.note(today)?.let { BasicText("Pending: $it.", style = Ts(c.text, 14.sp, FontWeight.Bold)) }
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("APPEARANCE")
-            BasicText("Light, Dark, Night, Colourful or Auto", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Only the colours change. Nothing moves and no rule changes. Night is warm and dim. Auto uses Night from the evening cutoff until the alarm is stopped, otherwise Light by day and Dark in the evening.", style = Ts(c.muted, 14.sp))
-            androidx.compose.foundation.layout.Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppearanceMode.entries.forEach { m -> Chip(m.label, m == appearance, { onAppearance(m) }, "Appearance ${m.label}") }
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("WATCH SLEEP, OPTIONAL")
+                BasicText("Health Connect", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("If a watch or band writes sleep to Health Connect, Spark shows its night beside the phone's. It never changes what the phone worked out.", style = Ts(c.muted, 14.sp))
+                Btn("Allow reading sleep", onHealth, modifier = Modifier.fillMaxWidth())
+                if (healthText.isNotEmpty()) BasicText(healthText, style = Ts(c.text, 14.sp, FontWeight.Bold))
             }
+            PermissionsCard()
         }
 
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("WATCH SLEEP, OPTIONAL")
-            BasicText("Health Connect", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("If a watch or band writes sleep to Health Connect, Spark shows its night beside the phone's. It never changes what the phone worked out.", style = Ts(c.muted, 14.sp))
-            Btn("Allow reading sleep", onHealth, modifier = Modifier.fillMaxWidth())
-            if (healthText.isNotEmpty()) BasicText(healthText, style = Ts(c.text, 14.sp, FontWeight.Bold))
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("UNIVERSITY")
-            BasicText("See the university's record", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Opens the MyUoB app. Spark cannot read it, and it counts for nothing as proof.", style = Ts(c.muted, 14.sp))
-            Btn("Check MyUoB", onMyUoB, modifier = Modifier.fillMaxWidth())
-            myUoBNote?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("WINDOWS PC")
-            BasicText("Block the same sites on your PC", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText(pcText.ifEmpty { "No PC linked. Install Spark Guard on the PC first." }, style = Ts(c.muted, 14.sp))
-            Btn("Link a Windows PC", onPc, modifier = Modifier.fillMaxWidth())
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("VOICE")
-            BasicText("Voice quick add", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Say a deadline, like “assignment due Friday, heavy”. A card shows what was heard before anything is saved. Voice can open a day off request or the block list but cannot finish one. Typed quick add is always there.", style = Ts(c.muted, 14.sp))
-            Chip(if (voiceQuietOff) "Voice is off in lectures and the library" else "Voice is on everywhere", voiceQuietOff, { onVoiceQuiet(!voiceQuietOff) }, if (voiceQuietOff) "Turn voice on in lectures and the library" else "Turn voice off in lectures and the library")
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("QUIET MODE")
-            BasicText("Hold everything except essentials", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("In a work block and at night, every notification is held for the digest, except your essentials, calls, alarms, codes and bank alerts, directions, downloads and the phone's own messages. Turning it off needs the wall.", style = Ts(c.muted, 14.sp))
-            Chip(if (quietMode) "Quiet mode: on" else "Quiet mode: off", quietMode, { onQuietMode(!quietMode) }, if (quietMode) "Turn quiet mode off" else "Turn quiet mode on")
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("PHOTO REMINDERS")
-            BasicText("When to take a photo", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("A sound when a photo opens and five minutes before it stops counting in full. The home screen always shows the next one.", style = Ts(c.muted, 14.sp))
-            Chip(if (photoReminders) "Reminders: on" else "Reminders: off", photoReminders, { onPhotoReminders(!photoReminders) }, if (photoReminders) "Turn the photo reminders off" else "Turn the photo reminders on")
-        }
-
-        VrnpmSettingsCard(vrCfg, onVrCfg)
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("MEALS")
-            BasicText("Did you eat?", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("A question ten minutes after each meal, with Ate and Not yet. It changes nothing in your plan and costs nothing.", style = Ts(c.muted, 14.sp))
-            Chip(if (mealChecks) "Questions: on" else "Questions: off", mealChecks, { onMealChecks(!mealChecks) }, if (mealChecks) "Turn the meal questions off" else "Turn the meal questions on")
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("LECTURE CODE")
-            BasicText("Attendance code reminders", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("A reminder at every lecture hour and at each lecture's end, at home or in the room.", style = Ts(c.muted, 14.sp))
-            Chip(if (codeReminders) "Reminders: on" else "Reminders: off", codeReminders, { onCodeReminders(!codeReminders) }, if (codeReminders) "Turn the attendance code reminders off" else "Turn the attendance code reminders on")
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("WIDGETS")
-            BasicText("Edit widgets", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Add, remove, reorder and resize the text widgets. Adding or enlarging starts at midnight.", style = Ts(c.muted, 14.sp))
-            Btn("Edit widgets", onWidgets, modifier = Modifier.fillMaxWidth())
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("SHOPPING")
-            BasicText("Shopping list", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("The weekly basket and the pantry, with prices you can correct from a receipt.", style = Ts(c.muted, 14.sp))
-            Btn("Open the shopping list", onShopping, modifier = Modifier.fillMaxWidth())
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("MORNING")
-            BasicText(morningText.ifBlank { "Not set up." }, style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("A photo of tomorrow's setup stops the alarm, and social stays blocked until the ready photo.", style = Ts(c.muted, 14.sp))
-            Btn("Set up mornings", onMorning, modifier = Modifier.fillMaxWidth())
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("HOME")
-            val h = p.home
-            BasicText(if (h == null) "Not set. Lecture attendance outside the building check needs it." else "Set, to about 100 m. No street or house is stored.", style = Ts(c.text, 16.sp))
-            if (h != null) {
-                val near = venuesNearHome(h, Venues.buildings)
-                if (near.isNotEmpty()) BasicText("Within 250 m of home, so these use the building check only: " + near.joinToString { it.alias } + ".", style = Ts(c.muted, 14.sp))
+        Shelf("Reminders", "Photos, meals, lecture codes, quiet mode, your own reminders") {
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Label("REMINDERS AND QUIET")
+                BasicText("Each one can be switched off here.", style = Ts(c.muted, 14.sp))
+                SwitchRow("Photos", "A sound when a photo opens and five minutes before it stops counting in full.") {
+                    Chip(if (photoReminders) "Reminders: on" else "Reminders: off", photoReminders, { onPhotoReminders(!photoReminders) }, if (photoReminders) "Turn the photo reminders off" else "Turn the photo reminders on")
+                }
+                SwitchRow("Did you eat?", "A question ten minutes after each meal, with Ate and Not yet. It changes nothing in your plan.") {
+                    Chip(if (mealChecks) "Questions: on" else "Questions: off", mealChecks, { onMealChecks(!mealChecks) }, if (mealChecks) "Turn the meal questions off" else "Turn the meal questions on")
+                }
+                SwitchRow("Lecture codes", "A reminder at every lecture hour and at each lecture's end, at home or in the room.") {
+                    Chip(if (codeReminders) "Reminders: on" else "Reminders: off", codeReminders, { onCodeReminders(!codeReminders) }, if (codeReminders) "Turn the attendance code reminders off" else "Turn the attendance code reminders on")
+                }
+                SwitchRow("Quiet mode", "In a work block and at night every notification is held for the digest, except your essentials. Turning it off needs the wall.") {
+                    Chip(if (quietMode) "Quiet mode: on" else "Quiet mode: off", quietMode, { onQuietMode(!quietMode) }, if (quietMode) "Turn quiet mode off" else "Turn quiet mode on")
+                }
             }
-            Btn(if (h == null) "Set home on the map" else "Move home on the map", onHome, primary = h == null, modifier = Modifier.fillMaxWidth())
+            if (db != null) OwnRemindersCard(db)
         }
 
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("LECTURE VENUES")
-            BasicText("Points come from OpenStreetMap. Tap a venue to place it on the map yourself. Each placement is logged.", style = Ts(c.muted, 14.sp))
-            p.venues.sortedByDescending { it.point == null }.forEach { v ->
-                val text = "${v.venueText}: ${if (v.point == null) "NOT FOUND, place it on the map" else v.source}"
-                Column(
-                    Modifier.fillMaxWidth().clickable(role = Role.Button) { onVenue(v) }.padding(vertical = 8.dp)
-                        .semantics { contentDescription = "$text. Tap to place on the map." },
-                ) {
-                    BasicText(v.venueText, style = Ts(c.text, 16.sp, FontWeight.Medium))
-                    BasicText(if (v.point == null) "Not found. Place it on the map." else v.source, style = Ts(c.muted, 14.sp))
+        Shelf("Morning and study", "The morning photos and the study cycle") {
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("MORNING")
+                BasicText(morningText.ifBlank { "Not set up." }, style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("A photo of tomorrow's setup stops the alarm, and social stays blocked until the ready photo.", style = Ts(c.muted, 14.sp))
+                Btn("Set up mornings", onMorning, modifier = Modifier.fillMaxWidth())
+            }
+            VrnpmSettingsCard(vrCfg, onVrCfg)
+        }
+
+        Shelf("Look and home", "Appearance, widgets, voice, your home, the family home, lecture venues") {
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("TYPE TO OPEN")
+                BasicText("App icons and a grid", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("Both are off. The home screen stays text only. A change, on or off, starts tomorrow, so it is decided in advance.", style = Ts(c.muted, 14.sp))
+                val today = java.time.ZonedDateTime.now(efa.LONDON).toLocalDate(); val e = look.effective(today)
+                androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val icons = e.pendingIcons ?: e.icons; val grid = e.pendingGrid ?: e.grid
+                    Chip(if (icons) "Icons: on" else "Icons: off", icons, { onLook(!icons, null) }, if (icons) "Turn icons off from tomorrow" else "Turn icons on from tomorrow")
+                    Chip(if (grid) "Grid: on" else "Grid: off", grid, { onLook(null, !grid) }, if (grid) "Turn the grid off from tomorrow" else "Turn the grid on from tomorrow")
+                }
+                look.note(today)?.let { BasicText("Pending: $it.", style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+            }
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("APPEARANCE")
+                BasicText("Light, Dark, Night, Colourful or Auto", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("Only the colours change. Nothing moves and no rule changes. Night is warm and dim. Auto uses Night from the evening cutoff until the alarm is stopped, otherwise Light by day and Dark in the evening.", style = Ts(c.muted, 14.sp))
+                androidx.compose.foundation.layout.Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppearanceMode.entries.forEach { m -> Chip(m.label, m == appearance, { onAppearance(m) }, "Appearance ${m.label}") }
+                }
+            }
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("WIDGETS")
+                BasicText("Edit widgets", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("Add, remove, reorder and resize the text widgets. Adding or enlarging starts at midnight.", style = Ts(c.muted, 14.sp))
+                Btn("Edit widgets", onWidgets, modifier = Modifier.fillMaxWidth())
+            }
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("VOICE")
+                BasicText("Voice quick add", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("Say a deadline, like “assignment due Friday, heavy”. A card shows what was heard before anything is saved. Voice can open a day off request or the block list but cannot finish one. Typed quick add is always there.", style = Ts(c.muted, 14.sp))
+                Chip(if (voiceQuietOff) "Voice is off in lectures and the library" else "Voice is on everywhere", voiceQuietOff, { onVoiceQuiet(!voiceQuietOff) }, if (voiceQuietOff) "Turn voice on in lectures and the library" else "Turn voice off in lectures and the library")
+            }
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("HOME")
+                val h = p.home
+                BasicText(if (h == null) "Not set. Lecture attendance outside the building check needs it." else "Set, to about 100 m. No street or house is stored.", style = Ts(c.text, 16.sp))
+                if (h != null) {
+                    val near = venuesNearHome(h, Venues.buildings)
+                    if (near.isNotEmpty()) BasicText("Within 250 m of home, so these use the building check only: " + near.joinToString { it.alias } + ".", style = Ts(c.muted, 14.sp))
+                }
+                Btn(if (h == null) "Set home on the map" else "Move home on the map", onHome, primary = h == null, modifier = Modifier.fillMaxWidth())
+            }
+            if (db != null) FamilyHomeCard(db)
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("LECTURE VENUES")
+                BasicText("Points come from OpenStreetMap. Tap a venue to place it on the map yourself. Each placement is logged.", style = Ts(c.muted, 14.sp))
+                p.venues.sortedByDescending { it.point == null }.forEach { v ->
+                    val text = "${v.venueText}: ${if (v.point == null) "NOT FOUND, place it on the map" else v.source}"
+                    Column(
+                        Modifier.fillMaxWidth().clickable(role = Role.Button) { onVenue(v) }.padding(vertical = 8.dp)
+                            .semantics { contentDescription = "$text. Tap to place on the map." },
+                    ) {
+                        BasicText(v.venueText, style = Ts(c.text, 16.sp, FontWeight.Medium))
+                        BasicText(if (v.point == null) "Not found. Place it on the map." else v.source, style = Ts(c.muted, 14.sp))
+                    }
                 }
             }
         }
-        GitCard(p.git, onGit)
+
+        Shelf("Links and tools", "The university, a Windows PC, GitHub, the shopping list, the walkthrough") {
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("UNIVERSITY")
+                BasicText("See the university's record", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("Opens the MyUoB app. Spark cannot read it, and it counts for nothing as proof.", style = Ts(c.muted, 14.sp))
+                Btn("Check MyUoB", onMyUoB, modifier = Modifier.fillMaxWidth())
+                myUoBNote?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+            }
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("WINDOWS PC")
+                BasicText("Block the same sites on your PC", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText(pcText.ifEmpty { "No PC linked. Install Spark Guard on the PC first." }, style = Ts(c.muted, 14.sp))
+                Btn("Link a Windows PC", onPc, modifier = Modifier.fillMaxWidth())
+            }
+            GitCard(p.git, onGit)
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("SHOPPING")
+                BasicText("Shopping list", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("The weekly basket and the pantry, with prices you can correct from a receipt.", style = Ts(c.muted, 14.sp))
+                Btn("Open the shopping list", onShopping, modifier = Modifier.fillMaxWidth())
+            }
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Label("WALKTHROUGH")
+                BasicText("What Spark does, in nine short pages", style = Ts(c.text, 16.sp, FontWeight.Bold))
+                BasicText("The same tour you see on first open. It takes about two minutes and changes nothing.", style = Ts(c.muted, 14.sp))
+                Btn("Show the walkthrough", onWalkthrough, modifier = Modifier.fillMaxWidth(), description = "Show the walkthrough")
+            }
+        }
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** SH2: a setting with a line that says what it does and its switch on the right. */
+@Composable
+private fun SwitchRow(title: String, text: String, switch: @Composable () -> Unit) {
+    val c = LocalColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        BasicText(title, style = Ts(c.text, 16.sp, FontWeight.Bold))
+        BasicText(text, style = Ts(c.muted, 14.sp))
+        switch()
     }
 }
 

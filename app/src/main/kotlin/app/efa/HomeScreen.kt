@@ -152,7 +152,7 @@ private fun DockIcon(kind: String, color: androidx.compose.ui.graphics.Color) {
 private fun PageDots(page: Int, count: Int, onPage: (Int) -> Unit) {
     val c = LocalColors.current
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        listOf("Home" to 0, "Schedule" to 1, "Work it out" to 2).take(count).forEach { (name, i) ->
+        listOf("Home" to 0, "Schedule" to 1, "Right now" to 2).take(count).forEach { (name, i) ->
             Box(
                 Modifier.heightIn(min = 32.dp).widthIn(min = 48.dp).clickable(role = Role.Tab) { onPage(i) }.semantics { contentDescription = "$name page" + if (page == i) ", showing" else "" },
                 contentAlignment = Alignment.Center,

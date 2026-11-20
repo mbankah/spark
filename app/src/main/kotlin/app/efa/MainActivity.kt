@@ -78,7 +78,7 @@ private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where 
 
 /** Everything the screens need, loaded from the database. null pattern means the database failed (X7). */
 private class Loaded(val pattern: List<PatternSlot>?, val tasks: List<TaskRow>, val verified: Set<String> = emptySet(), val periods: List<PlannedPeriodRow> = emptyList(), val moved: List<String> = emptyList(), val sleep: SleepStatus = SleepStatus(),
-    val shortSleep: Boolean = false, val money: MoneyView? = null, val earnings: List<Earning> = emptyList())
+    val shortSleep: Boolean = false, val money: MoneyView? = null, val earnings: List<Earning> = emptyList(), val runs: Map<String, RunRecord> = emptyMap())
 
 class MainActivity : ComponentActivity() {
     /** An action asked for by the Buffer notification (LA11), consumed by the screen state once. */
@@ -468,7 +468,7 @@ class MainActivity : ComponentActivity() {
                             val firstUse = db.meta().get(META_FIRST_USE)?.toLongOrNull() ?: nowZ.toInstant().toEpochMilli()
                             val rewards = RewardsRepo(db)
                             Loaded(pattern, db.tasks().open(), repo.verifiedKeys(), PlanRepo(db).periods(), moved, sleep,
-                                isShortSleepToday(db, nowZ), rewards.view(pattern, firstUse, nowZ), rewards.earnings(nowZ))
+                                isShortSleepToday(db, nowZ), rewards.view(pattern, firstUse, nowZ), rewards.earnings(nowZ), app.efa.data.RunRepo(db).forDay(nowZ.toLocalDate()))
                         } catch (e: Exception) { Loaded(null, emptyList()) }   // never show a wrong schedule or Buffer
                     }
                 }
@@ -572,7 +572,7 @@ class MainActivity : ComponentActivity() {
                                 nowFraction = nowRow?.let { r -> if (r.startAt == null || r.endAt == null) null else (java.time.Duration.between(r.startAt, clock).toMillis().toFloat() / java.time.Duration.between(r.startAt, r.endAt).toMillis().coerceAtLeast(1)).coerceIn(0f, 1f) },
                                 progressFraction = l?.money?.week?.takeIf { it.plannedHours > 0 }?.let { (it.verifiedHours / it.plannedHours).toFloat() },
                                 schedule = sched,
-                                nowOpensBlock = nowRow?.photo != null,
+                                nowOpensBlock = nowRow?.photo != null || nowRow?.slot?.let { ds -> isRunnable(ds.slot) || routineForSlot(ds.slot) != null } == true,
                                 next = hb.next.map { NextRow(it.start, it.title, it.detail) },
                                 freeToSpendPence = l?.money?.takeIf { it.live }?.week?.money?.freeToSpendPence,      // G6: record-only for the first 14 days
                                 progress = l?.money?.week?.takeIf { it.plannedHours > 0 }?.progress(),
@@ -597,6 +597,7 @@ class MainActivity : ComponentActivity() {
                                 review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
+                                strip = l?.pattern?.let { p -> dayStrip(slotsFor(p, clock.toLocalDate(), clock.zone), l.runs, clock) }.orEmpty(),
                             ),
                             onEssential = { key -> launchEssential(key) },
                             onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
@@ -636,7 +637,7 @@ class MainActivity : ComponentActivity() {
                             third = { WorkItOutScreen(db, moved = l?.moved.orEmpty(), onOpenPlan = { inst, preview -> modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
                                 if (preview) scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) } },
                                 onWall = { title, text, len, action -> wallBack = Screen.HOME; wallLength = len; wall = Triple(title, text, action); screen = Screen.GATE }) },
-                            onNow = { nowRow?.photo?.slot?.let { selected = it; screen = Screen.BLOCK } },
+                            onNow = { (nowRow?.photo?.slot ?: nowRow?.slot?.takeIf { ds -> isRunnable(ds.slot) || routineForSlot(ds.slot) != null })?.let { selected = it; screen = Screen.BLOCK } },
                             onProofDue = { l?.pattern?.let { p -> proofDue(p, clock, l.verified).firstOrNull() }?.let { selected = it; screen = Screen.BLOCK } },
                             onPhoto = { photoFocus?.slot?.let { selected = it; screen = Screen.BLOCK } ?: run { screen = Screen.MORNING } },
                             onBuffer = { if (buffer is BufferState.Value) screen = Screen.WORKING },
@@ -656,12 +657,23 @@ class MainActivity : ComponentActivity() {
                             override suspend fun checkCommit(ds: DatedSlot, now: ZonedDateTime): Verdict = repo.checkCommit(ds, now)
                             override suspend fun rewardLines(ds: DatedSlot, creditedMin: Int): List<String> =
                                 verifiedLines(ds.slot, java.time.Duration.between(ds.start, ds.end).toMinutes().toInt(), creditedMin, l?.pattern.orEmpty(), ZonedDateTime.now(ds.start.zone))
+                            override suspend fun runRecord(ds: DatedSlot): RunRecord? = app.efa.data.RunRepo(db).get(ds)
+                            override suspend fun runStart(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).start(ds, nowMs)
+                            override suspend fun runFinish(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).finish(ds, nowMs)
+                            override suspend fun runSkip(ds: DatedSlot, reason: String) = app.efa.data.RunRepo(db).skip(ds, reason)
                             override suspend fun conversionNote(ds: DatedSlot): String? =
                                 if (!isConversion(ds.slot)) null else db.overlay().conversion(ds.plannedDay.toString(), ds.slot.startMin)?.reason
                                     ?.let { "$it. A free slot is assigned the night before and does not change in the moment without the typed wall." }
                             override suspend fun currentFix(): Fix? = LocationFix.current(applicationContext)
                             override fun hasLocationPermission() = LocationFix.hasPermission(applicationContext)
-                        }, onBack = { reload++; screen = Screen.HOME }, onStartRoutine = { id -> RoutineLaunch.pending = id; reload++; screen = Screen.HOME }, onTurnBack = { slot ->
+                        }, onBack = { reload++; screen = Screen.HOME }, onStartRoutine = { id -> RoutineLaunch.pending = id; reload++; screen = Screen.HOME },
+                            onShift = { m ->
+                                // ST2: a late start or an overrun is the same event as Running over: the preview says what slides, and nothing changes until it is applied
+                                val today = ZonedDateTime.now(LONDON).toLocalDate(); val inst = Instance(Preset.RUN_OVER, today, today, mapOf("minutes" to m.toString()))
+                                modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                                scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) }
+                            },
+                            onCameUp = { reload++; screen = Screen.CAME_UP }, onTurnBack = { slot ->
                             wallBack = Screen.HOME; wallLength = efa.WallLength.FREE_SLOT_CHANGE
                             wall = Triple("Make it a break", "This was free time that the Buffer turned into work. Type the characters below by hand to turn it back. It will not be turned into work again.", {
                                 scope.launch(Dispatchers.IO) { PlanRepo(db).turnBack(db, slot.plannedDay, slot.slot.startMin, slot.slot.endMin + RESET_MIN, System.currentTimeMillis()); BlockingState.refresh(applicationContext); reload++ }

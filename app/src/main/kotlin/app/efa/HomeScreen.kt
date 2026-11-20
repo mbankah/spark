@@ -82,6 +82,7 @@ data class HomeState(
     val evening: Boolean = false,        // HM1: from 21:00 the evening offers "Bed later tonight"
     val lite: Boolean = false,          // LT1: the home shows now, next and the phone, nothing else
     val mode: efa.HomeMode = efa.HomeMode.FREE,   // HS1, HS2: the home follows the moment; a running block, the wind-down and the night show only what matters
+    val strip: List<efa.StripBlock> = emptyList(),   // ST3: today's blocks drawn as planned against what happened
     val adapt: AdaptView = AdaptView(),           // AD: a drift to answer, the step the day is on, the three things that matter
 )
 
@@ -191,6 +192,7 @@ private fun HomePage(
         if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read.")
         else if (efa.WidgetKind.NOW_NEXT in s.widgets) NowHero(s, onNow, onReality)
         if (!s.unavailable && (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite)) NextCard(if (s.lite) s.next.take(2) else s.next)
+        if (!s.unavailable && !s.lite && s.strip.isNotEmpty()) DayStrip(s.strip, s.time.split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) })
         needs.take(if (allNeeds) needs.size else 2).forEach { it() }
         if (needs.size > 2 && !allNeeds) Chip("${needs.size - 2} more waiting", false, { allNeeds = true }, "Show ${needs.size - 2} more things waiting for you")
         s.adapt.levelLine?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }

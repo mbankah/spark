@@ -27,6 +27,8 @@ data class ScheduleRow(
     val photo: PhotoDue? = null,
     /** When it starts and ends, so Now and Next on the home screen can be read from these same rows. */
     val startAt: ZonedDateTime? = null, val endAt: ZonedDateTime? = null,
+    /** The block itself, so the home can open it (ST2). */
+    val slot: DatedSlot? = null,
 )
 
 /** A deadline falling on a day, shown above its blocks. */
@@ -77,7 +79,7 @@ fun scheduleView(
             HHMM.format(ds.start), HHMM.format(ds.end), minutes, title,
             listOf(ds.slot.venue.takeUnless { v -> v.isBlank() || title.contains(v) }.orEmpty(), placed).filter { it.isNotBlank() }.joinToString(". "), kind,
             when { !ds.end.isAfter(now) -> RowState.PAST; !ds.start.isAfter(now) -> RowState.NOW; else -> RowState.LATER },
-            ds.start.toLocalDate() != date, ds.slot.type, photoForSlot(ds, slots, now, verified), ds.start, ds.end,
+            ds.start.toLocalDate() != date, ds.slot.type, photoForSlot(ds, slots, now, verified), ds.start, ds.end, ds,
         )
     }
     val due = tasks.filter { it.due.withZoneSameInstant(now.zone).toLocalDate() == date }.sortedBy { it.due }

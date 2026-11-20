@@ -961,6 +961,17 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 54. Start, end, say
+
+Added on 20 November 2026 at your request: "a hold button that fills up proportional to its duration to start a non proof block ... a way that I can always confirm that or stay engaged with the timetable", with started late and running over put together and drawn. The class: a block with no proof can still be engaged with, truthfully, and the day is never silently wrong.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| ST2 | A block of type routine, meal, errand or planning has a Run card on its block screen. Not started: Hold to start, which fills as it is held and takes 2 seconds for a block up to 15 minutes, 6 seconds from 2 hours, in a straight line between (friction on starting is capped on purpose; letting go early starts nothing). Started: the bar fills through the planned time, and Hold to finish takes 1 second. The real start and end are kept. Free time, sleep, travel and blocks with a proof are left alone. | Default; built, tested on the emulator |
+| ST4 | Late and over are the same events as Started late and Running over, and never silent. A start 5 minutes or more late says so and offers Slide the rest of today by the minutes (to the next 5); a block still running past its end says how far over and offers the same, and +10 or +20 when its end is near; a block finished over offers it for an hour after. Each opens the existing Running over preview, so nothing moves until it is applied. Under 5 minutes is on time. | Default; built, tested on the emulator |
+| ST5 | A block that did not happen is said so with a reason (Too tired, Ran out of time, Something came up, Other). Something came up goes on to the existing Something came up flow. A block whose time has come with no start and no answer is shown as not started, and the routine prompts (CO2) stop once it is started by the hold. | Default; built, tested on the emulator |
+| ST3 | The home page shows today as a strip: the plan above, what happened below. A block started late sits to the right of its plan, one that ran over has a longer tail, one not started is a dashed outline, one that did not happen is a line, and a line marks now. A sentence says how many are on time, shifted, running, not started or did not happen. Lateness is not punished: what shows is a block with no answer. | Default; built, tested on the emulator |
+| ST6 | The NOW card opens any block that can be started or run, not only the ones that need a proof photo, and the block screen scrolls so every answer can be reached. | Default; built, tested on the emulator |
 ## 53. Starting a block from the block
 
 Added on 20 November 2026 at your request ("I have not been able to start it", then "build the Start button"). The class: any block that stands for a routine can be started from the block, not only from the list on the third page.

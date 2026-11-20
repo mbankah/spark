@@ -14,6 +14,7 @@ import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
 import app.efa.data.EfaDb
+import app.efa.data.RunRepo
 import app.efa.data.FactRepo
 import app.efa.data.LocationFix
 import app.efa.data.META_COACH
@@ -165,7 +166,7 @@ object RoutinePrompter {
         val app = ctx.applicationContext; val db = EfaDb.get(app)
         val cur = efa.nowAndNext(pattern, now); val slot = cur.now ?: return
         val r = efa.routineForSlot(slot.slot) ?: return
-        val started = efa.routineStarted(r, FactRepo(db).today(), slot.start)
+        val started = efa.routineStarted(r, FactRepo(db).today(), slot.start) || RunRepo(db).get(slot)?.startMs != null          // ST2: a hold to start counts too
         val level = efa.promptLevelAt(java.time.Duration.between(slot.start, now).toMinutes(), started) ?: return
         val key = "prompt:" + efa.blockKey(slot)
         if (level.ordinal <= (db.meta().get(key)?.toIntOrNull() ?: -1)) return

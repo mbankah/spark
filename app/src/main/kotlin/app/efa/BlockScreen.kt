@@ -3,6 +3,8 @@ package app.efa
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +40,11 @@ interface BlockActions {
     suspend fun rewardLines(ds: DatedSlot, creditedMin: Int): List<String> = emptyList()
     /** F2, F4: why free time became this work block, or null when it did not. */
     suspend fun conversionNote(ds: DatedSlot): String? = null
+    /** ST2: what happened to a block with no proof. */
+    suspend fun runRecord(ds: DatedSlot): RunRecord? = null
+    suspend fun runStart(ds: DatedSlot, nowMs: Long) {}
+    suspend fun runFinish(ds: DatedSlot, nowMs: Long) {}
+    suspend fun runSkip(ds: DatedSlot, reason: String) {}
 }
 
 private val HM = DateTimeFormatter.ofPattern("HH:mm")
@@ -47,7 +54,7 @@ private val HM = DateTimeFormatter.ofPattern("HH:mm")
  * and there is no review screen after the photo (G5). Each branch says what happens when it cannot finish (X7).
  */
 @Composable
-fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, onStartRoutine: (String) -> Unit = {}, onBack: () -> Unit) {
+fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, onStartRoutine: (String) -> Unit = {}, onShift: (Int) -> Unit = {}, onCameUp: () -> Unit = {}, onBack: () -> Unit) {
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     val proof = remember(ds) { proofFor(ds.slot) }
@@ -61,6 +68,8 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
     var message by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(ds) { row = actions.load(ds) }
+    var run by remember { mutableStateOf<RunRecord?>(null) }
+    LaunchedEffect(ds) { run = actions.runRecord(ds) }
     var rewards by remember { mutableStateOf<List<String>>(emptyList()) }
     var convNote by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(ds) { convNote = actions.conversionNote(ds) }
@@ -90,8 +99,9 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
         return
     }
     val verified = row?.verified == true
+    // ST2: the screen scrolls, so the run card and its answers can always be reached
     Column(
-        Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).padding(16.dp),
+        Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Label(ds.slot.type.uppercase())
@@ -105,6 +115,14 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
             }
         }
 
+        // ST2: a block with no proof is started with a hold, finished with a shorter one, and says what happened when it did not go to plan
+        if (isRunnable(ds.slot)) RunCard(
+            ds, run, now,
+            onStart = { scope.launch { actions.runStart(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } },
+            onFinish = { scope.launch { actions.runFinish(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } },
+            onSkip = { reason -> scope.launch { actions.runSkip(ds, reason); run = actions.runRecord(ds); if (reason == "Something came up") onCameUp() } },
+            onShift = onShift,
+        )
         // ST1: a block that is a routine (the wake, the Bible, getting ready, the wind-down, a study block) can be started from here: the runner opens on that routine, one step at a time
         val routine = remember(ds) { routineForSlot(ds.slot) }
         if (routine != null && !verified) Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -175,7 +193,7 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
             if (reading) BasicText("Reading location.", style = Ts(c.text, 16.sp))
             message?.let { BasicText(it, style = Ts(c.text, 16.sp, FontWeight.SemiBold), modifier = Modifier.semantics { contentDescription = "Result. $it" }) }
         }
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(12.dp))
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
     }
 }
@@ -190,14 +208,14 @@ private fun proofText(p: Proof) = when (p) {
 
 /** Hold for one second without letting go (W1). Completes the moment the second is reached; letting go early restarts it. */
 @Composable
-private fun HoldButton(text: String, onDone: () -> Unit) {
+private fun HoldButton(text: String, requiredMs: Long = 1000, onDone: () -> Unit) {
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     var progress by remember { mutableFloatStateOf(0f) }
-    val tracker = remember { HoldTracker() }
+    val tracker = remember(requiredMs) { HoldTracker(requiredMs) }
     Box(
         Modifier.fillMaxWidth().heightIn(min = 64.dp).background(c.track, CardShape)
-            .semantics { contentDescription = "$text. Press and hold for one second." }
+            .semantics { contentDescription = "$text. Press and hold for ${if (requiredMs <= 1000L) "one second" else "${(requiredMs + 500) / 1000} seconds"}." }
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
                     // Frame time is monotonic on a phone and controllable in tests. The hold completes the instant one second is reached.
@@ -235,5 +253,43 @@ private fun LocationAsk(denied: Boolean, onGranted: () -> Unit, onDenied: () -> 
         if (denied) BasicText("Location permission is off, so attendance cannot be verified. Allow precise location in Android settings, then try again.", style = Ts(c.text, 16.sp, FontWeight.SemiBold))
         Btn("Allow location", { ask.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) }, primary = true, modifier = Modifier.fillMaxWidth())
         Btn("Back", onCancel, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/**
+ * ST2: the run card of a block with no proof. Not started: a hold that fills over [holdMillis] seconds, and a way to say it did not happen. Started: how far through it is, a short hold to
+ * finish, and more time when it is over. Late and over are said in minutes and lead to the same Running over preview, so the rest of the day is never silently wrong.
+ */
+@Composable
+private fun RunCard(ds: DatedSlot, rec: RunRecord?, now: ZonedDateTime, onStart: () -> Unit, onFinish: () -> Unit, onSkip: (String) -> Unit, onShift: (Int) -> Unit) {
+    val c = LocalColors.current
+    val v = runView(rec, ds.start.toInstant().toEpochMilli(), ds.end.toInstant().toEpochMilli(), now.toInstant().toEpochMilli(), now.zone)
+    val minutes = Duration.between(ds.start, ds.end).toMinutes().toInt()
+    var reasons by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Label("RUN")
+        BasicText(v.line, style = Ts(c.text, 17.sp, FontWeight.SemiBold), modifier = Modifier.semantics { contentDescription = v.line })
+        when (v.status) {
+            RunStatus.NOT_STARTED -> {
+                HoldButton("Hold to start", holdMillis(minutes), onStart)
+                if (!reasons) Btn("It did not happen", { reasons = true }, modifier = Modifier.fillMaxWidth())
+                else {
+                    BasicText("What happened?", style = Ts(c.muted, 14.sp))
+                    listOf("Too tired", "Ran out of time", "Something came up", "Other").forEach { r -> Btn(r, { onSkip(r) }, modifier = Modifier.fillMaxWidth()) }
+                }
+            }
+            RunStatus.RUNNING -> {
+                Box(Modifier.fillMaxWidth().height(10.dp).background(c.track, CardShape)) { Box(Modifier.fillMaxWidth(v.fraction).height(10.dp).background(c.accent, CardShape)) }
+                if (v.lateMin >= RUN_LATE_MIN) Btn("Started late: slide the rest of today by ${shiftMinutes(v.lateMin)} min", { onShift(shiftMinutes(v.lateMin)) }, modifier = Modifier.fillMaxWidth())
+                if (v.overMin >= RUN_LATE_MIN) Btn("Over by ${v.overMin} min: slide the rest of today by ${shiftMinutes(v.overMin)} min", { onShift(shiftMinutes(v.overMin)) }, modifier = Modifier.fillMaxWidth())
+                else if (!now.isBefore(ds.end.minusMinutes(2))) {
+                    BasicText("Need more time?", style = Ts(c.muted, 14.sp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(10, 20).forEach { m -> Btn("+$m min", { onShift(m) }, modifier = Modifier.weight(1f)) } }
+                }
+                HoldButton("Hold to finish", HOLD_END_MS, onFinish)
+            }
+            RunStatus.DONE -> if (v.overMin >= RUN_LATE_MIN && now.isBefore(ds.end.plusMinutes(60))) Btn("Went over by ${v.overMin} min: slide the rest of today by ${shiftMinutes(v.overMin)} min", { onShift(shiftMinutes(v.overMin)) }, modifier = Modifier.fillMaxWidth())
+            RunStatus.SKIPPED -> {}
+        }
     }
 }

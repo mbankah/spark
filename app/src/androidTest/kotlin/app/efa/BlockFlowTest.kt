@@ -163,6 +163,11 @@ class BlockScreenTest {
         override suspend fun currentFix(): Fix? { fixAsked++; return fixToGive }
         override fun hasLocationPermission() = permission
         var commitChecks = 0
+        var rec: RunRecord? = null; var skipped: String? = null
+        override suspend fun runRecord(ds: DatedSlot) = rec
+        override suspend fun runStart(ds: DatedSlot, nowMs: Long) { rec = RunRecord(startMs = nowMs) }
+        override suspend fun runFinish(ds: DatedSlot, nowMs: Long) { rec = (rec ?: RunRecord(startMs = nowMs)).copy(endMs = nowMs) }
+        override suspend fun runSkip(ds: DatedSlot, reason: String) { skipped = reason; rec = RunRecord(skippedReason = reason) }
         override suspend fun checkCommit(ds: DatedSlot, now: ZonedDateTime): Verdict { commitChecks++; return Verdict(true, Reason.OK, 70) }
     }
 
@@ -180,6 +185,53 @@ class BlockScreenTest {
         rule.onNodeWithText("Start study block").performClick(); assertEquals(STUDY_BLOCK.id, got)
         val lecture = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.type == "lecture" }
         assertTrue(routineForSlot(lecture.slot) == null, "a lecture is not a routine")
+    }
+
+    private val wakeSlot get() = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.title.startsWith("Wake") }
+
+    @Test fun ST2_a_block_with_no_proof_is_started_by_a_hold_as_long_as_its_length_asks_for() {
+        val fake = Fake()
+        rule.setContent { EfaTheme { BlockScreen(wakeSlot, fake) {} } }
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithContentDescription("Hold to start", substring = true).performTouchInput { down(center) }
+        rule.mainClock.advanceTimeBy(holdMillis(20) / 2)
+        rule.onNodeWithContentDescription("Hold to start", substring = true).performTouchInput { up() }
+        rule.mainClock.advanceTimeBy(500)
+        assertNull(fake.rec, "letting go before it is full starts nothing")
+        rule.onNodeWithContentDescription("Hold to start", substring = true).performTouchInput { down(center) }
+        rule.mainClock.advanceTimeBy(holdMillis(20) + 300)
+        rule.onRoot().performTouchInput { up() }
+        rule.mainClock.autoAdvance = true
+        rule.waitUntil(5_000) { fake.rec?.startMs != null }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Hold to finish", substring = true).fetchSemanticsNodes().isNotEmpty() || rule.onAllNodesWithContentDescription("Hold to finish", substring = true).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test fun ST2_a_block_that_did_not_happen_asks_why_and_records_it() {
+        val fake = Fake()
+        rule.setContent { EfaTheme { BlockScreen(wakeSlot, fake) {} } }
+        rule.onNodeWithText("It did not happen").performScrollTo().performClick()
+        rule.onNodeWithText("Too tired").performScrollTo().performClick()
+        rule.waitUntil(5_000) { fake.skipped == "Too tired" }
+        rule.onNodeWithText("Did not happen: Too tired.").assertExists()
+    }
+
+    @Test fun ST2_a_late_start_offers_to_slide_the_rest_of_the_day_by_the_minutes_it_was_late() {
+        val fake = Fake(); var shifted = 0
+        val ds = wakeSlot
+        fake.rec = RunRecord(startMs = ds.start.toInstant().toEpochMilli() + 12 * 60_000L)
+        rule.setContent { EfaTheme { BlockScreen(ds, fake, onShift = { shifted = it }) {} } }
+        rule.onNodeWithText("Started late: slide the rest of today by 15 min").performScrollTo().performClick()
+        assertEquals(15, shifted)
+    }
+
+    @Test fun ST3_the_day_strip_says_in_words_what_it_shows() {
+        val blocks = listOf(
+            StripBlock("Wake, shower", 735, 755, 740, 758, StripState.ON_TIME, true),
+            StripBlock("Bible study", 755, 785, 770, null, StripState.RUNNING, true),
+            StripBlock("Lunch", 785, 815, null, null, StripState.NOT_STARTED, true),
+        )
+        rule.setContent { EfaTheme { DayStrip(blocks, 780) } }
+        rule.onNodeWithContentDescription("Today so far. 1 on time, 1 running, 1 not started.").assertExists()
     }
 
     @Test fun W1_a_hold_shorter_than_one_second_does_not_finish() {

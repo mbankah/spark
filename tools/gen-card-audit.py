@@ -1,6 +1,6 @@
 """Generates docs/CARD_AUDIT.fragment.html: every card and button of Spark, scored, with what the score says to do.
-Rubric (decided with Michael, 20 Nov 2026, extended to 100 points the same day): unique purpose 25, distance to the other place that does the same job 20 (a copy is allowed only
-at 4 or more taps), moment 15, how often it is used 10, how little room it takes 10, what breaks without it 10, the rule behind it 10. A card a Locked rule names is pinned. Run: python tools/gen-card-audit.py"""
+Rubric (decided with Michael, 20 Nov 2026, extended to 100 points the same day): unique purpose 15, distance to the other place that does the same job 20 (a copy is allowed only
+at 4 or more taps), practical utility 20, moment 10, how often it is used 10, how little room it takes 5, what breaks without it 10, the rule behind it 10. Unique purpose is 15. A card a Locked rule names is pinned. Run: python tools/gen-card-audit.py"""
 import html, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -120,8 +120,22 @@ RATE = [
 ]
 assert len(RATE) == len(ROWS), (len(RATE), len(ROWS))
 
-# the 100 points: unique purpose 25, distance to the other place 20, moment 15, how often 10, room it takes 10, what breaks without it 10, the rule behind it 10
-W = {"U": 5, "M": 3, "Q": 2, "C": 2, "K": 2, "R": 2}
+# Practical utility, 0 to 5: how much the card really helps you get something done in your day, measured by effort, time or mistakes it saves.
+# 5 changes what you do every day; 4 does so most weeks; 3 helps sometimes; 2 is mostly information; 1 is nice to know; 0 changes nothing you do.
+RATE_PU = [
+    4, 5, 4, 4, 4, 3, 4, 3, 2, 2,
+    3, 3, 4, 1, 1, 0, 2, 2, 2, 2, 3, 2, 4, 5, 2, 5, 2,
+    4, 0,
+    3, 2, 4, 3, 3, 4, 4, 5, 1, 4, 4,
+    3, 2, 3, 2, 2, 2, 2, 2, 3, 4, 3, 3, 2, 3,
+    3, 4, 3, 3, 4, 3, 2, 2, 2, 3, 3, 1,
+    4, 4, 4, 4,
+    4, 4, 3,
+]
+assert len(RATE_PU) == len(ROWS), (len(RATE_PU), len(ROWS))
+
+# the 100 points: practical utility 20, unique purpose 15, distance to the other place 20, moment 10, how often 10, room it takes 5, what breaks without it 10, the rule behind it 10
+W = {"U": 3, "M": 2, "Q": 2, "C": 1, "K": 2, "R": 2, "P": 4}
 KEEP_FROM = 60
 FOLD_FROM = 40
 
@@ -139,23 +153,16 @@ def rule_rating(rule):
     return 5 if rule.startswith("P") else (2 if rule.startswith("A") else 0)
 
 
-# the first round's yardstick, kept only to show what moved
-def dist_v1(taps):
-    return 20 if taps is None else 17 if taps >= 6 else 15 if taps >= 4 else 9 if taps == 3 else 5 if taps == 2 else 2 if taps == 1 else 0
-
-
-def total_v1(rate, taps, rule):
+# the previous round's yardstick (before practical utility), kept only to show what moved
+def total_prev(rate, taps, rule):
     u, m, q, c, k = rate
-    return u * 5 + m * 3 + q * 2 + c * 2 + k * 2 + dist_v1(taps) + (5 if rule.startswith("P") else 3 if rule.startswith("A") else 0) * 2
-
-
-def d_of(taps):
-    return 3 if taps is None else (2 if taps >= 4 else (1 if taps >= 2 else 0))
+    return u * 5 + m * 3 + q * 2 + c * 2 + k * 2 + dist_pts(taps) + rule_rating(rule) * 2
 
 
 def verdict(rule, taps, total, unique):
-    if total >= KEEP_FROM or rule.startswith("P"): return "keep"        # a Locked rule pins a card: it is simplified, never deleted
-    if taps is not None: return "merge"                                  # something else does the same job: the copy goes into the owner
+    if rule.startswith("P"): return "keep"                               # a Locked rule pins a card: it is simplified, never deleted
+    if taps is not None and taps < 4: return "merge"                     # the same job within 3 taps of another place: the copy goes into the owner (the 4-tap rule)
+    if total >= KEEP_FROM: return "keep"
     return "delete" if (unique <= 1 or total < FOLD_FROM) else "demote"  # no other owner: no unique purpose is a delete, a little purpose moves down
 
 
@@ -167,12 +174,12 @@ def fix(act, v):
 
 
 rows = []
-for (scr, card, purpose, also, taps, rule, _u, _m, act), (u, m, q, c, k), r1 in zip(ROWS, RATE, RATE_V1):
-    pts = {"U": u * W["U"], "D": dist_pts(taps), "M": m * W["M"], "Q": q * W["Q"], "C": c * W["C"], "K": k * W["K"], "R": rule_rating(rule) * W["R"]}
+for (scr, card, purpose, also, taps, rule, _u, _m, act), (u, m, q, c, k), pu in zip(ROWS, RATE, RATE_PU):
+    pts = {"P": pu * W["P"], "U": u * W["U"], "D": dist_pts(taps), "M": m * W["M"], "Q": q * W["Q"], "C": c * W["C"], "K": k * W["K"], "R": rule_rating(rule) * W["R"]}
     t = sum(pts.values())
     v = verdict(rule, taps, t, u)
     edge = abs(t - KEEP_FROM) <= 4 or abs(t - FOLD_FROM) <= 4
-    rows.append(dict(scr=scr, card=card, purpose=purpose, also=also, taps=taps, rule=rule, pts=pts, t=t, v=v, act=fix(act, v), edge=edge, was=total_v1(r1, taps, rule)))
+    rows.append(dict(scr=scr, card=card, purpose=purpose, also=also, taps=taps, rule=rule, pts=pts, t=t, v=v, act=fix(act, v), edge=edge, u=u, was=total_prev((u, m, q, c, k), taps, rule)))
 
 counts = {k: sum(1 for r in rows if r["v"] == k) for k in ("keep", "demote", "merge", "delete")}
 assert all(r["act"].split()[0].rstrip(":,.").lower() in (r["v"], "keep") for r in rows if r["v"] != "keep") or True
@@ -229,49 +236,47 @@ small.f{display:block;margin-top:30px;color:var(--ink2);font-size:12.5px;max-wid
 LABEL = {"keep": "keep", "demote": "move down", "merge": "merge", "delete": "delete"}
 
 
-def verdict_v1(r):
-    """What the first round's yardstick (keep 70, merge below that when another place does it, else delete below 45) said, to count what flipped."""
-    t = r["was"]
-    if t >= 70 or r["rule"].startswith("P"): return "keep"
-    if r["taps"] is not None: return "merge"
-    return "delete" if t < 45 else "demote"
+def verdict_prev(r):
+    """What the previous round said, to count what flipped: the same verdict rule on the previous total."""
+    return verdict(r["rule"], r["taps"], r["was"], r["u"])
 
 
 def build():
     moved = counts["merge"] + counts["delete"]
-    flipped = sum(1 for r in rows if r['v'] != verdict_v1(r))
+    flipped = sum(1 for r in rows if r['v'] != verdict_prev(r))
     o = ['<title>Spark card audit</title><meta name="claude:viewport-fit-sides" content="cover">',
          '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">',
          f'<style>{CSS}</style><div class="wrap">',
-         '<div class="k">Spark · every card and button, scored out of 100, harshly · 20 November 2026</div>',
+         '<div class="k">Spark · every card and button, scored out of 100 on eight criteria · 20 November 2026</div>',
          f'<h1>Scored harshly, {counts["keep"]} of {len(rows)} earn their place. {moved} merge into another card or go, and {counts["demote"]} move down.</h1>',
-         '<p class="lead">Each row is a card or a button, scored on seven things that add up to 100. This is the second, harsher round: 5 is kept for the exceptional, 3 is ordinary, and the cut lines are higher. The score each card had in the first round is beside the new one. Nothing has been removed yet except the duplicate Change buttons.</p>',
+         '<p class="lead">Each row is a card or a button, scored on seven things that add up to 100. This round adds practical utility, so the weights moved and the total is still 100. The score each card had before is beside the new one. Nothing has been removed yet except the duplicate Change buttons.</p>',
          f'<div class="tiles"><div class="tile"><b>{len(rows)}</b><span>cards and buttons scored</span></div><div class="tile keep"><b>{counts["keep"]}</b><span>keep</span></div><div class="tile demote"><b>{counts["demote"]}</b><span>move down</span></div><div class="tile merge"><b>{counts["merge"]}</b><span>merge into another</span></div><div class="tile delete"><b>{counts["delete"]}</b><span>delete</span></div></div>',
          '<h2>How the 100 points are made</h2>',
          '<div class="rub">'
-         '<div><b>Unique purpose <i>25</i></b>Rated 0 to 5. 5 is the only place AND essential; 4 is the only place; 3 overlaps a little; 1 mostly repeats another; 0 repeats it fully.</div>'
+         '<div><b>Practical utility <i>20</i></b>Rated 0 to 5: how much it really helps you get something done, by the effort, time or mistakes it saves. 5 changes what you do every day; 4 most weeks; 3 sometimes; 2 is mostly information; 1 is nice to know; 0 changes nothing. A copy is rated on its function, and judged by the distance rule.</div>'
+         '<div><b>Unique purpose <i>15</i></b>Rated 0 to 5. 5 is the only place AND essential; 4 is the only place; 3 overlaps a little; 1 mostly repeats another; 0 repeats it fully.</div>'
          '<div><b>Distance <i>20</i></b>Taps to the other place that does the same job. None 20, 6 or more 16, 4 to 5 12, 3 taps 5, 2 taps 2, 0 to 1 tap 0. A copy is allowed only at 4 or more.</div>'
-         '<div><b>Moment <i>15</i></b>Rated 0 to 5. 5 is time-critical and shows exactly then; 3 is useful when it shows; 1 is rarely needed.</div>'
+         '<div><b>Moment <i>10</i></b>Rated 0 to 5. 5 is time-critical and shows exactly then; 3 is useful when it shows; 1 is rarely needed.</div>'
          '<div><b>How often <i>10</i></b>Rated 0 to 5. 5 is many times a day; 3 is a few times a week; 1 is about monthly.</div>'
-         '<div><b>Room it takes <i>10</i></b>Rated 0 to 5. 5 is a line or a small button; 1 is a big card. Less room scores higher.</div>'
+         '<div><b>Room it takes <i>5</i></b>Rated 0 to 5. 5 is a line or a small button; 1 is a big card. Less room scores higher.</div>'
          '<div><b>What breaks without it <i>10</i></b>Rated 0 to 5. 5 is safety, proof or blocking only; 4 the Buffer or money; 3 a main workflow; 1 a convenience; 0 nothing.</div>'
          '<div><b>Rule behind it <i>10</i></b>A Locked rule names it 10, a Default rule 4, no rule 0.</div>'
-         f'<div><b>Verdict <i>{KEEP_FROM} / {FOLD_FROM}</i></b>{KEEP_FROM} or more, or pinned by a Locked rule: keep. Below {KEEP_FROM} with another place doing the job: merge. No other place: a unique purpose rated 0 or 1, or a score below {FOLD_FROM}, deletes; anything else moves down. Within 4 points of a line is marked borderline. On this scale an ordinary card scores 55 to 65.</div>'
+         f'<div><b>Verdict <i>{KEEP_FROM} / {FOLD_FROM}</i></b>Pinned by a Locked rule: keep. The same job within 3 taps of another place: merge, whatever the score. Otherwise {KEEP_FROM} or more keeps. Below {KEEP_FROM} with no other place: a unique purpose rated 0 or 1, or under {FOLD_FROM}, deletes; anything else moves down. Within 4 points of a line is marked borderline.</div>'
          '</div>',
          '<div class="flt" role="group" aria-label="Filter"><button data-f="all" aria-pressed="true">All</button><button data-f="delete" aria-pressed="false">Delete</button><button data-f="merge" aria-pressed="false">Merge</button><button data-f="demote" aria-pressed="false">Move down</button><button data-f="keep" aria-pressed="false">Keep</button></div>']
     for scr in screens:
-        o.append(f'<h2>{esc(scr)}</h2><div class="tw"><table><thead><tr><th>Card</th><th>What it is for</th><th>Also done by</th><th>Taps</th><th>Rule</th><th>Score</th><th title="Unique purpose, Distance, Moment, How often, Room, What breaks, Rule">U / D / M / Q / R / B / L</th><th>Verdict</th><th>What happens</th></tr></thead><tbody>')
+        o.append(f'<h2>{esc(scr)}</h2><div class="tw"><table><thead><tr><th>Card</th><th>What it is for</th><th>Also done by</th><th>Taps</th><th>Rule</th><th>Score</th><th title="Practical utility, Unique purpose, Distance, Moment, How often, Room, What breaks, Rule">PU / U / D / M / Q / R / B / L</th><th>Verdict</th><th>What happens</th></tr></thead><tbody>')
         for r in [x for x in rows if x["scr"] == scr]:
             taps = "none" if r["taps"] is None else str(r["taps"])
             pin = f'<span class="pin">{esc(r["rule"])}</span>' if r["rule"] != "F" else "free"
             pt = r["pts"]
-            bd = f'{pt["U"]} / {pt["D"]} / {pt["M"]} / {pt["Q"]} / {pt["C"]} / {pt["K"]} / {pt["R"]}'
+            bd = f'{pt["P"]} / {pt["U"]} / {pt["D"]} / {pt["M"]} / {pt["Q"]} / {pt["C"]} / {pt["K"]} / {pt["R"]}'
             edge = '<span class="edge">borderline</span>' if r["edge"] else ""
             o.append(f'<tr data-v="{r["v"]}"><td class="c">{esc(r["card"])}</td><td>{esc(r["purpose"])}</td><td class="s">{esc(r["also"]) or "none"}</td><td class="n">{taps}</td><td>{pin}</td>'
                      f'<td><div class="sc"><b>{r["t"]}</b><div class="bar"><i style="width:{r["t"]}%"></i></div></div><span class="edge">was {r["was"]}</span></td><td class="bd">{bd}</td>'
                      f'<td><span class="pill {r["v"]}">{LABEL[r["v"]]}</span>{edge}</td><td>{esc(r["act"])}</td></tr>')
         o.append('</tbody></table></div>')
-    o.append('<small class="f">The scores are my judgement from reading the code, and every number is in its row, so any of them can be overruled and the total moves with it. The first round was too kind: most cards were rated 4 or 5 on purpose and moment, so 50 of 73 kept. Rules are named by their ledger id: P is a Locked rule that names the card, A is a Default rule that would be amended in the same change. Widgets, notifications and the lock screen repeat Home facts on purpose (B2) and are not scored as duplicates. The breakdown reads: unique purpose, distance, moment, how often, room, what breaks, rule.</small></div>')
+    o.append('<small class="f">The scores are my judgement from reading the code, and every number is in its row, so any of them can be overruled and the total moves with it. Ratings are harsh: 5 is exceptional and 3 is ordinary. Rules are named by their ledger id: P is a Locked rule that names the card, A is a Default rule that would be amended in the same change. Widgets, notifications and the lock screen repeat Home facts on purpose (B2) and are not scored as duplicates. The breakdown reads: practical utility, unique purpose, distance, moment, how often, room, what breaks, rule.</small></div>')
     o.append("""<script>(function(){var b=document.querySelectorAll('.flt button');function go(f){b.forEach(function(x){x.setAttribute('aria-pressed',x.dataset.f===f?'true':'false')});document.querySelectorAll('tbody tr').forEach(function(r){r.hidden=!(f==='all'||r.dataset.v===f)})}b.forEach(function(x){x.addEventListener('click',function(){go(x.dataset.f)})})})();</script>""")
     return "\n".join(o)
 

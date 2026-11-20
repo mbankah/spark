@@ -23,22 +23,31 @@ class ImportFootballTest {
     private fun footballOn(slots: List<PatternSlot>, d: LocalDate) = slotsFor(slots, d, zone).filter { isFootball(it.slot) }
 
     @Test fun FB1_a_cancel_row_for_the_personal_football_cancels_it_at_its_exact_time() {
-        val v = verify(parse("event,2026-11-21,,16:15,18:15,Personal football,match,,,none,cancel,Not this week.,"))
+        val v = verify(parse("event,2026-11-21,,16:15,18:15,Personal football,match,,,none,cancel,Not this week.,yes"))
         assertTrue(v.ok, v.errors.toString()); assertTrue(v.needsWall, "cancelling a commitment is a loosening")
         assertTrue(footballOn(base, sat).isNotEmpty()); assertTrue(footballOn(base + v.overlay.map { it.slot }, sat).isEmpty(), "the football is gone from that day")
     }
 
     @Test fun FB1_it_is_found_by_its_title_wherever_the_app_put_it_that_day() {
-        val v = verify(parse("event,2026-11-24,,09:00,10:00,Personal football,match,,,none,cancel,Not this week.,"))
+        val v = verify(parse("event,2026-11-24,,09:00,10:00,Personal football,match,,,none,cancel,Not this week.,yes"))
         assertTrue(v.ok, v.errors.toString())
         assertTrue(footballOn(base + v.overlay.map { it.slot }, tue).isEmpty())
     }
 
     @Test fun FB1_only_personal_football_can_be_cancelled_this_way_and_a_missing_one_is_said() {
-        val other = verify(parse("event,2026-11-21,,12:00,13:00,Something else,match,,,none,cancel,x,"))
+        val other = verify(parse("event,2026-11-21,,12:00,13:00,Something else,match,,,none,cancel,x,yes"))
         assertFalse(other.ok); assertTrue(other.errors.single().message.contains("No match starts"), other.errors.toString())
-        val none = verify(parse("event,2026-11-22,,16:15,18:15,Personal football,match,,,none,cancel,x,"))
+        val none = verify(parse("event,2026-11-22,,16:15,18:15,Personal football,match,,,none,cancel,x,yes"))
         assertFalse(none.ok, "there is no football on Sunday")
+    }
+
+    @Test fun FB1_without_the_override_word_the_football_is_protected_and_the_error_says_how() {
+        val v = verify(parse("event,2026-11-21,,16:15,18:15,Personal football,match,,,none,cancel,Not this week.,"))
+        assertFalse(v.ok); assertTrue(v.errors.single().message.contains("override"), v.errors.toString())
+        val byTitle = verify(parse("event,2026-11-24,,09:00,10:00,Personal football,match,,,none,cancel,Not this week.,no"))
+        assertFalse(byTitle.ok, "the title alone is not enough, it needs the override")
+        val ok = verify(parse("event,2026-11-21,,16:15,18:15,Personal football,match,,,none,cancel,Not this week.,yes"))
+        assertTrue(ok.ok && ok.needsWall && ok.overrides.single().contains("Personal football"), ok.errors.toString())
     }
 
     @Test fun FB1_the_cancel_stands_the_planner_does_not_place_the_week_again() {

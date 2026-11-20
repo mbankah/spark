@@ -976,7 +976,7 @@ Added on 20 November 2026 at your request ("cancel the three somehow and build s
 
 | # | Decision | Status |
 | --- | --- | --- |
-| FB1 | A cancel row titled Personal football cancels the app's own personal football on that date, found by title wherever the app put it (the time may be anything). It is a loosening like any cancelled commitment. The cancel stands: the planner counts the cancelled hours as dealt with and does not place that week again. Nothing else the app placed can be cancelled this way. | Default; built, tested |
+| FB1 | The app's own personal football is a protected block, so it is cancelled the way the others are (OV1): a cancel row titled Personal football with yes in the override column cancels it on that date, found by title wherever the app put it (the time may be anything). Without the override the row is an error that says how. It needs the typed wall and the preview names it (OV2). The cancel stands: the planner counts the cancelled hours as dealt with and does not place that week again. Nothing else the app placed can be cancelled this way. | Default; built, tested |
 | RE1 | In Replace mode a block that the file cancels itself (a cancel row or an override row) is left to that row. Replace used to take it first and the row then found nothing, so a file could pass in Add mode and fail in Replace mode. A block the file does not name is still replaced. | Default; built, tested |
 
 ## 50. A catch-up for a late night

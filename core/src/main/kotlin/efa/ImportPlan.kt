@@ -74,11 +74,12 @@ fun verifyImport(
     for (r in events.filter { it.cancel }) {
         val h = r.hash()
         if (h in known) { already++; continue }
-        // FB1: the app's own personal football (placed in free time, not by any file) can be cancelled by a file, by its title, wherever the app put it that day.
+        // FB1: the app's own personal football (placed in free time, not by any file) is a protected block like the others: an override row cancels it, found by its title wherever the app put it that day.
         val onDay = slotsFor(cur, r.date, zone)
         val hit = onDay.firstOrNull { it.slot.startMin == r.startMin && it.slot.type == r.type }
-            ?: if (r.title.trim().equals(FOOTBALL_TITLE, ignoreCase = true)) onDay.firstOrNull { isFootball(it.slot) } else null
+            ?: if (r.override && r.title.trim().equals(FOOTBALL_TITLE, ignoreCase = true)) onDay.firstOrNull { isFootball(it.slot) } else null
         if (hit == null) { errors += ImportIssue(r.line, "start", "No ${r.type} starts at ${minutesText(r.startMin)} on ${r.date} to cancel."); continue }
+        if (hit.slot.date != null && isFootball(hit.slot) && !r.override) { errors += ImportIssue(r.line, "override", "That is the personal football the app placed itself. To cancel it on purpose, put yes in the override column of a cancel row."); continue }
         if (hit.slot.date != null && !isFootball(hit.slot)) { errors += ImportIssue(r.line, "start", "That ${r.type} came from an earlier file. Remove that import instead of cancelling it."); continue }
         if (r.override && neverOverridden(hit.slot.title, hit.slot.type)) { errors += ImportIssue(r.line, "override", "${hit.slot.title} is never overridden: the alarm is planned from the wake, the Bible study comes first, and a meal is overridden only when it is marked optional."); continue }
         if (!hit.slot.title.contains(r.title, ignoreCase = true) && !r.title.contains(hit.slot.title, ignoreCase = true)) warnings += ImportIssue(r.line, "title", "The ${r.type} at that time is \"${hit.slot.title}\". It is the one cancelled.")

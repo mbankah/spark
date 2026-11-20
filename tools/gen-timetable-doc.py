@@ -70,7 +70,7 @@ Every column must be in the header (any order). Leave a cell empty when it is no
 - **One exception, said on purpose (OV1):** a cancel row with `yes` in the optional `override` column cancels a block of type `study`, `study-standard`, `study-light`,
   `code`, `planning`, `routine`, `chore` or `mytutor-notes` that starts at that time. It always needs the typed wall, the preview names each block it overrides, and a study cycle it
   cancels comes back as work due the next working day, so the Buffer still carries it. The wake, the Bible study and sleep are never overridden, and a meal only when the plan itself marks it `(optional)`.
-- **The app's own football (FB1):** a cancel row titled `Personal football` (type `match`) cancels the personal football the app placed in free time that date, wherever it put it. The cancel stands for the week.
+- **The app's own football (FB1):** the personal football the app places in free time is protected like the blocks above. A cancel row titled `Personal football` (type `match`) with `yes` in the `override` column cancels it on that date, wherever the app put it, behind the typed wall. The cancel stands for the week.
   In Replace mode a block your file cancels itself is left to that row (RE1).
 - An event on top of sleep, a meal, a walk or another commitment is an error that names it. To move a lecture, cancel the old row and its
   walk, then add the new rows (the same file).

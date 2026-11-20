@@ -84,6 +84,7 @@ data class HomeState(
     val mode: efa.HomeMode = efa.HomeMode.FREE,   // HS1, HS2: the home follows the moment; a running block, the wind-down and the night show only what matters
     val vr: VrActive? = null,            // VR11: a VRNPM cycle that is running, drawn big at the top
     val adapt: AdaptView = AdaptView(),           // AD: a drift to answer, the step the day is on, the three things that matter
+    val confirms: List<efa.Confirm> = emptyList(),   // CF1: questions waiting for an answer, from whatever raised them
 )
 
 /**
@@ -96,7 +97,7 @@ fun HomeScreen(
     onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {}, onNewRoom: () -> Unit = {},
     homeTick: Int = 0, onPhoto: () -> Unit = {}, onMeal: (String, Boolean) -> Unit = { _, _ -> }, onReality: (String) -> Unit = {},
     third: (@Composable () -> Unit)? = null,         // HS4: the third page, Work it out
-    onEmergency: (efa.EmergencyAction) -> Unit = {}, onAdapt: (String) -> Unit = {}, onVr: (VrAction) -> Unit = {},
+    onEmergency: (efa.EmergencyAction) -> Unit = {}, onAdapt: (String) -> Unit = {}, onVr: (VrAction) -> Unit = {}, onConfirm: (String, String) -> Unit = { _, _ -> },
 ) {
     val c = LocalColors.current
     val pager = rememberPagerState(pageCount = { if (third != null) 3 else 2 })
@@ -110,7 +111,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), pageSpacing = 20.dp, key = { it }) { page ->
-            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency, onAdapt, onVr)
+            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency, onAdapt, onVr, onConfirm)
             else if (page == 1) ScheduleScreen(s.schedule)
             else third?.invoke()
         }
@@ -163,13 +164,14 @@ private fun PageDots(page: Int, count: Int, onPage: (Int) -> Unit) {
 @Composable
 private fun HomePage(
     s: HomeState, onBuffer: () -> Unit, onNow: () -> Unit, onProofDue: () -> Unit, onSetup: () -> Unit, onHeld: () -> Unit, onEssential: (String) -> Unit,
-    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit, onAdapt: (String) -> Unit = {}, onVr: (VrAction) -> Unit = {},
+    onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit, onAdapt: (String) -> Unit = {}, onVr: (VrAction) -> Unit = {}, onConfirm: (String, String) -> Unit = { _, _ -> },
 ) {
     val c = LocalColors.current
     var allNeeds by remember { mutableStateOf(false) }
     // HS2, AD: the home is laid out in one order, always. The clock, then NOW (the hero, with the three things you report from it), then NEXT, then what is waiting for an answer
     // (the first two, the rest one tap away), then the Buffer, then the quieter cards. Nothing waiting for you is allowed to push Now off the first screen.
     val needs = buildList<@Composable () -> Unit> {
+        s.confirms.forEach { q -> add { ConfirmCard(q, onConfirm) } }                                  // CF1: a question to answer comes first
         s.photo?.let { add { PhotoCard(it, s.photoLeft, onPhoto) } }
         s.morning?.let { add { InfoCard("MORNING", "Ready photo needed", onReady, it) } }
         s.meal?.let { m -> add { MealCard(m, s.mealKey, onMeal) } }

@@ -43,7 +43,17 @@ class VrHomeE2ETest {
         runBlocking { VrRepo(db).start(studyToday(), System.currentTimeMillis() - 3 * 60_000L) }      // V has run for 3 of its 10 minutes
     }
 
-    @After fun clean() { db.openHelper.writableDatabase.execSQL("DELETE FROM meta WHERE `key` LIKE 'vr:%'"); VrNotifier.cancel(ctx) }
+    @After fun clean() { db.openHelper.writableDatabase.execSQL("DELETE FROM meta WHERE `key` LIKE 'vr:%'"); db.openHelper.writableDatabase.execSQL("DELETE FROM meta WHERE `key` LIKE 'confirm:%'"); VrNotifier.cancel(ctx) }
+
+    @Test fun CF1_a_question_waiting_shows_on_Home_and_a_tap_on_Stop_the_cycle_answers_it_and_ends_the_cycle() {
+        val ds = studyToday()
+        runBlocking { ConfirmRepo(db).raise(vrBlockEndConfirm(blockKey(ds), ds.slot.title, "12:15", VrRepo(db).get(ds)!!, System.currentTimeMillis())) }
+        waitFor("Confirm. The study block has ended")
+        rule.onNodeWithText("Stop the cycle").performScrollTo().performClick()
+        rule.waitUntil(15_000) { runBlocking { VrRepo(db).get(studyToday()) }?.let { vrView(it, System.currentTimeMillis()).status == VrStatus.DONE } == true }
+        rule.waitUntil(15_000) { rule.onAllNodesWithText("Stop the cycle").fetchSemanticsNodes().isEmpty() }
+        assertTrue(runBlocking { ConfirmRepo(db).open() }.isEmpty())
+    }
 
     private fun waitFor(text: String) = rule.waitUntil(15_000) { rule.onAllNodesWithContentDescription(text, substring = true).fetchSemanticsNodes().isNotEmpty() }
 

@@ -27,7 +27,13 @@ class VrRepo(private val db: EfaDb) {
     /** The nine times a cycle started now would use, after the longest-cycle cap. */
     suspend fun plan(): List<Int> = vrPlan(config())
 
-    suspend fun start(ds: DatedSlot, nowMs: Long) { if (get(ds) == null) put(ds, vrStart(plan(), nowMs, overridden = if (config().skipVR) "VR" else "")) }
+    /** VR15, SR1: a cycle's start is also the block's start, written to the one run record that the Coach and the start reward read. */
+    suspend fun start(ds: DatedSlot, nowMs: Long) {
+        if (get(ds) == null) { put(ds, vrStart(plan(), nowMs, overridden = if (config().skipVR) "VR" else "")); RunRepo(db).start(ds, nowMs) }
+    }
+
+    /** VR15: ends a cycle that is running, now, without the remedial or the tuned N time of a finished one. */
+    suspend fun stop(ds: DatedSlot, nowMs: Long) { get(ds)?.let { put(ds, vrStop(it, nowMs)) } }
 
     suspend fun page(ds: DatedSlot, nowMs: Long) { get(ds)?.let { put(ds, vrPage(it, nowMs)) } }
 

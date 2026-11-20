@@ -189,6 +189,7 @@ class MainActivity : ComponentActivity() {
                 var wall by remember { mutableStateOf<Triple<String, String, () -> Unit>?>(null) }
                 var wallBack by remember { mutableStateOf(Screen.HOME) }
                 var wallLength by remember { mutableIntStateOf(efa.WallLength.IMPORT_LOOSEN) }
+                var confirms by remember { mutableStateOf<List<efa.Confirm>>(emptyList()) }                // CF1: the questions waiting for an answer
                 var vrLive by remember { mutableStateOf<VrActive?>(null) }                                  // VR14: the running cycle, read each second and set at once after a control
                 var vrCfg by remember { mutableStateOf(efa.VrConfig()) }                                  // VR7: the study cycle's settings, read when Setup opens
                 var wallDetails by remember { mutableStateOf<List<String>>(emptyList()) }          // IM13: the long list behind a wall folds on the wall screen; the words above the field stay short
@@ -343,6 +344,13 @@ class MainActivity : ComponentActivity() {
                                 val pat = loaded?.pattern; val nowZ = ZonedDateTime.now(LONDON)
                                 if (pat == null) null else app.efa.data.VrRepo(db).active(listOf(-1L, 0L).flatMap { slotsFor(pat, nowZ.toLocalDate().plusDays(it), nowZ.zone) })?.let { VrActive(it.first, it.second) }
                             }.getOrNull()
+                        }
+                        confirms = withContext(Dispatchers.IO) {                                               // CF1, VR15: ask once when a cycle outlives its block, close what went stale, list what is open
+                            runCatching {
+                                vrLive?.let { BlockEndAsk.check(applicationContext, it.ds, it.run) }
+                                ConfirmActions.sweep(applicationContext)
+                                app.efa.data.ConfirmRepo(db).open()
+                            }.getOrDefault(emptyList())
                         }
                         delay(1000)
                     }
@@ -551,6 +559,12 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = screen != Screen.HOME) { screen = Screen.HOME }
                 BackHandler(enabled = screen == Screen.HOME) { /* a home screen has nowhere to go back to */ }
 
+                // ST2, CF1: a late start, an overrun or a question's answer asks to slide the rest of today: the preview says what moves, and nothing changes until it is applied
+                val slide: (Int) -> Unit = { m ->
+                    val today = ZonedDateTime.now(LONDON).toLocalDate(); val inst = Instance(Preset.RUN_OVER, today, today, mapOf("minutes" to m.toString()))
+                    modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                    scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) }
+                }
                 when (screen) {
                     Screen.HOME -> if (WalkthroughGate.enforced && walkthroughSeen == null) Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
                     else if (WalkthroughGate.enforced && walkthroughSeen == false) WalkthroughScreen(firstRun = true, onFinish = { openSetup ->
@@ -613,6 +627,7 @@ class MainActivity : ComponentActivity() {
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
                                 vr = vrLive,
+                                confirms = confirms,
                             ),
                             onVr = { a ->
                                 val act = vrLive
@@ -630,6 +645,14 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
+                            onConfirm = { id, opt -> scope.launch(Dispatchers.IO) {
+                                val out = ConfirmActions.answer(applicationContext, id, opt)
+                                withContext(Dispatchers.Main) {
+                                    confirms = confirms.filter { it.id != id }
+                                    out?.message?.let { android.widget.Toast.makeText(applicationContext, it, android.widget.Toast.LENGTH_SHORT).show() }
+                                    out?.then?.takeIf { it.startsWith("slide:") }?.removePrefix("slide:")?.toIntOrNull()?.let { slide(it) }
+                                }
+                            } },
                             onEssential = { key -> launchEssential(key) },
                             onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
                             onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ },
@@ -691,13 +714,13 @@ class MainActivity : ComponentActivity() {
                             override suspend fun vrRun(ds: DatedSlot): VrRun? = app.efa.data.VrRepo(db).get(ds)
                             override suspend fun vrPlannedN(): Int = app.efa.data.VrRepo(db).plannedN()
                             override suspend fun vrConfig(): VrConfig = app.efa.data.VrRepo(db).config()
-                            override suspend fun vrStart(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).start(ds, nowMs); VrNotifier.refresh(applicationContext, ds) }
+                            override suspend fun vrStart(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).start(ds, nowMs); VrNotifier.refresh(applicationContext, ds); BlockingState.refresh(applicationContext) }
                             override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).advance(ds, nowMs, ds.start.zone); VrNotifier.refresh(applicationContext, ds) }
                             override suspend fun vrPage(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).page(ds, nowMs)
                             override suspend fun vrPause(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).pause(ds, nowMs); VrNotifier.refresh(applicationContext, ds) }
                             override suspend fun vrResume(ds: DatedSlot, nowMs: Long) { app.efa.data.VrRepo(db).resume(ds, nowMs); VrNotifier.refresh(applicationContext, ds) }
                             override suspend fun runRecord(ds: DatedSlot): RunRecord? = app.efa.data.RunRepo(db).get(ds)
-                            override suspend fun runStart(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).start(ds, nowMs)
+                            override suspend fun runStart(ds: DatedSlot, nowMs: Long) { app.efa.data.RunRepo(db).start(ds, nowMs); BlockingState.refresh(applicationContext) }
                             override suspend fun runFinish(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).finish(ds, nowMs)
                             override suspend fun runSkip(ds: DatedSlot, reason: String) = app.efa.data.RunRepo(db).skip(ds, reason)
                             override suspend fun conversionNote(ds: DatedSlot): String? =
@@ -706,12 +729,7 @@ class MainActivity : ComponentActivity() {
                             override suspend fun currentFix(): Fix? = LocationFix.current(applicationContext)
                             override fun hasLocationPermission() = LocationFix.hasPermission(applicationContext)
                         }, onBack = { reload++; screen = Screen.HOME }, onStartRoutine = { id -> RoutineLaunch.pending = id; reload++; screen = Screen.HOME },
-                            onShift = { m ->
-                                // ST2: a late start or an overrun is the same event as Running over: the preview says what slides, and nothing changes until it is applied
-                                val today = ZonedDateTime.now(LONDON).toLocalDate(); val inst = Instance(Preset.RUN_OVER, today, today, mapOf("minutes" to m.toString()))
-                                modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
-                                scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) }
-                            },
+                            onShift = slide,
                             onCameUp = { reload++; screen = Screen.CAME_UP }, onTurnBack = { slot ->
                             wallBack = Screen.HOME; wallLength = efa.WallLength.FREE_SLOT_CHANGE
                             wall = Triple("Make it a break", "This was free time that the Buffer turned into work. Type the characters below by hand to turn it back. It will not be turned into work again.", {

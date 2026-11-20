@@ -146,6 +146,7 @@ class VrReceiver : BroadcastReceiver() {
                     val repo = VrRepo(EfaDb.get(app)); val now = System.currentTimeMillis()
                     when (action) { VrNotifier.ACTION_PAUSE -> repo.pause(ds, now); VrNotifier.ACTION_RESUME -> repo.resume(ds, now) }
                     VrNotifier.refresh(app, ds)
+                    if (action == VrNotifier.ACTION_STEP_END) repo.get(ds)?.let { BlockEndAsk.check(app, ds, it, now) }                  // VR15: the block has ended with the cycle still running
                     if (action == VrNotifier.ACTION_STEP_END && repo.config().remind) repo.get(ds)?.let { VrNotifier.alert(app, ds, it) }       // VR13
                     VrSignal.tick++
                 }

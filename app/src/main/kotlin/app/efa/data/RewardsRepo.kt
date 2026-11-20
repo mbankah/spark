@@ -65,7 +65,10 @@ class RewardsRepo(private val db: EfaDb) {
     /** R2, O3: what each block proven today bought. Lectures and tutorials earn nothing: access is earned by work blocks. */
     suspend fun earnings(now: ZonedDateTime): List<Earning> {
         val dayStart = now.toLocalDate().atStartOfDay(now.zone).toInstant().toEpochMilli()
-        return db.blocks().provenSince(dayStart).filter { it.type !in setOf("lecture", "tutorial") && blockHeaviness(it.type) != null }
+        val proven = db.blocks().provenSince(dayStart).filter { it.type !in setOf("lecture", "tutorial") && blockHeaviness(it.type) != null }
             .mapNotNull { r -> r.provenAtMs?.let { Earning(it, earnedAccessMinutes(r.creditedMin)) } }
+        // SR1: a held start earns a little too, at most five a day; the start is the one run record, whoever wrote it (the Run card or the cycle)
+        val starts = db.meta().withPrefix(RunRepo.PREFIX + now.toLocalDate() + "|").mapNotNull { RunRecord.decode(it.value)?.startMs }
+        return proven + startEarnings(starts, dayStart)
     }
 }

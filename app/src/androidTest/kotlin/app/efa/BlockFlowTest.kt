@@ -276,18 +276,33 @@ class BlockScreenTest {
         override suspend fun checkCommit(ds: DatedSlot, now: ZonedDateTime): Verdict { commitChecks++; return Verdict(true, Reason.OK, 70) }
     }
 
-    @Test fun ST1_a_routine_block_has_a_Start_button_that_hands_its_routine_to_the_runner() {
-        var got: String? = null
+    @Test fun VR15_a_routine_block_has_one_start_and_the_hold_hands_its_routine_to_the_runner() {
+        var got: String? = null; val fake = Fake()
         val wake = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.title.startsWith("Wake") }
-        rule.setContent { EfaTheme { BlockScreen(wake, Fake(), onStartRoutine = { got = it }) {} } }
-        rule.onNodeWithText("START").assertExists(); rule.onNodeWithText("Start getting ready").performClick()
-        assertEquals(GETTING_READY.id, got)
+        rule.setContent { EfaTheme { BlockScreen(wake, fake, onStartRoutine = { got = it }) {} } }
+        rule.onNodeWithText("START").assertDoesNotExist()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithContentDescription("Hold to start", substring = true).performTouchInput { down(center) }
+        rule.mainClock.advanceTimeBy(holdMillis(60) + 800)
+        rule.onRoot().performTouchInput { up() }
+        rule.mainClock.autoAdvance = true
+        rule.waitUntil(5_000) { got != null }
+        assertEquals(GETTING_READY.id, got); assertNotNull(fake.rec?.startMs)
     }
 
-    @Test fun ST1_a_study_block_can_be_started_too_and_a_lecture_has_no_Start_button() {
+    @Test fun VR15_a_block_that_is_only_a_routine_keeps_its_Start_button() {
         var got: String? = null
-        rule.setContent { EfaTheme { BlockScreen(past, Fake(), onStartRoutine = { got = it }) {} } }
-        rule.onNodeWithText("Start study block").performClick(); assertEquals(STUDY_BLOCK.id, got)
+        val wind = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.type == "sleep" && routineForSlot(it.slot) == WIND_DOWN && !isRunnable(it.slot) }
+        rule.setContent { EfaTheme { BlockScreen(wind, Fake(), onStartRoutine = { got = it }) {} } }
+        rule.onNodeWithText("START").assertExists(); rule.onNodeWithText("Start ${WIND_DOWN.title.lowercase()}").performClick()
+        assertEquals(WIND_DOWN.id, got)
+    }
+
+    @Test fun VR15_a_study_block_has_one_start_the_cycle_and_a_lecture_has_none() {
+        rule.setContent { EfaTheme { BlockScreen(past, Fake(), onStartRoutine = {}) {} } }
+        rule.onNodeWithText("VRNPM").assertExists()
+        rule.onNodeWithText("START").assertDoesNotExist()
+        rule.onNodeWithText("Start study block").assertDoesNotExist()
         val lecture = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.type == "lecture" }
         assertTrue(routineForSlot(lecture.slot) == null, "a lecture is not a routine")
     }

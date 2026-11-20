@@ -136,7 +136,7 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
         // ST2: a block with no proof is started with a hold, finished with a shorter one, and says what happened when it did not go to plan
         if (isRunnable(ds.slot)) RunCard(
             ds, run, now,
-            onStart = { scope.launch { actions.runStart(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } },
+            onStart = { scope.launch { actions.runStart(ds, System.currentTimeMillis()); run = actions.runRecord(ds); routineForSlot(ds.slot)?.let { r -> onStartRoutine(r.id) } } },          // VR15: one hold starts the block and, when it is a routine, its steps
             onFinish = { scope.launch { actions.runFinish(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } },
             onSkip = { reason -> scope.launch { actions.runSkip(ds, reason); run = actions.runRecord(ds); if (reason == "Something came up") onCameUp() } },
             onShift = onShift,
@@ -152,7 +152,7 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
         )
         // ST1: a block that is a routine (the wake, the Bible, getting ready, the wind-down, a study block) can be started from here: the runner opens on that routine, one step at a time
         val routine = remember(ds) { routineForSlot(ds.slot) }
-        if (routine != null && !verified) Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (routine != null && !verified && ds.slot.type !in VR_TYPES && !isRunnable(ds.slot)) Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("START")
             BasicText("${routine.title}, one step at a time.", style = Ts(c.muted, 15.sp))
             Btn("Start ${routine.title.lowercase()}", { onStartRoutine(routine.id) }, primary = proof == Proof.NONE, modifier = Modifier.fillMaxWidth(), description = "Start ${routine.title}, one step at a time")
@@ -314,6 +314,7 @@ private fun RunCard(ds: DatedSlot, rec: RunRecord?, now: ZonedDateTime, onStart:
                 }
             }
             RunStatus.RUNNING -> {
+                StartRewardNote()
                 Box(Modifier.fillMaxWidth().height(10.dp).background(c.track, CardShape)) { Box(Modifier.fillMaxWidth(v.fraction).height(10.dp).background(c.accent, CardShape)) }
                 if (v.lateMin >= RUN_LATE_MIN) Btn("Started late: slide the rest of today by ${shiftMinutes(v.lateMin)} min", { onShift(shiftMinutes(v.lateMin)) }, modifier = Modifier.fillMaxWidth())
                 if (v.overMin >= RUN_LATE_MIN) Btn("Over by ${v.overMin} min: slide the rest of today by ${shiftMinutes(v.overMin)} min", { onShift(shiftMinutes(v.overMin)) }, modifier = Modifier.fillMaxWidth())
@@ -369,6 +370,7 @@ private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: (
                 HoldButton("Hold to start the cycle", holdMillis(steps.sumOf { it.plannedMin })) { onStart() }
             }
             VrStatus.RUNNING -> {
+                StartRewardNote()
                 BasicText(v.title, style = Ts(c.text, 24.sp, FontWeight.Bold))
                 BasicText(v.todo, style = Ts(c.muted, 15.sp))
                 if (v.paused) BasicText("PAUSED  the clock is stopped", style = Ts(c.text, 16.sp, FontWeight.Bold))

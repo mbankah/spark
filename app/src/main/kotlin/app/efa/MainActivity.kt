@@ -72,7 +72,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 private const val CANVAS_PACKAGE = "com.instructure.candroid"
-private enum class Screen { HOME, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS, PC, MODIFY, MOD_FORM, ADMIN, ESSENTIALS, CAME_UP, WALKTHROUGH }
+private enum class Screen { HOME, CHANGE, WORKING, QUICK_ADD, BLOCK, SETUP, MAP_HOME, MAP_VENUE, LIST_GATE, BLOCKLIST, DIGEST, SEARCH, IMPORT, IMPORT_WALL, MORNING, MORNING_CAMERA, READY, READY_CAMERA, MONEY, GATE, DAYOFF, LIBRARY, REVIEW, SHOPPING, WIDGETS, PC, MODIFY, MOD_FORM, ADMIN, ESSENTIALS, CAME_UP, WALKTHROUGH }
 
 private val CAMPUS_CENTRE = Pair(52.4508, -1.9305)   // Edgbaston campus: where map pickers open before anything is set
 
@@ -211,7 +211,7 @@ class MainActivity : ComponentActivity() {
                 var adminProblems by remember { mutableStateOf<List<String>>(emptyList()) }
                 var essUi by remember { mutableStateOf(EssentialsUi(emptyList(), 0, 0, emptyList())) }
                 LaunchedEffect(screen, reload) {
-                    if (screen == Screen.SETUP) withContext(Dispatchers.IO) {                                   // WT1: what the wake time card says
+                    if (screen == Screen.CHANGE) withContext(Dispatchers.IO) {                                  // WT1: what the wake time card says
                         val now = BlockingState.now()
                         val plan = try { AlarmScheduler.planNow(applicationContext, now) } catch (e: Exception) { null }
                         val chosen = try { AlarmScheduler.chosenWake(applicationContext, now) } catch (e: Exception) { null }
@@ -565,6 +565,20 @@ class MainActivity : ComponentActivity() {
                     modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
                     scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) }
                 }
+                // ST4, CD1: what is happening against the plan: over, late, something came up, or the door to every other change
+                val reality: (String) -> Unit = reality@{ kind ->
+                    if (kind == "door") { screen = Screen.CHANGE; return@reality }
+                    modifyFromHome = true
+                    val today = clock.toLocalDate()
+                    val open = { inst: Instance, preview: Boolean -> modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
+                        if (preview) scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) } }
+                    when (kind) {
+                        "night" -> { val tn = efa.nightOf(ZonedDateTime.now(LONDON)); open(Instance(Preset.NIGHT, tn, tn, emptyMap()), false) }
+                        "late" -> open(Instance(Preset.LATE_START, today, today, mapOf("from_now" to "true")), true)
+                        "cameup" -> screen = Screen.CAME_UP
+                        else -> screen = Screen.MODIFY          // running over: the minutes are chosen under Right now
+                    }
+                }
                 when (screen) {
                     Screen.HOME -> if (WalkthroughGate.enforced && walkthroughSeen == null) Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
                     else if (WalkthroughGate.enforced && walkthroughSeen == false) WalkthroughScreen(firstRun = true, onFinish = { openSetup ->
@@ -665,18 +679,7 @@ class MainActivity : ComponentActivity() {
                             onMoney = { screen = Screen.MONEY },
                             onMeal = { key, ate -> scope.launch(Dispatchers.IO) { MealCheckAlarm.answer(applicationContext, key, ate); reload++ } },
                             onEmergency = { a -> scope.launch(Dispatchers.IO) { Emergency.run(applicationContext, a) } },
-                            onReality = { kind ->
-                                modifyFromHome = true
-                                val today = clock.toLocalDate()
-                                val open = { inst: Instance, preview: Boolean -> modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
-                                    if (preview) scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) } }
-                                when (kind) {
-                                    "night" -> { val tn = efa.nightOf(ZonedDateTime.now(LONDON)); open(Instance(Preset.NIGHT, tn, tn, emptyMap()), false) }
-                                    "late" -> open(Instance(Preset.LATE_START, today, today, mapOf("from_now" to "true")), true)
-                                    "cameup" -> screen = Screen.CAME_UP
-                                    else -> screen = Screen.MODIFY          // running over: the minutes are chosen under Right now
-                                }
-                            },
+                            onReality = reality,
                             onAdapt = { kind ->
                                 when (kind) {
                                     "drift" -> AdaptState.proposal?.let { p ->
@@ -737,6 +740,39 @@ class MainActivity : ComponentActivity() {
                             }); screen = Screen.GATE
                         })
                     }
+                    Screen.CHANGE -> ChangeDoorScreen(
+                        onChoose = { ch ->
+                            when (ch) {
+                                ChangeChoice.OVER -> reality("over")
+                                ChangeChoice.LATE -> reality("late")
+                                ChangeChoice.CAME_UP -> reality("cameup")
+                                ChangeChoice.DEADLINE -> screen = Screen.QUICK_ADD
+                                ChangeChoice.DAY_OFF -> { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF }
+                                ChangeChoice.LIBRARY -> { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY }
+                                ChangeChoice.FILE -> { importUi = ImportUi.Idle; screen = Screen.IMPORT }
+                                ChangeChoice.PERIOD -> { modifyFromHome = false; modMessage = null; screen = Screen.MODIFY }
+                            }
+                        },
+                        wake = wakeUi.copy(message = wakeMessage),
+                        onWakeClear = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, null); wakeMessage = "Back to the normal alarm."; reload++ } },
+                        onWakeSet = { h, m ->
+                            scope.launch(Dispatchers.IO) {
+                                val now = BlockingState.now(); val chosen = nextClockTime(now, h, m)
+                                val onset = AlarmScheduler.liveOnset(app.efa.data.SleepRepo(db), now)
+                                val problem = wakeChoiceProblem(now, onset, chosen)
+                                if (problem != null) { wakeMessage = problem; return@launch }
+                                val normal = AlarmScheduler.planNow(applicationContext, now, useChosen = false)
+                                val withChoice = planAlarmWithDaysOff(now, onset, PlanRepo(db).slots(), chosen)
+                                val at = "%02d:%02d".format(chosen.hour, chosen.minute)
+                                val save = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, chosen); wakeMessage = "The next alarm is set for $at."; reload++ }; Unit }
+                                if (wakeNeedsWall(normal, withChoice)) {
+                                    wallBack = Screen.CHANGE; wallLength = efa.WallLength.WAKE_LATER
+                                    wall = Triple("Wake later", "You will sleep until $at, later than Spark would have woken you. The blocks before then are missed, and come back as work. Type the characters below by hand.", { save() })
+                                    screen = Screen.GATE
+                                } else save()
+                            }
+                        },
+                        onBack = { screen = Screen.HOME })
                     Screen.SETUP -> SetupScreen(places,
                         onWalkthrough = { screen = Screen.WALKTHROUGH },
                         vrCfg = vrCfg,
@@ -758,14 +794,11 @@ class MainActivity : ComponentActivity() {
                         onOpenNotificationAccess = { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
                         onAllowBufferNotice = { if (Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) else { noticeOn = BufferNotifier.allowed(applicationContext); BufferNotifier.update(applicationContext) } },
                         onOpenAccessibility = { openAccessibilitySettings(applicationContext) },
-                        onImport = { importUi = ImportUi.Idle; screen = Screen.IMPORT },
+                        onChange = { screen = Screen.CHANGE },
                         onMorning = { morningMessage = null; screen = Screen.MORNING },
-                        onDaysOff = { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF },
-                        onLibrary = { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY },
                         onWidgets = { widgetMessage = null; screen = Screen.WIDGETS },
                         browsers = browsers,
                         onPc = { screen = Screen.PC },
-                        onModify = { modMessage = null; screen = Screen.MODIFY },
                         look = look,
                         onLook = { icons, grid -> val next = look.change(clock.toLocalDate(), icons, grid); look = next; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_LOOK, next.encode())) } },
                         appearance = appearance,
@@ -789,25 +822,6 @@ class MainActivity : ComponentActivity() {
                         mealChecks = mealChecks,
                         onMealChecks = { v -> scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_MEAL_CHECKS, if (v) "1" else "0")); MealCheckAlarm.refresh(applicationContext); reload++ } },
                         quietMode = quietMode,
-                        wake = wakeUi.copy(message = wakeMessage),
-                        onWakeClear = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, null); wakeMessage = "Back to the normal alarm."; reload++ } },
-                        onWakeSet = { h, m ->
-                            scope.launch(Dispatchers.IO) {
-                                val now = BlockingState.now(); val chosen = nextClockTime(now, h, m)
-                                val onset = AlarmScheduler.liveOnset(app.efa.data.SleepRepo(db), now)
-                                val problem = wakeChoiceProblem(now, onset, chosen)
-                                if (problem != null) { wakeMessage = problem; return@launch }
-                                val normal = AlarmScheduler.planNow(applicationContext, now, useChosen = false)
-                                val withChoice = planAlarmWithDaysOff(now, onset, PlanRepo(db).slots(), chosen)
-                                val at = "%02d:%02d".format(chosen.hour, chosen.minute)
-                                val save = { scope.launch(Dispatchers.IO) { AlarmScheduler.setChosenWake(applicationContext, chosen); wakeMessage = "The next alarm is set for $at."; reload++ }; Unit }
-                                if (wakeNeedsWall(normal, withChoice)) {
-                                    wallBack = Screen.SETUP; wallLength = efa.WallLength.WAKE_LATER
-                                    wall = Triple("Wake later", "You will sleep until $at, later than Spark would have woken you. The blocks before then are missed, and come back as work. Type the characters below by hand.", { save() })
-                                    screen = Screen.GATE
-                                } else save()
-                            }
-                        },
                         onQuietMode = { on ->
                             if (on) scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_QUIET_MODE, "1")); BlockingState.refresh(applicationContext); reload++ }
                             else {                                                                               // QM1: turning it off lets notifications through again, so it needs the wall
@@ -869,7 +883,7 @@ class MainActivity : ComponentActivity() {
                                 }); screen = Screen.IMPORT_WALL
                             }
                         },
-                        onBack = { importUi = ImportUi.Idle; screen = Screen.SETUP })
+                        onBack = { importUi = ImportUi.Idle; screen = Screen.CHANGE })
                     Screen.IMPORT_WALL -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { screen = Screen.IMPORT; w.third() }, onCancel = { screen = Screen.IMPORT }, details = wallDetails) } ?: run { screen = Screen.IMPORT }
                     Screen.MORNING -> MorningSetupScreen(morningUi, morningMessage,
                         onTake = { kind -> cameraKind = kind; morningMessage = null; screen = Screen.MORNING_CAMERA },
@@ -896,7 +910,7 @@ class MainActivity : ComponentActivity() {
                             modPreview = null; modRec = emptyMap(); modMessage = null; screen = Screen.MOD_FORM
                         },
                         onRemove = { r -> scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).remove(r.id); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); reload++; modMessage = "Removed." } },
-                        onAdmin = { screen = Screen.ADMIN }, onEssentials = { essUi = essUi.copy(message = null); screen = Screen.ESSENTIALS }, message = modMessage, dropped = modDropped, onBack = { screen = if (modifyFromHome) Screen.HOME else Screen.SETUP; modifyFromHome = false },
+                        onAdmin = { screen = Screen.ADMIN }, onEssentials = { essUi = essUi.copy(message = null); screen = Screen.ESSENTIALS }, message = modMessage, dropped = modDropped, onBack = { screen = if (modifyFromHome) Screen.HOME else Screen.CHANGE; modifyFromHome = false },
                         onQuick = { inst ->
                             modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
                             scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) }     // one tap to the preview
@@ -1020,8 +1034,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onRemove = { id -> scope.launch(Dispatchers.IO) { PlanRepo(db).removeLibraryPeriod(db, id); BlockingState.refresh(applicationContext); reload++; refreshLibrary(null, u.days, "Removed.", false, u.draftOpen, u.draftClose) } },
-                            onBack = { screen = Screen.SETUP })
-                    } ?: run { screen = Screen.SETUP }
+                            onBack = { screen = Screen.CHANGE })
+                    } ?: run {                                                      // CD1: the screen opens before its data is read, so it waits for it (and gives up after 3 s) instead of bouncing back
+                        Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
+                        LaunchedEffect(Unit) { kotlinx.coroutines.delay(3000); if (libraryUi == null) screen = Screen.CHANGE }
+                    }
                     Screen.DAYOFF -> dayOffUi?.let { u ->
                         DayOffScreen(u,
                             onPick = { dates -> refreshDayOff(dates, null, false) },
@@ -1049,8 +1066,11 @@ class MainActivity : ComponentActivity() {
                                     }); screen = Screen.GATE
                                 }
                             },
-                            onBack = { screen = Screen.SETUP })
-                    } ?: run { screen = Screen.SETUP }
+                            onBack = { screen = Screen.CHANGE })
+                    } ?: run {                                                      // CD1: the screen opens before its data is read, so it waits for it (and gives up after 3 s) instead of bouncing back
+                        Box(Modifier.fillMaxSize().background(LocalColors.current.bg))
+                        LaunchedEffect(Unit) { kotlinx.coroutines.delay(3000); if (dayOffUi == null) screen = Screen.CHANGE }
+                    }
                     Screen.MONEY -> l?.money?.let { MoneyScreen(it) { screen = Screen.HOME } } ?: run { screen = Screen.HOME }
                     Screen.GATE -> wall?.let { w -> ImportWallGate(w.first, w.second, onPassed = { w.third(); screen = wallBack }, onCancel = { screen = wallBack }, length = wallLength, details = wallDetails) } ?: run { screen = Screen.HOME }
                     Screen.READY -> {

@@ -37,20 +37,16 @@ data class PlacesState(val home: Pair<Double, Double>?, val venues: List<VenueSt
  * Setup for places (L4 to L8). Home is set on a map and saved at about 100 m resolution. Every timetable venue shows where its
  * point came from, and any venue can be placed on the map; a venue OpenStreetMap could not match is flagged first (L5).
  */
-/** WT1: what the wake time card shows: the next alarm in words, whether a time was chosen, the time the picker starts at, and the last answer. */
-data class WakeUi(val text: String = "", val chosen: Boolean = false, val hour: Int = 10, val minute: Int = 30, val message: String? = null)
-
 @Composable
 fun SetupScreen(
     p: PlacesState, onHome: () -> Unit, onVenue: (VenueStatus) -> Unit, onBack: () -> Unit, onGit: (GitConfig.Ok) -> Unit = {},
     blocking: BlockingStatus = BlockingStatus(false, null), onOpenAccessibility: () -> Unit = {}, onChooseList: () -> Unit = {},
     notifications: NotificationsStatus = NotificationsStatus(false, false), onOpenNotificationAccess: () -> Unit = {}, onAllowBufferNotice: () -> Unit = {},
-    onImport: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onDaysOff: () -> Unit = {}, onLibrary: () -> Unit = {}, onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, onModify: () -> Unit = {}, healthText: String = "", onHealth: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
+    onChange: () -> Unit = {}, sleep: SleepStatus = SleepStatus(), onMorning: () -> Unit = {}, morningText: String = "", onShopping: () -> Unit = {}, onWidgets: () -> Unit = {}, onPc: () -> Unit = {}, healthText: String = "", onHealth: () -> Unit = {}, look: efa.LauncherLook = efa.LauncherLook(), onLook: (Boolean?, Boolean?) -> Unit = { _, _ -> }, appearance: AppearanceMode = AppearanceMode.AUTO, onAppearance: (AppearanceMode) -> Unit = {}, onMyUoB: () -> Unit = {}, myUoBNote: String? = null, pcText: String = "", browsers: List<efa.BrowserCoverage> = emptyList(), voiceQuietOff: Boolean = true, onVoiceQuiet: (Boolean) -> Unit = {},
     codeReminders: Boolean = true, onCodeReminders: (Boolean) -> Unit = {},
     photoReminders: Boolean = true, onPhotoReminders: (Boolean) -> Unit = {},
     mealChecks: Boolean = true, onMealChecks: (Boolean) -> Unit = {},
     quietMode: Boolean = false, onQuietMode: (Boolean) -> Unit = {},
-    wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {},
     onWalkthrough: () -> Unit = {},
     vrCfg: efa.VrConfig = efa.VrConfig(), onVrCfg: (efa.VrConfig) -> Unit = {},
 ) {
@@ -71,17 +67,10 @@ fun SetupScreen(
         SleepCard(sleep, blocking.serviceOn)
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("MODIFY SCHEDULE")
-            BasicText("Presets that adapt your schedule", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Assignments planned in anticipation, a catch-up week, a period off, a focus week, a lecture-free lighter period, the Admin library and the essentials.", style = Ts(c.muted, 14.sp))
-            Btn("Modify Schedule", onModify, primary = true, modifier = Modifier.fillMaxWidth())
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("DAYS OFF")
-            BasicText("Plan a day off or a weekend, or say you are ill.", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("The cost to the Buffer is shown before you confirm. It takes a typed string that gets longer with each use in 30 days.", style = Ts(c.muted, 14.sp))
-            Btn("Plan a day off", onDaysOff, modifier = Modifier.fillMaxWidth())
+            Label("CHANGE THE PLAN")
+            BasicText("Everything that moves the plan, in one place", style = Ts(c.text, 16.sp, FontWeight.Bold))
+            BasicText("Running over, a late start, something that came up, a new deadline, a day off, a library period, a timetable file, a week or period, and the wake time.", style = Ts(c.muted, 14.sp))
+            Btn("Change the plan", onChange, primary = true, modifier = Modifier.fillMaxWidth())
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -145,21 +134,6 @@ fun SetupScreen(
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("WAKE TIME")
-            BasicText(wake.text.ifBlank { "Next alarm not worked out yet." }, style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Choose when the next alarm rings. The normal alarm is about 8 hours after you fall asleep, and the latest it can be is 12:00. A later time than the normal one needs the wall. Blocks you sleep through are missed and come back as work.", style = Ts(c.muted, 14.sp))
-            var minutes by remember(wake.hour, wake.minute) { androidx.compose.runtime.mutableIntStateOf(wake.hour * 60 + wake.minute) }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Btn("− 15", { minutes = (minutes - 15 + 1440) % 1440 }, description = "Wake time 15 minutes earlier")
-                BasicText("%02d:%02d".format(minutes / 60, minutes % 60), style = Ts(c.text, 34.sp, FontWeight.Bold, fontFamily = Mono), modifier = Modifier.weight(1f).semantics { contentDescription = "Wake time %02d:%02d".format(minutes / 60, minutes % 60) })
-                Btn("+ 15", { minutes = (minutes + 15) % 1440 }, description = "Wake time 15 minutes later")
-            }
-            Btn("Set this wake time", { onWakeSet(minutes / 60, minutes % 60) }, primary = true, modifier = Modifier.fillMaxWidth(), description = "Set the wake time to %02d:%02d".format(minutes / 60, minutes % 60))
-            if (wake.chosen) Btn("Use the normal alarm", onWakeClear, modifier = Modifier.fillMaxWidth())
-            wake.message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.SemiBold)) }
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("QUIET MODE")
             BasicText("Hold everything except essentials", style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText("In a work block and at night, every notification is held for the digest, except your essentials, calls, alarms, codes and bank alerts, directions, downloads and the phone's own messages. Turning it off needs the wall.", style = Ts(c.muted, 14.sp))
@@ -204,24 +178,10 @@ fun SetupScreen(
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("LIBRARY")
-            BasicText("Plan a library period", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Work blocks move to the library for 1 to 14 days, with a walk each way. Meals and football stay put.", style = Ts(c.muted, 14.sp))
-            Btn("Plan a library period", onLibrary, modifier = Modifier.fillMaxWidth())
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("MORNING")
             BasicText(morningText.ifBlank { "Not set up." }, style = Ts(c.text, 16.sp, FontWeight.Bold))
             BasicText("A photo of tomorrow's setup stops the alarm, and social stays blocked until the ready photo.", style = Ts(c.muted, 14.sp))
             Btn("Set up mornings", onMorning, modifier = Modifier.fillMaxWidth())
-        }
-
-        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("TIMETABLE")
-            BasicText("Adapt the timetable from a CSV file.", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Lectures that moved, deadlines, assignment weeks and catch-up weeks. Spark checks the file and shows the Buffer before and after, and changes nothing until you say so.", style = Ts(c.muted, 14.sp))
-            Btn("Import a timetable file", onImport, modifier = Modifier.fillMaxWidth())
         }
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

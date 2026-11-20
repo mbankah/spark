@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertTrue
 
-/** The Modify Schedule screens reached through the real app: Setup, Modify Schedule, a preset, a preview, and the wall in front of a loosening apply. */
+/** The Modify Schedule screens reached through the real app: Change the plan, Modify Schedule, a preset, a preview, and the wall in front of a loosening apply. */
 @RunWith(AndroidJUnit4::class)
 class ModifyFlowTest {
     companion object {
@@ -30,12 +30,12 @@ class ModifyFlowTest {
     }
 
     private fun openModify() {
-        rule.onNodeWithText("Setup").performScrollTo().performClick()
-        rule.onNodeWithText("Modify Schedule").performScrollTo().performClick()
+        rule.onNodeWithText("Change the plan").performScrollTo().performClick()
+        rule.onNodeWithText("A week or a period").performScrollTo().performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("PRESETS").fetchSemanticsNodes().isNotEmpty() }
     }
 
-    @Test fun C1_Setup_leads_to_Modify_Schedule_with_every_built_preset() {
+    @Test fun C1_Change_the_plan_leads_to_Modify_Schedule_with_every_built_preset() {
         openModify()
         Preset.entries.forEach { rule.onNodeWithText(it.label).performScrollTo().assertExists() }
     }

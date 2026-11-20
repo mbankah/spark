@@ -961,6 +961,19 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 57. One door for change
+
+Added on 20 November 2026 at your request ("yes, build it", move 2 of the systems map). The class: every way of changing the plan is one place you go to and say what is happening, and each opens the screen that shows what it does, what it costs and applies it.
+
+The coherence check for this change: it is owned by Change; it reads nothing new and writes nothing new, since each choice opens the screen it already had; it is shown on Home (a chip on the Now card) and in Setup (one card); a choice starts at the door and the screen it opens comes back to the door; it replaces four Setup cards and the wake time card; the screens that wait for their data and the back path are handled below; it is proven by a test through the real app.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| CD1 | There is one place for every change to the plan, Change the plan: It is running over, I started late, Something came up, A new deadline, A day off or a weekend, A library period, A file from my timetable, and A week or a period (Modify Schedule). Each choice opens the screen it had before, which shows what it does before anything moves, what it costs and applies it, and its Back comes back to the door. It is reached from the Now card on Home (the chip Change the plan, beside the three that were there) and from Setup. Adapt stays automatic. | Default; built, tested on the emulator |
+| CD2 | The wake time for tonight is part of the same door and works as it did: a time in steps of 15 minutes, a later one than the normal alarm needs the wall, and going back to the normal alarm. It still sets the alarm only; the blocks of the morning do not move with it. | Default; built, tested on the emulator |
+| CD3 | Setup no longer has the Modify Schedule, Days off, Library, Timetable and Wake time cards. It has one card, Change the plan, which opens the door. | Default; built, tested on the emulator |
+| CD4 | The day off and library screens open before their data has been read, and used to go straight back when it had not; they now wait for it, and give up after 3 seconds. | Default; built, tested on the emulator |
+
 ## 56. Asking, and one Start per block
 
 Added on 20 November 2026 at your request, from the systems map (docs/SYSTEM_MAP.html) and your answers: a held start is worth a small reward, and when a study block ends mid-cycle Spark asks what to do, through a confirmation system you can use for anything else that needs confirming. The class: a thing that cannot decide for you asks once, in one place; and a block has one start, which writes the one record everything else reads.

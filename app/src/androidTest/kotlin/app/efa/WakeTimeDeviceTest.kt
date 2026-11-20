@@ -16,7 +16,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import kotlin.test.*
 
-/** WT1 on the phone: the Setup card, and the chosen time read from storage by the alarm plan. */
+/** WT1 on the phone: the wake time card in Change the plan, and the chosen time read from storage by the alarm plan. */
 @RunWith(AndroidJUnit4::class)
 class WakeTimeDeviceTest {
     @get:Rule val rule = createComposeRule()
@@ -26,9 +26,9 @@ class WakeTimeDeviceTest {
 
     @After fun clean() = runBlocking<Unit> { db.meta().put(MetaRow(META_WAKE_CHOSEN, "0")) }
 
-    @Test fun WT1_the_setup_card_says_the_next_alarm_and_sets_the_time_it_shows() {
+    @Test fun WT1_the_change_door_card_says_the_next_alarm_and_sets_the_time_it_shows() {
         var set: Pair<Int, Int>? = null
-        rule.setContent { EfaTheme { SetupScreen(PlacesState(null, emptyList()), {}, {}, {}, wake = WakeUi("Next alarm 09:00, about 8 hours after you fell asleep.", false, 10, 30), onWakeSet = { h, m -> set = h to m }) } }
+        rule.setContent { EfaTheme { ChangeDoorScreen({}, {}, wake = WakeUi("Next alarm 09:00, about 8 hours after you fell asleep.", false, 10, 30), onWakeSet = { h, m -> set = h to m }) } }
         rule.onNodeWithText("Next alarm 09:00, about 8 hours after you fell asleep.").performScrollTo().assertExists()
         rule.onNodeWithContentDescription("Wake time 10:30").assertExists()
         rule.onNodeWithContentDescription("Set the wake time to 10:30").performScrollTo().performClick()
@@ -37,7 +37,7 @@ class WakeTimeDeviceTest {
 
     @Test fun WT1_the_plus_and_minus_buttons_move_the_time_by_15_minutes_and_it_wraps_round_the_clock() {
         var set: Pair<Int, Int>? = null
-        rule.setContent { EfaTheme { SetupScreen(PlacesState(null, emptyList()), {}, {}, {}, wake = WakeUi("x", false, 10, 30), onWakeSet = { h, m -> set = h to m }) } }
+        rule.setContent { EfaTheme { ChangeDoorScreen({}, {}, wake = WakeUi("x", false, 10, 30), onWakeSet = { h, m -> set = h to m }) } }
         rule.onNodeWithContentDescription("Wake time 15 minutes later").performScrollTo().performClick()
         rule.onNodeWithContentDescription("Wake time 10:45").assertExists()
         rule.onNodeWithContentDescription("Wake time 15 minutes earlier").performClick(); rule.onNodeWithContentDescription("Wake time 15 minutes earlier").performClick()
@@ -47,12 +47,12 @@ class WakeTimeDeviceTest {
 
     @Test fun WT1_going_back_to_the_normal_alarm_is_offered_only_when_a_time_was_chosen() {
         var cleared = false
-        rule.setContent { EfaTheme { SetupScreen(PlacesState(null, emptyList()), {}, {}, {}, wake = WakeUi("Next alarm 10:30, the time you chose.", true, 10, 30), onWakeClear = { cleared = true }) } }
+        rule.setContent { EfaTheme { ChangeDoorScreen({}, {}, wake = WakeUi("Next alarm 10:30, the time you chose.", true, 10, 30), onWakeClear = { cleared = true }) } }
         rule.onNodeWithText("Use the normal alarm").performScrollTo().performClick(); assertTrue(cleared)
     }
 
     @Test fun WT1_without_a_chosen_time_there_is_no_button_to_go_back() {
-        rule.setContent { EfaTheme { SetupScreen(PlacesState(null, emptyList()), {}, {}, {}, wake = WakeUi("x", false, 10, 30)) } }
+        rule.setContent { EfaTheme { ChangeDoorScreen({}, {}, wake = WakeUi("x", false, 10, 30)) } }
         rule.onNodeWithText("Use the normal alarm").assertDoesNotExist()
     }
 

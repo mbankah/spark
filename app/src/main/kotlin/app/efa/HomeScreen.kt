@@ -243,6 +243,7 @@ private fun NowHero(s: HomeState, onNow: () -> Unit, onReality: (String) -> Unit
     val acts = buildList {
         if (s.nowTitle != null) { add("Running over" to ("over" to "Running over: this is taking longer")); add("Started late" to ("late" to "Started late: start the day from now")) }
         add("Something came up" to ("cameup" to "Something came up: say what happened and Spark finds a place for it"))
+        add("Change the plan" to ("door" to "Change the plan: a day off, the library, a file, the wake time and more"))          // CD1: every other change is one tap away
     }
     Column(Modifier.fillMaxWidth().card(efa.CardKind.NOW)) {
         Row(

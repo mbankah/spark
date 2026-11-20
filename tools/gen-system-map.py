@@ -139,7 +139,7 @@ def d_map():
     d.edge('count', 'b', 'guard', 'r', 'earned|access', fa=.35, fb=.5)
     d.edge('ctx', 'r', 'night', 'l', 'place, clock,|time zone')
     d.node('sur', 30, 520, 1130, 160, 'Surfaces: where you see and tap all of the above', ['Several systems are drawn on more than one surface, so one fact can be shown in five places.'], k='sur')
-    names = [('Home', 'now, next, needs'), ('Schedule page', 'the calendar'), ('Work it out', 'about 20 sections'), ('Block screen', 'up to 4 cards'), ('Setup', '27 cards'), ('Lock screen', 'cycle, alarm, reminders'), ('Alarm screen', 'steps, photo')]
+    names = [('Home', 'now, next, needs'), ('Schedule page', 'the calendar'), ('Work it out', 'about 20 sections'), ('Block screen', 'up to 4 cards'), ('Setup', '23 cards'), ('Lock screen', 'cycle, alarm, reminders'), ('Alarm screen', 'steps, photo')]
     for i, (n, s) in enumerate(names):
         d.node(f's{i}', 44 + i * 160, 596, 148, 62, n, [s], k='sur', style='ext')
     d.badge(668, 70, 1); d.badge(700, 70, 2); d.badge(732, 70, 3); d.badge(764, 70, 5)
@@ -437,13 +437,13 @@ GAPS = [
     (3, 'Start, end and say went nowhere.', 'The Run record is read by the Coach and by the day strip, and the strip is no longer on Home. Nothing in Rewards or the Buffer reads it. You asked how an unproven block earns a reward, and today a held start earns none.',
      'RunRepo and VrRepo are used only in BlockScreen, MainActivity, VrNotifier and Coach', 'Done 20 Nov (SR1): a held start earns 2 minutes of open phone, for 5 starts a day.'),
     (4, 'Wake time has three owners.', 'The weekly Wake block, the night preset (it writes the wake key from the anchors), and the Setup wake chooser. The chooser moves the alarm only. The Wake and getting-ready blocks stay where they were.',
-     'ModifierRepo.kt:39; MainActivity.kt:776-790', "One tonight's-anchors record in Plan; all three write it (picture 2)."),
+     'ModifierRepo.kt:39; MainActivity.kt:776-790', "Partly done 20 Nov (CD2): the wake chooser moved into the Change door. It still sets only the alarm; the one anchors record that moves the morning blocks is still to do (picture 2)."),
     (5, 'Routines are found by title text.', "A block gets its routine because its title starts with Bible, Wake or Breakfast, dress, or because its type is sleep or study. Rename a block and its routine goes. The runner is also a page of its own, not part of the block.",
      'RoutinePrompts.kt:10-17', 'A block carries its routine id and its steps. The runner page goes.'),
-    (6, 'The plan has eight doors.', 'Home hero chips, Something came up, Quick add and Voice, and four Setup cards: Modify Schedule, Days off, Library, Timetable file. Modify Schedule describes a period off and the library again in its own text. Adapt is the eighth, and it is automatic.',
-     'HomeScreen.kt:241-244; SetupScreen.kt:74-84, 207-225', 'One Change door with the same four steps (picture 3).'),
+    (6, 'The plan had eight doors.', 'Home hero chips, Something came up, Quick add and Voice, and four Setup cards: Modify Schedule, Days off, Library, Timetable file. Modify Schedule describes a period off and the library again in its own text. Adapt is the eighth, and it is automatic.',
+     'HomeScreen.kt:241-244; SetupScreen.kt:74-84, 207-225', 'Done 20 Nov (CD1): one Change the plan door; the four Setup cards moved into it. Work it out and Quick add still have their own entries.'),
     (7, 'Setup is 27 cards of three kinds.', 'Do-it-now actions (Modify, Days off, Library, Timetable, Shopping, Widgets), settings (Appearance, Quiet mode, Voice) and permission checks (Blocking, Notifications, Sleep, Browsers). Reminders are spread over five cards: Photo, Meals, Lecture code, Study cycle and Quiet mode.',
-     'SetupScreen.kt:63-253', 'Five groups, with actions moved out (table below).'),
+     'SetupScreen.kt:63-253', 'Part done 20 Nov (CD3): the change cards and the wake card are out of Setup (27 cards down to 23). Reminders and the permission checks are still to group (table below).'),
     (8, 'Work it out is a drawer of about 20 sections.', 'Emergency, mood, parked ideas, rewards, winter vacation, what-if sleep, Lite day, coach voice, your reminders, family home, permissions and more. Permissions are also in Setup, Lite day is also automatic through Adapt, and Emergency is also three chips on Home.',
      'WorkItOutScreen.kt, WorkItOutMore.kt, WorkItOutExtra.kt', 'Shrink it to Right now; the rest goes where it belongs (table below).'),
 ]
@@ -608,7 +608,7 @@ def build(simple=True):
     out.append('<div class="wrap">')
     out.append('<div class="kicker">Spark · read from the code, 20 November 2026</div>')
     out.append('<h1>Spark is one loop, and the fix is three moves.</h1>')
-    out.append('<p class="lead">Read from the code. Move 1 and the confirmation system are built (20 November 2026); the rest is proposed. The detail behind this page, with every system and the eight gaps, is folded at the bottom.</p>')
+    out.append('<p class="lead">Read from the code. Moves 1 and 2 (the door) and the confirmation system are built (20 November 2026); move 3 and the rest of the gaps are proposed. The detail behind this page, with every system and the eight gaps, is folded at the bottom.</p>')
     out.append('<nav class="nv" aria-label="Sections"><a href="#one">One picture</a><a href="#moves">Three moves</a><a href="#need">Decisions made</a></nav>')
 
     out.append('<h2 id="one">Spark in one picture</h2>')
@@ -617,7 +617,7 @@ def build(simple=True):
     out.append('<h2 id="moves">Three moves</h2>')
     out.append('<div class="gl">')
     for n, t, b in [(1, 'One Start per block (built)', 'A block has one hold to start it. Its type picks the engine: study runs the cycle, a routine runs its own steps, anything else is a plain run. It writes one run record, and the Coach, Count, Guard and every screen read that.'),
-                    (2, 'One door for change', 'Late, over, came up, a day off, the library, a file and a new deadline all go through the same four steps: say it, preview it, pay for it, apply it. The wake time and routines stop being separate things: wake is part of the night in the calendar, and a block carries its own steps.'),
+                    (2, 'One door for change (built)', 'Late, over, came up, a new deadline, a day off, the library, a file and a week or period are all said in one place, Change the plan, and each shows what it does, what it costs and applies it. Still to do: wake time moving the morning blocks, and a block carrying its own steps so the runner page can go.'),
                     (3, 'Fewer, plainer screens', 'Setup becomes five groups and loses its action cards. Work it out becomes Right now. Reminders become one list.')]:
         out.append(f'<div class="gi"><div class="gn" style="background:var(--ink)">{n}</div><div><h4>{esc(t)}</h4><p>{esc(b)}</p></div></div>')
     out.append('</div>')

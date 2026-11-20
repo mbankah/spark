@@ -27,7 +27,7 @@ private fun Stepper(label: String, value: Int, range: IntRange, step: Int, shown
 
 /**
  * VR7, VR8: how long each step and each cycle is, and whether the Red Engine has taken the remedial over. A preset sets the five steps, the breaks and the remedial time; the rest is yours to set.
- * The longest cycle shrinks every step in proportion to fit. Switching the remedial off for the Red Engine is a loosening, so it is the caller's to put behind the wall.
+ * The longest cycle shrinks every step in proportion to fit. The Red Engine switch is a plain toggle.
  */
 @Composable
 fun VrnpmSettingsCard(cfg: VrConfig, onChange: (VrConfig) -> Unit) {
@@ -54,7 +54,7 @@ fun VrnpmSettingsCard(cfg: VrConfig, onChange: (VrConfig) -> Unit) {
         Stepper("Pages in a cycle's notes", cfg.pagesPerCycle, 2..10, 1) { onChange(cfg.copy(pagesPerCycle = it)) }
         Stepper("Remedial a cycle (min)", cfg.remedialMin, 0..60, 10, shown = if (cfg.remedialMin == 0) "None" else cfg.remedialMin.toString()) { onChange(cfg.copy(remedialMin = it)) }
         Chip(if (cfg.redEngine) "Red Engine built: on, no remedial" else "Red Engine built: off", cfg.redEngine, { onChange(cfg.copy(redEngine = !cfg.redEngine)) },
-            if (cfg.redEngine) "The Red Engine is built, so no remedial is booked. Tap to turn it back on" else "The Red Engine is built: stop booking the remedial. Needs the wall")
+            if (cfg.redEngine) "The Red Engine is built, so no remedial is booked. Tap to turn it back on" else "The Red Engine is built: stop booking the remedial")
         BasicText(
             "A cycle is ${steps.sum()} min in the steps (V ${steps[0]}, R ${steps[1]}, N ${steps[2]}, P ${steps[3]}, M ${steps[4]}) and $total min with the breaks." +
                 if (cfg.capMin > 0 && listOf(cfg.v, cfg.r, cfg.n, cfg.p, cfg.m).sum() > cfg.capMin) " Shrunk to fit the longest cycle." else "",

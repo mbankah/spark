@@ -350,7 +350,7 @@ class BlockScreenTest {
         rule.onNodeWithContentDescription("More: N notes (min)").performScrollTo().performClick(); rule.waitForIdle(); assertEquals(50, state.value.n)
         rule.onNodeWithContentDescription("Use the ideal cycle: 165 minutes").performScrollTo().performClick(); rule.waitForIdle(); assertEquals("Ideal", state.value.preset())
         rule.onNodeWithContentDescription("More: Longest cycle (min in the steps)").performScrollTo().performClick(); rule.waitForIdle(); assertEquals(60, state.value.capMin)
-        rule.onNodeWithContentDescription("The Red Engine is built: stop booking", substring = true).performScrollTo().performClick(); rule.waitForIdle(); assertTrue(state.value.redEngine)
+        rule.onNodeWithContentDescription("The Red Engine is built: stop booking the remedial").performScrollTo().performClick(); rule.waitForIdle(); assertTrue(state.value.redEngine)
     }
 
     @Test fun VR1_a_routine_block_does_not_get_the_VRNPM_timer() {

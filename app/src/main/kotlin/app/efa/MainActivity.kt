@@ -599,7 +599,6 @@ class MainActivity : ComponentActivity() {
                                 review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
-                                strip = l?.pattern?.let { p -> dayStrip(slotsFor(p, clock.toLocalDate(), clock.zone), l.runs, clock, l.verified) }.orEmpty(),
                             ),
                             onEssential = { key -> launchEssential(key) },
                             onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
@@ -693,13 +692,12 @@ class MainActivity : ComponentActivity() {
                         vrCfg = vrCfg,
                         onVrCfg = { new0 ->
                             val nc = new0.clamped(); val old = vrCfg
-                            if (nc.redEngine && !old.redEngine) {
-                                // VR8: switching the remedial off for the Red Engine removes work, so it is a loosening and goes behind the wall
-                                wallBack = Screen.SETUP; wallLength = efa.WallLength.QUIET_OFF; wallDetails = emptyList()
-                                wall = Triple("Switch the remedial off", "The Red Engine does the remedial now. Spark stops booking it and removes the ones not started. Type the characters below by hand to confirm.", {
-                                    scope.launch(Dispatchers.IO) { val r = app.efa.data.VrRepo(db); r.saveConfig(nc); r.removeOpenRemedial(); BlockingState.refresh(applicationContext); withContext(Dispatchers.Main) { vrCfg = nc; reload++ } }
-                                }); screen = Screen.GATE
-                            } else { vrCfg = nc; scope.launch(Dispatchers.IO) { app.efa.data.VrRepo(db).saveConfig(nc) } }
+                            // VR8: the Red Engine switch is a plain toggle, no wall. Switching it on also takes the remedial not yet started off the list.
+                            vrCfg = nc
+                            scope.launch(Dispatchers.IO) {
+                                val r = app.efa.data.VrRepo(db); r.saveConfig(nc)
+                                if (nc.redEngine && !old.redEngine) { r.removeOpenRemedial(); withContext(Dispatchers.Main) { reload++ } }
+                            }
                         },
                         onHome = { screen = Screen.MAP_HOME },
                         onVenue = { mapVenue = it; venueBack = Screen.SETUP; screen = Screen.MAP_VENUE },

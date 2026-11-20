@@ -93,15 +93,17 @@ class ImportOrderTest {
         assertTrue(overlapsProtected(used)); assertTrue(vu.needsWall); assertTrue(vu.loosening.any { it.contains("Uses protected free time on") }, vu.loosening.toString())
     }
 
-    @Test fun LN3_a_late_wake_gives_up_breakfast_before_it_gives_up_lunch() {
-        val fri = java.time.LocalDate.of(2026, 11, 20)          // lunch is planned 12:10, breakfast 08:20
-        val late = replanDay(base, fri, Disturbance.StartsAt(11 * 60 + 50), emptySet(), zone)
-        assertTrue(late.dropped.any { it.startsWith("Breakfast") && "lunch" in it }, late.dropped.toString())
-        assertTrue(late.dropped.none { it.startsWith("Lunch") }, late.dropped.toString())
-        assertTrue(late.slots.any { it.title.startsWith("Lunch") && !it.cancelled } || slotsFor(base, fri, zone).any { it.slot.title.startsWith("Lunch") }, "lunch is still in the day")
-        val sun = java.time.LocalDate.of(2026, 11, 22)           // lunch is planned 13:40: a wake at 10:30 still has room for breakfast before it
+    @Test fun LN3_a_late_wake_keeps_all_three_meals_and_moves_lunch_later_to_keep_its_spacing() {
+        val fri = java.time.LocalDate.of(2026, 11, 20)          // lunch is planned 12:10, dinner 19:30
+        val friNoLectures = base.filter { it.day != DayOfWeek.FRIDAY || it.type !in setOf("lecture", "tutorial", "training", "travel") }          // a lecture-free Friday, as in the catch-up week
+        val late = replanDay(friNoLectures, fri, Disturbance.StartsAt(11 * 60 + 50), emptySet(), zone)
+        assertTrue(late.dropped.none { it.startsWith("Breakfast") || it.startsWith("Lunch") || it.startsWith("Cook") }, "no meal is dropped: ${late.dropped}")
+        val breakfast = late.slots.first { it.title.startsWith("Breakfast") && !it.cancelled }
+        val lunch = late.slots.first { it.title.startsWith("Lunch") && !it.cancelled }
+        assertTrue(lunch.startMin >= breakfast.endMin + 60 && lunch.endMin <= 17 * 60, "lunch is not back to back with breakfast and is in the afternoon: ${breakfast.endMin} then ${lunch.startMin}")   // a fixed study block at 15:10 leaves no room for the full spacing, so lunch goes right before it
+        val sun = java.time.LocalDate.of(2026, 11, 22)           // a wake at 10:30 on a Sunday is not late
         val normal = replanDay(base, sun, Disturbance.StartsAt(10 * 60 + 30), emptySet(), zone)
-        assertTrue(normal.dropped.none { it.startsWith("Breakfast") }, "a wake at 10:30 on a Sunday keeps its breakfast: ${normal.dropped}")
+        assertTrue(normal.dropped.none { it.startsWith("Breakfast") }, normal.dropped.toString())
     }
 
     @Test fun IX11_a_file_still_cannot_cancel_a_study_or_project_block_whatever_order_its_rows_come_in() {

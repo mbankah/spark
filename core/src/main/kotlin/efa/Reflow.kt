@@ -83,8 +83,6 @@ private fun fitChain(chain: List<PatternSlot>, start: Int, limit: Int, date: Loc
     var t = start
     for (i in chain.indices) {
         if (chain[i].title.startsWith("Breakfast") && t > BREAKFAST_LATEST_START) { keep[i] = false; said += "Breakfast on ${label(date)} is dropped: the day starts at ${clock(start)}, too late for it." }
-        // LN3: lunch is the meal that matters. A breakfast that ends so late that lunch could not keep its 2h30 after it goes first, so a late wake never costs the day its lunch.
-        else if (chain[i].title.startsWith("Breakfast") && t + len[i] > breakfastMustEndBy) { keep[i] = false; said += "Breakfast on ${label(date)} is dropped: it would leave no room for lunch, which is kept." }
         if (keep[i]) t += len[i]
     }
     if (end() > limit) chain.indices.filter { keep[it] && chain[it].title.startsWith("Breakfast") }.forEach { keep[it] = false; said += "Breakfast on ${label(date)} is dropped: there are only ${limit - start} minutes before ${clock(limit)}." }
@@ -158,6 +156,9 @@ private class Gaps(var list: MutableList<Pair<Int, Int>>) {
         for ((s, e) in list) { val t = max(s, earliest); if (t <= latest && t + len <= e) return t }
         return null
     }
+    /** LN3: the start of a place of [len] minutes between [earliest] and [latest] that is closest to [target], or null if there is none. */
+    fun fitNear(len: Int, earliest: Int, latest: Int, target: Int): Int? =
+        list.mapNotNull { (s, e) -> val lo = max(s, earliest); val hi = min(e - len, latest); if (lo <= hi) target.coerceIn(lo, hi) else null }.minByOrNull { kotlin.math.abs(it - target) }
     fun take(t: Int, len: Int) {
         val next = ArrayList<Pair<Int, Int>>()
         for ((s, e) in list) { if (t >= s && t + len <= e) { if (t - s > 0) next += s to t; if (e - (t + len) > 0) next += (t + len) to e } else next += s to e }
@@ -200,8 +201,7 @@ fun buildDay(base: List<PatternSlot>, date: LocalDate, rules: Rules, dayIndex: I
         var start: Int = wake
         while (true) { val running = commitments.firstOrNull { it.startMin <= start && it.endMin > start } ?: break; notes += "${label(date)}: ${running.title.substringBefore(" - ")} runs until ${clock(running.endMin)}, so the day starts then."; start = running.endMin }
         val limit = min(laneEnd, commitments.filter { it.startMin >= start }.minOfOrNull { it.startMin } ?: laneEnd)
-        val firstMeal = sorted.filter { it.slot.type == "meal" && it.slot.date == null }.minByOrNull { it.slot.startMin }?.slot
-        val fit = fitChain(chain, start, limit, date, firstMeal?.let { it.startMin + MEAL_FORWARD_MIN - MEAL_SPACING_MIN } ?: Int.MAX_VALUE)
+        val fit = fitChain(chain, start, limit, date)
             ?: return Built(problems = listOf("${label(date)}: the day cannot start at ${clock(start)}: ${commitments.firstOrNull { it.startMin >= start }?.title?.substringBefore(" - ") ?: "the night"} is at ${clock(limit)}, and the routine needs at least ${chain.sumOf { YieldPolicy.routineMin(it.title) ?: (it.endMin - it.startMin) } - (chain.firstOrNull { it.title.startsWith("Breakfast") }?.let { it.endMin - it.startMin } ?: 0)} minutes."))
         var t = start
         for ((c, l) in fit.first) { newBlocks += c.copy(startMin = t, endMin = t + l, date = date); if (c.title.startsWith("Breakfast")) lastMealEnd = t + l; t += l }
@@ -243,11 +243,14 @@ fun buildDay(base: List<PatternSlot>, date: LocalDate, rules: Rules, dayIndex: I
         if (isMeal) {
             earliest = max(laneStart, m.startMin - MEAL_BACK_MIN)
             // never earlier than its own planned time; and when nothing has been eaten yet today, the first meal may go as late as any meal may (RN1)
-            latest = max(m.startMin, if (lastMealEnd == null) MEAL_LATEST_START else min(m.startMin + MEAL_FORWARD_MIN, MEAL_LATEST_START))
+            // LN3: a late wake keeps all three meals. A meal may go as late as it needs to keep its spacing after the one before it (never past the latest start), so a late breakfast moves lunch later and does not cost the day it.
+            latest = max(m.startMin, if (lastMealEnd == null) MEAL_LATEST_START else min(max(m.startMin + MEAL_FORWARD_MIN, lastMealEnd + MEAL_SPACING_MIN), MEAL_LATEST_START))
         }
         else { earliest = max(laneStart, followsMeal[m.startMin] ?: m.startMin); latest = laneEnd }
         var t = gaps.fit(len, earliest, latest, prefer = m.startMin)
-        if (t != null && t != m.startMin && isMeal && lastMealEnd != null && t < lastMealEnd + MEAL_SPACING_MIN) t = gaps.fit(len, max(earliest, lastMealEnd + MEAL_SPACING_MIN), latest)
+        // LN3: the spacing is a preference, not a reason to drop a meal. With no place at the full spacing the meal goes where the spacing is closest to kept.
+        if (t != null && t != m.startMin && isMeal && lastMealEnd != null && t < lastMealEnd + MEAL_SPACING_MIN)
+            t = gaps.fit(len, max(earliest, lastMealEnd + MEAL_SPACING_MIN), latest) ?: gaps.fitNear(len, earliest, latest, lastMealEnd + MEAL_SPACING_MIN) ?: t
         if (t == null) {
             if (isMeal) { dropped += "${m.title.substringBefore(" (")} on ${label(date)} is dropped: there is no place for it between ${clock(earliest)} and ${clock(latest)}."; droppedMeals += "$date|${m.title}" }
             else problems += "${m.title} on ${label(date)} has no place in the day."

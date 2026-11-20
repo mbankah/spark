@@ -169,6 +169,24 @@ class StopLadderTest {
         assertEquals(Offer.Wait(5_000 + SHORT_WAIT.toMillis()), offer(2, stepsOk = false, waitStart = null, now = 5_000), "the wait starts when it is first offered")
     }
 
+    @Test fun `LA2 when the steps are not counting the person can say so and the short wait is the next rung`() {
+        assertEquals(Offer.Steps(0, STEPS_REQUIRED), nextOffer(2, false, 0, true, null, 0))
+        val w = nextOffer(2, false, 0, true, 1_000, 1_000, stepsBroken = true)
+        assertEquals(Offer.Wait(1_000 + SHORT_WAIT.toMillis()), w)
+        assertEquals(Offer.CanStop(StopMethod.WAIT), nextOffer(2, false, 0, true, 1_000, 1_000 + SHORT_WAIT.toMillis(), stepsBroken = true))
+        assertEquals(Offer.CanStop(StopMethod.STEPS), nextOffer(2, false, STEPS_REQUIRED, true, 1_000, 2_000, stepsBroken = true), "if the steps do come, they count and are the stronger check")
+        assertEquals(Offer.Photo(1), nextOffer(0, false, 0, true, null, 0, stepsBroken = true), "the photo still comes first")
+    }
+
+    @Test fun `LA2 a state where the steps never count still reaches a stop`() {
+        var o = nextOffer(2, false, 0, true, null, 0); var now = 0L; var broken = false; var guard = 0
+        while (o !is Offer.CanStop && guard++ < 5) {
+            when (o) { is Offer.Steps -> broken = true; is Offer.Wait -> now = o.untilMs; else -> {} }
+            o = nextOffer(2, false, 0, true, 0, now, stepsBroken = broken)
+        }
+        assertEquals(Offer.CanStop(StopMethod.WAIT), o)
+    }
+
     @Test fun `LA1 every state of the ladder has a way out`() {
         for (failed in 0..4) for (broken in listOf(false, true)) for (steps in listOf(0, 39, 40)) for (ok in listOf(false, true)) {
             var f = failed; var st = steps; var now = 0L

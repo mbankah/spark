@@ -37,11 +37,14 @@ object AlarmSession {
     @Volatile var steps = 0
     @Volatile var ringing = false
 
-    fun stepsAvailable(ctx: Context): Boolean {
+    /** The phone has a step sensor at all (a step counter or a step detector). */
+    fun stepSensorExists(ctx: Context): Boolean {
         val sm = ctx.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        return sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) != null &&
-            ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+        return sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) != null || sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR) != null
     }
+    /** Spark has been allowed to count steps (the physical activity permission). Without it the sensor reports nothing. */
+    fun stepsPermitted(ctx: Context): Boolean = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+    fun stepsAvailable(ctx: Context): Boolean = stepSensorExists(ctx) && stepsPermitted(ctx)
 }
 
 /**
@@ -87,21 +90,34 @@ class AlarmService : Service() {
         vib?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 600, 400), 0))
     }
 
+    /**
+     * LA3: the step count listens to both step sensors and keeps the larger count. The counter reports a running total (and can be late or start
+     * at the first step), the detector reports each step as it happens, so whichever works carries the count.
+     */
     private fun startSteps() {
         if (!AlarmSession.stepsAvailable(this)) return
         val sm = getSystemService(SENSOR_SERVICE) as SensorManager
-        val sensor = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: return
+        val counter = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        val detector = sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
+        var fromCounter = 0; var fromDetector = 0
+        AlarmSession.steps = 0                                        // a new ring counts from nothing, not from the last morning's walk
+        fun publish() {
+            val steps = maxOf(fromCounter, fromDetector)
+            if (steps <= AlarmSession.steps) return
+            AlarmSession.steps = steps
+            scope.launch { MorningRepo(EfaDb.get(applicationContext)).let { r -> r.latest()?.let { r.setSteps(LocalDate.parse(it.date), steps) } } }
+        }
         val l = object : SensorEventListener {
             override fun onSensorChanged(e: SensorEvent) {
-                if (baseline < 0) baseline = e.values[0]
-                val steps = (e.values[0] - baseline).toInt().coerceAtLeast(0)
-                AlarmSession.steps = steps
-                scope.launch { MorningRepo(EfaDb.get(applicationContext)).let { r -> r.latest()?.let { r.setSteps(LocalDate.parse(it.date), steps) } } }
+                if (e.sensor.type == Sensor.TYPE_STEP_DETECTOR) fromDetector += 1
+                else { if (baseline < 0) baseline = e.values[0]; fromCounter = (e.values[0] - baseline).toInt().coerceAtLeast(0) }
+                publish()
             }
             override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
         }
         stepListener = l
-        sm.registerListener(l, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+        counter?.let { sm.registerListener(l, it, SensorManager.SENSOR_DELAY_FASTEST) }
+        detector?.let { sm.registerListener(l, it, SensorManager.SENSOR_DELAY_FASTEST) }
     }
 
     private fun stopRinging() {

@@ -1,8 +1,10 @@
 package app.efa
 
+import android.Manifest
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,6 +28,9 @@ import java.time.format.DateTimeFormatter
  * read the alarm keeps ringing and the screen shows what it can; the person is never locked out of calls or messages.
  */
 class AlarmActivity : ComponentActivity() {
+    /** LA3: Spark may ask for the step permission from the alarm itself. Once it is given the service starts counting at once. */
+    private val askSteps = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) AlarmService.start(applicationContext) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -63,7 +68,7 @@ class AlarmActivity : ComponentActivity() {
                     val date = LocalDate.parse(r.date)
                     val stepsOk = AlarmSession.stepsAvailable(applicationContext)
                     val steps = maxOf(r.steps, AlarmSession.steps)
-                    val offer = nextOffer(r.failedPhotos, false, steps, stepsOk, r.waitStartedMs, now)
+                    val offer = nextOffer(r.failedPhotos, false, steps, stepsOk, r.waitStartedMs, now, stepsBroken = r.waitStartedMs != null)      // LA2: a wait that has started stays the way out
                     LaunchedEffect(offer is Offer.Wait) { if (offer is Offer.Wait && r.waitStartedMs == null) withContext(Dispatchers.IO) { repo.startWait(date, System.currentTimeMillis()) } }
                     if (camera) CameraCapture(
                         onJpeg = { jpeg ->
@@ -80,10 +85,13 @@ class AlarmActivity : ComponentActivity() {
                         onCancel = { camera = false },
                     ) else AlarmScreen(
                         AlarmUi(DateTimeFormatter.ofPattern("HH:mm").format(java.time.Instant.ofEpochMilli(now).atZone(LONDON)), offer, message,
-                            (offer as? Offer.Wait)?.let { ((it.untilMs - now) / 1000).toInt().coerceAtLeast(0) }),
+                            (offer as? Offer.Wait)?.let { ((it.untilMs - now) / 1000).toInt().coerceAtLeast(0) },
+                            stepsNeedPermission = AlarmSession.stepSensorExists(applicationContext) && !AlarmSession.stepsPermitted(applicationContext)),
                         onTakePhoto = { camera = true },
                         onCameraBroken = { scope.launch { withContext(Dispatchers.IO) { repo.skipToSteps(date) }; message = "The camera is not working, so the photo is skipped." } },
                         onStop = { method -> scope.launch { stopAlarm(repo, date, method, r.bestScore) } },
+                        onStepsBroken = { scope.launch { withContext(Dispatchers.IO) { repo.startWait(date, System.currentTimeMillis()) }; message = "The steps are not counting, so there is a short wait." } },
+                        onAllowSteps = { askSteps.launch(Manifest.permission.ACTIVITY_RECOGNITION) },
                     )
                 }
             }

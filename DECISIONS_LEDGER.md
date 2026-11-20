@@ -961,6 +961,24 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 52. The alarm's steps are not a dead end
+
+Added on 20 November 2026 from the first real morning on the phone: the alarm said steps could not be counted, because step counting had never been allowed, and the only way out was the wait. The class: every rung of the stop ladder (M10) says honestly why it is not available, can ask for what it needs, and has a way to the next rung.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| LA2 | On the steps rung a button says the steps are not counting. It starts the short wait (the weakest check, marked), as "the camera is not working" skips the photo. Steps that do reach 40 still stop the alarm as the stronger check. The photo still comes first. | Default; built, tested |
+| LA3 | When the phone has a step sensor but Spark is not allowed to use it, the alarm screen says so and offers Allow step counting (it is no longer said that the phone cannot count). Both step sensors are listened to and the larger count is kept, and a new ring counts from nothing. | Default; built; phone check needed |
+
+## 51. Cancelling the app's own football, and a Replace that cannot fail a file
+
+Added on 20 November 2026 at your request ("cancel the three somehow and build such that the replace errors do not happen"). Two classes: a block the app placed itself was the one thing a file could not cancel, and a file that passed in Add mode could fail in Replace mode alone.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| FB1 | A cancel row titled Personal football cancels the app's own personal football on that date, found by title wherever the app put it (the time may be anything). It is a loosening like any cancelled commitment. The cancel stands: the planner counts the cancelled hours as dealt with and does not place that week again. Nothing else the app placed can be cancelled this way. | Default; built, tested |
+| RE1 | In Replace mode a block that the file cancels itself (a cancel row or an override row) is left to that row. Replace used to take it first and the row then found nothing, so a file could pass in Add mode and fail in Replace mode. A block the file does not name is still replaced. | Default; built, tested |
+
 ## 50. A catch-up for a late night
 
 Added on 19 November 2026 at your request ("find the last cycles"): a sleep reset moves the night later, so the evening has hours the 23:59 cut-off wasted, and the protected free time was the one big block left.

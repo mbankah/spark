@@ -15,14 +15,14 @@ import efa.Offer
 import efa.StopMethod
 
 /** What the alarm screen shows (M2, M10). [secondsLeft] counts down the short wait. */
-data class AlarmUi(val time: String, val offer: Offer, val message: String?, val secondsLeft: Int? = null)
+data class AlarmUi(val time: String, val offer: Offer, val message: String?, val secondsLeft: Int? = null, val stepsNeedPermission: Boolean = false)
 
 /**
  * The alarm screen: the photo first (M2), then after two failed attempts the steps, then a short wait (M10). The photo is the strong check;
  * steps and waiting are accepted as weaker and are marked so. Calls and messages are never locked by this screen (M10).
  */
 @Composable
-fun AlarmScreen(ui: AlarmUi, onTakePhoto: () -> Unit, onCameraBroken: () -> Unit, onStop: (StopMethod) -> Unit) {
+fun AlarmScreen(ui: AlarmUi, onTakePhoto: () -> Unit, onCameraBroken: () -> Unit, onStop: (StopMethod) -> Unit, onStepsBroken: () -> Unit = {}, onAllowSteps: () -> Unit = {}) {
     val c = LocalColors.current
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).padding(20.dp),
@@ -42,11 +42,14 @@ fun AlarmScreen(ui: AlarmUi, onTakePhoto: () -> Unit, onCameraBroken: () -> Unit
             is Offer.Steps -> {
                 BasicText("Walk ${o.need} steps to stop the alarm.", style = Ts(c.text, 20.sp, FontWeight.Bold))
                 BasicText("${o.have} of ${o.need} steps. This is the weaker check, so it is marked.", style = Ts(c.muted, 14.sp), modifier = Modifier.semantics { contentDescription = "${o.have} of ${o.need} steps" })
+                Btn("Steps are not counting", onStepsBroken, modifier = Modifier.fillMaxWidth(), description = "The steps are not counting. A short wait stops the alarm instead, marked as the weakest check.")
             }
             is Offer.Wait -> {
                 val s = ui.secondsLeft ?: 0
                 BasicText("The alarm can be stopped in %d:%02d.".format(s / 60, s % 60), style = Ts(c.text, 20.sp, FontWeight.Bold))
-                BasicText("Steps cannot be counted on this phone, so there is a short wait. This is the weakest check, so it is marked.", style = Ts(c.muted, 14.sp))
+                BasicText(if (ui.stepsNeedPermission) "Spark is not allowed to count steps yet, so there is a short wait. Allow it and walking 40 steps stops the alarm instead. The wait is the weakest check, so it is marked."
+                          else "Steps are not being counted, so there is a short wait. This is the weakest check, so it is marked.", style = Ts(c.muted, 14.sp))
+                if (ui.stepsNeedPermission) Btn("Allow step counting", onAllowSteps, modifier = Modifier.fillMaxWidth())
             }
             is Offer.CanStop -> {
                 BasicText(if (o.method == StopMethod.STEPS) "Steps done." else "The wait is over.", style = Ts(c.text, 20.sp, FontWeight.Bold))

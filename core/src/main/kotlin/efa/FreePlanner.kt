@@ -110,7 +110,9 @@ fun placeFootball(slots: List<PatternSlot>, monday: LocalDate, from: ZonedDateTi
     var cur = slots
     val out = ArrayList<PatternSlot>()
     fun week() = (0L..6L).flatMap { slotsFor(cur, monday.plusDays(it), zone) }
-    var placed = week().filter { isFootball(it.slot) }.sumOf { it.slot.endMin - it.slot.startMin }
+    // FB1: football a file cancelled counts as dealt with, so the planner does not put it back somewhere else the same week.
+    val dropped = (0L..6L).flatMap { d -> cur.filter { it.date == monday.plusDays(d) && it.cancelled && it.title == FOOTBALL_TITLE } }.sumOf { it.endMin - it.startMin }
+    var placed = week().filter { isFootball(it.slot) }.sumOf { it.slot.endMin - it.slot.startMin } + dropped
     while (placed < FOOTBALL_WEEK_MIN) {
         val freeNow = week().filter { it.slot.type == "free" && !isConversion(it.slot) }
         val pick = freeNow.filter { it.slot.endMin - it.slot.startMin >= FOOTBALL_MIN_SESSION && !it.start.isBefore(from) }

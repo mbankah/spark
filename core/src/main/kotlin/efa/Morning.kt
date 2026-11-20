@@ -165,9 +165,11 @@ sealed interface Offer {
  * wait 3 minutes. Calls and messages are never locked by any of this. [stepsAvailable] is false without the sensor or its permission.
  * Steps are counted from the start of the ring, in parallel, so walking while the photo is failing is not wasted (M2).
  */
-fun nextOffer(failedPhotos: Int, cameraBroken: Boolean, steps: Int, stepsAvailable: Boolean, waitStartedMs: Long?, nowMs: Long): Offer {
+fun nextOffer(failedPhotos: Int, cameraBroken: Boolean, steps: Int, stepsAvailable: Boolean, waitStartedMs: Long?, nowMs: Long, stepsBroken: Boolean = false): Offer {
     if (!cameraBroken && failedPhotos < PHOTO_ATTEMPTS) return Offer.Photo(failedPhotos + 1)
-    if (stepsAvailable) return if (steps >= STEPS_REQUIRED) Offer.CanStop(StopMethod.STEPS) else Offer.Steps(steps, STEPS_REQUIRED)
+    // LA2: the steps rung is not a dead end. The person can say the steps are not counting, as they can say the camera is not working, and the short wait is the next rung.
+    if (stepsAvailable && steps >= STEPS_REQUIRED) return Offer.CanStop(StopMethod.STEPS)
+    if (stepsAvailable && !stepsBroken) return Offer.Steps(steps, STEPS_REQUIRED)
     val start = waitStartedMs ?: nowMs
     val until = start + SHORT_WAIT.toMillis()
     return if (nowMs >= until) Offer.CanStop(StopMethod.WAIT) else Offer.Wait(until)

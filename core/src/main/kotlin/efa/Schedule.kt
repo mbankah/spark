@@ -28,7 +28,8 @@ const val MIN_PIECE_MIN = 15
 fun slotsFor(pattern: List<PatternSlot>, date: LocalDate, zone: ZoneId = LONDON): List<DatedSlot> {
     val dated = pattern.filter { it.date == date }
     val cancels = dated.filter { it.cancelled }
-    val added = dated.filter { !it.cancelled }
+    // FB1: a dated cancel also takes away the app's own personal football it names (same title, start and type). Nothing else dated is cancelled this way.
+    val added = dated.filter { !it.cancelled }.filter { a -> !isFootball(a) || cancels.none { it.title == a.title && it.startMin == a.startMin && it.type == a.type } }
     val weekly = pattern.filter { it.date == null && it.day == date.dayOfWeek }
         .filter { w -> cancels.none { it.startMin == w.startMin && it.type == w.type } }
     val cutters = added.filter { it.type != REMINDER_TYPE }          // a reminder sits on top of things and takes no time from them

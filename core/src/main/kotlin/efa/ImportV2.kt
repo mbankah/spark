@@ -46,7 +46,9 @@ fun verifyImportIn(
 ): Verification {
     if (mode == ImportMode.ADD) return verifyImport(parsed, slots, known, work, now, zone, hoursFor, reflow).let { if (reflow && it.ok) reflowEvents(it, parsed, slots, known, now, zone) else it }
     val keeps = parsed.rows.filterIsInstance<KeepRow>()
-    val cancels = replaceOverlay(importDates(parsed), slots, zone, keeps).filter { it.rowHash !in known }
+    // RE1: a block the file itself cancels (a cancel row, an override) is left to that row. Taking it here first would leave the row with nothing to find, and the file would fail only in this mode.
+    val explicit = parsed.rows.filterIsInstance<EventRow>().filter { it.cancel }.map { Triple(it.date, it.startMin, it.type) }.toSet()
+    val cancels = replaceOverlay(importDates(parsed), slots, zone, keeps).filter { it.rowHash !in known && Triple(it.slot.date!!, it.slot.startMin, it.slot.type) !in explicit }
     val withCancels = slots + cancels.map { it.slot }
     val v0 = verifyImport(parsed, withCancels, known, work, now, zone, hoursFor, reflow)
     val v = if (reflow && v0.ok) reflowEvents(v0, parsed, withCancels, known, now, zone) else v0

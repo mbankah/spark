@@ -116,6 +116,23 @@ class AlarmScreenTest {
         rule.onNodeWithText("Stop the alarm").assertDoesNotExist(); rule.onNodeWithText("Take the photo").assertDoesNotExist()
     }
 
+    @Test fun LA2_the_steps_rung_has_a_way_to_say_the_steps_are_not_counting() {
+        var said = false
+        rule.setContent { EfaTheme { AlarmScreen(AlarmUi("07:30", Offer.Steps(0, STEPS_REQUIRED), null), {}, {}, {}, onStepsBroken = { said = true }) } }
+        rule.onNodeWithText("Steps are not counting").performClick(); assertTrue(said)
+    }
+
+    @Test fun LA3_the_wait_says_when_the_step_permission_is_the_reason_and_offers_to_ask_for_it() {
+        var asked = false
+        rule.setContent { EfaTheme { AlarmScreen(AlarmUi("07:30", Offer.Wait(0), null, 120, stepsNeedPermission = true), {}, {}, {}, onAllowSteps = { asked = true }) } }
+        rule.onNodeWithText("Allow step counting").performClick(); assertTrue(asked)
+        rule.onNodeWithText("Spark is not allowed to count steps yet", substring = true).assertExists()
+    }
+
+    @Test fun LA3_without_the_permission_problem_the_wait_has_no_permission_button() {
+        show(Offer.Wait(0), secs = 60); rule.onNodeWithText("Allow step counting").assertDoesNotExist()
+    }
+
     @Test fun M10_the_wait_rung_counts_down() {
         show(Offer.Wait(0), secs = 179)
         rule.onNodeWithText("The alarm can be stopped in 2:59.").assertExists(); rule.onNodeWithText("Stop the alarm").assertDoesNotExist()

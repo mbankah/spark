@@ -142,6 +142,50 @@ class BlockRepoTest {
     }
 }
 
+/** VR1 to VR6 on a device: the cycle is kept in the database, and a finished cycle books its weekly remedial once. */
+@RunWith(AndroidJUnit4::class)
+class VrRepoTest {
+    private lateinit var db: EfaDb
+    private val day = LocalDate.of(2026, 11, 20)
+    private val ds get() = slotsFor(WeekB.slots, day).first { it.slot.type == "study-standard" }
+
+    @Before fun open() { db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), EfaDb::class.java).build() }
+    @After fun close() { db.close() }
+
+    @Test fun VR1_a_cycle_is_kept_and_continues_where_it_was() = runBlocking {
+        val repo = VrRepo(db); val z = ds.start.zone
+        assertNull(repo.get(ds)); repo.start(ds, 1_000L)
+        assertEquals(listOf(1_000L), repo.get(ds)!!.boundaries)
+        repo.start(ds, 5_000L); assertEquals(listOf(1_000L), repo.get(ds)!!.boundaries, "starting again changes nothing")
+        repo.advance(ds, 2_000L, z); assertEquals(listOf(1_000L, 2_000L), repo.get(ds)!!.boundaries)
+    }
+
+    @Test fun VR6_a_finished_cycle_books_30_minutes_of_remedial_once_due_on_the_sunday() = runBlocking {
+        val repo = VrRepo(db); val z = ds.start.zone
+        repo.start(ds, 0L)
+        var t = 0L
+        repeat(vrPhases().size) { t += 60_000L; repo.advance(ds, t, z) }
+        val tasks = db.tasks().open().filter { it.source == "remedial" }
+        assertEquals(1, tasks.size, tasks.toString())
+        assertEquals(REMEDIAL_TITLE, tasks.single().title); assertEquals(0.5, tasks.single().hoursEstimate, 0.0001)
+        assertEquals(remedialDue(day, null, z).toInstant().toEpochMilli(), tasks.single().dueMs)
+        repo.advance(ds, t + 60_000L, z)
+        assertEquals(1, db.tasks().open().count { it.source == "remedial" }, "a finished cycle is not booked twice")
+    }
+
+    @Test fun VR4_timed_pages_set_the_N_time_for_the_next_cycle() = runBlocking {
+        val repo = VrRepo(db); val z = ds.start.zone
+        assertEquals(45, repo.plannedN())
+        repo.start(ds, 0L)
+        var t = 0L
+        for (p in vrPhases().take(4)) { t += p.plannedMin * 60_000L; repo.advance(ds, t, z) }
+        val nStart = t
+        repo.page(ds, nStart + 15 * 60_000L); repo.page(ds, nStart + 30 * 60_000L)
+        repeat(5) { t += 60 * 60_000L; repo.advance(ds, nStart + (it + 1) * 40 * 60_000L, z) }
+        assertEquals(60, repo.plannedN(), "four pages at 15 minutes is 60")
+    }
+}
+
 /** The block screen with a finished timer, driven by real touch gestures and the real camera. */
 @RunWith(AndroidJUnit4::class)
 class BlockScreenTest {
@@ -164,6 +208,11 @@ class BlockScreenTest {
         override fun hasLocationPermission() = permission
         var commitChecks = 0
         var rec: RunRecord? = null; var skipped: String? = null
+        var vr: VrRun? = null
+        override suspend fun vrRun(ds: DatedSlot) = vr
+        override suspend fun vrStart(ds: DatedSlot, nowMs: Long) { vr = efa.vrStart(45, nowMs) }
+        override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) { vr = vr?.let { efa.vrAdvance(it, nowMs) } }
+        override suspend fun vrPage(ds: DatedSlot, nowMs: Long) { vr = vr?.let { efa.vrPage(it, nowMs) } }
         override suspend fun runRecord(ds: DatedSlot) = rec
         override suspend fun runStart(ds: DatedSlot, nowMs: Long) { rec = RunRecord(startMs = nowMs) }
         override suspend fun runFinish(ds: DatedSlot, nowMs: Long) { rec = (rec ?: RunRecord(startMs = nowMs)).copy(endMs = nowMs) }
@@ -224,6 +273,46 @@ class BlockScreenTest {
         assertEquals(15, shifted)
     }
 
+    private val studySlot get() = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.type == "study-standard" }
+
+    @Test fun VR1_a_study_block_has_the_VRNPM_timer_and_a_hold_starts_the_cycle() {
+        val fake = Fake()
+        rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
+        rule.onNodeWithText("VRNPM").assertExists()
+        for (name in listOf("Video", "Read", "Notes", "Practice", "Marking")) rule.onNodeWithContentDescription(name, substring = true).assertExists()
+        rule.onNodeWithContentDescription("Hold to start the cycle", substring = true).performScrollTo()
+        rule.mainClock.autoAdvance = false
+        rule.onNodeWithContentDescription("Hold to start the cycle", substring = true).performTouchInput { down(center) }
+        rule.mainClock.advanceTimeBy(holdMillis(130) + 800)
+        rule.onRoot().performTouchInput { up() }
+        rule.mainClock.autoAdvance = true
+        rule.waitUntil(5_000) { fake.vr != null }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("V Video").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test fun VR3_a_step_past_its_time_shows_OVER_and_counts_up_and_does_not_stop() {
+        val fake = Fake(); val now = System.currentTimeMillis()
+        fake.vr = VrRun(45, listOf(now - 14 * 60_000L))
+        rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
+        rule.onNodeWithText("OVER", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithContentDescription("Video, over now").assertExists()
+        rule.onNodeWithContentDescription("Hold to finish V", substring = true).performScrollTo().assertExists()
+    }
+
+    @Test fun VR4_notes_has_a_page_timer() {
+        val fake = Fake(); val now = System.currentTimeMillis(); val t0 = now - 26 * 60_000L
+        fake.vr = VrRun(45, listOf(t0, t0 + 10 * 60_000L, t0 + 15 * 60_000L, t0 + 20 * 60_000L, t0 + 25 * 60_000L))
+        rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
+        rule.onNodeWithText("N Notes").performScrollTo().assertExists()
+        rule.onNodeWithText("Page done").performScrollTo().performClick()
+        rule.waitUntil(5_000) { fake.vr?.pages?.size == 1 }
+    }
+
+    @Test fun VR1_a_routine_block_does_not_get_the_VRNPM_timer() {
+        rule.setContent { EfaTheme { BlockScreen(wakeSlot, Fake()) {} } }
+        rule.onNodeWithText("VRNPM").assertDoesNotExist()
+    }
+
     @Test fun ST3_the_day_strip_says_in_words_what_it_shows() {
         val blocks = listOf(
             StripBlock("Wake, shower", 735, 755, 740, 758, StripState.ON_TIME, true),
@@ -231,7 +320,7 @@ class BlockScreenTest {
             StripBlock("Lunch", 785, 815, null, null, StripState.NOT_STARTED, true),
         )
         rule.setContent { EfaTheme { DayStrip(blocks, 780) } }
-        rule.onNodeWithContentDescription("Today so far. 1 on time, 1 running, 1 not started.").assertExists()
+        rule.onNodeWithContentDescription("Today so far. 1 done, 1 running, 1 not done.").assertExists()
     }
 
     @Test fun W1_a_hold_shorter_than_one_second_does_not_finish() {

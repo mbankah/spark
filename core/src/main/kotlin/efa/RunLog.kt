@@ -82,18 +82,25 @@ fun shiftMinutes(minutes: Int): Int = (((minutes + 4) / 5) * 5).coerceIn(5, 180)
 enum class StripState { PLANNED, ON_TIME, SHIFTED, RUNNING, NOT_STARTED, SKIPPED }
 
 /** One block on the day strip: its plan in minutes of the planned day, what happened (the same unit, or null), and how to draw it. */
-data class StripBlock(val title: String, val plannedStart: Int, val plannedEnd: Int, val actualStart: Int?, val actualEnd: Int?, val state: StripState, val runnable: Boolean)
+data class StripBlock(val title: String, val plannedStart: Int, val plannedEnd: Int, val actualStart: Int?, val actualEnd: Int?, val state: StripState, val runnable: Boolean, val tracked: Boolean = runnable)
 
 /**
  * ST3: the day as a strip, planned against what happened. Only the blocks of [RUN_TYPES] have a record; the rest are drawn as planned. A runnable block whose time has come with no start is
  * NOT_STARTED, one that is running is RUNNING, one finished within 5 minutes of its plan is ON_TIME, and one started or finished further off is SHIFTED. Free time is left out.
  */
-fun dayStrip(day: List<DatedSlot>, records: Map<String, RunRecord>, now: ZonedDateTime): List<StripBlock> {
+fun dayStrip(day: List<DatedSlot>, records: Map<String, RunRecord>, now: ZonedDateTime, verified: Set<String> = emptySet()): List<StripBlock> {
     val zone = now.zone; val nowMs = now.toInstant().toEpochMilli()
     return day.filter { it.slot.type != "free" && it.slot.type != REMINDER_TYPE }.sortedBy { it.start }.map { ds ->
         val s = ds.slot; val dayStartMs = ds.plannedDay.atStartOfDay(zone).toInstant().toEpochMilli()
         fun rel(ms: Long?) = ms?.let { ((it - dayStartMs) / 60_000L).toInt() }
-        if (!isRunnable(s)) return@map StripBlock(s.title.substringBefore(" - "), s.startMin, s.endMin, null, null, StripState.PLANNED, false)
+        if (!isRunnable(s)) {
+            // A block with a proof (study, code, a lecture, a commitment) is done when its proof is in, running while it runs, and not done once its time has gone without one.
+            val title = s.title.substringBefore(" - ")
+            if (proofFor(s) == Proof.NONE) return@map StripBlock(title, s.startMin, s.endMin, null, null, StripState.PLANNED, false)
+            val startMs = ds.start.toInstant().toEpochMilli(); val endMs = ds.end.toInstant().toEpochMilli()
+            val state = when { blockKey(ds) in verified -> StripState.ON_TIME; nowMs >= endMs -> StripState.NOT_STARTED; nowMs >= startMs -> StripState.RUNNING; else -> StripState.PLANNED }
+            return@map StripBlock(title, s.startMin, s.endMin, null, null, state, false, tracked = true)
+        }
         val rec = records[blockKey(ds)]
         val v = runView(rec, ds.start.toInstant().toEpochMilli(), ds.end.toInstant().toEpochMilli(), nowMs, zone)
         val state = when (v.status) {

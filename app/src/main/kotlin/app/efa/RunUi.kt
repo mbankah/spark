@@ -26,15 +26,15 @@ internal fun stripWindow(blocks: List<StripBlock>, nowMin: Int): Pair<Int, Int> 
 
 /** One line a screen reader can say for the whole strip: how many blocks, and how many are late, over, skipped or not started. */
 fun stripSummary(blocks: List<StripBlock>): String {
-    val run = blocks.filter { it.runnable }
-    if (run.isEmpty()) return "Nothing to start today."
+    val run = blocks.filter { it.tracked }
+    if (run.isEmpty()) return "Nothing to track today."
     fun n(s: StripState) = run.count { it.state == s }
     val parts = listOfNotNull(
-        n(StripState.ON_TIME).takeIf { it > 0 }?.let { "$it on time" }, n(StripState.SHIFTED).takeIf { it > 0 }?.let { "$it shifted" },
-        n(StripState.RUNNING).takeIf { it > 0 }?.let { "$it running" }, n(StripState.NOT_STARTED).takeIf { it > 0 }?.let { "$it not started" },
+        n(StripState.ON_TIME).takeIf { it > 0 }?.let { "$it done" }, n(StripState.SHIFTED).takeIf { it > 0 }?.let { "$it shifted" },
+        n(StripState.RUNNING).takeIf { it > 0 }?.let { "$it running" }, n(StripState.NOT_STARTED).takeIf { it > 0 }?.let { "$it not done" },
         n(StripState.SKIPPED).takeIf { it > 0 }?.let { "$it did not happen" },
     )
-    return if (parts.isEmpty()) "${run.size} to start later." else parts.joinToString(", ") + "."
+    return if (parts.isEmpty()) "${run.size} to come." else parts.joinToString(", ") + "."
 }
 
 /**
@@ -44,7 +44,7 @@ fun stripSummary(blocks: List<StripBlock>): String {
 @Composable
 fun DayStrip(blocks: List<StripBlock>, nowMin: Int) {
     val c = LocalColors.current
-    if (blocks.none { it.runnable }) return
+    if (blocks.none { it.tracked }) return
     val (from, to) = stripWindow(blocks, nowMin)
     val span = (to - from).toFloat().coerceAtLeast(1f)
     val summary = stripSummary(blocks)
@@ -57,7 +57,7 @@ fun DayStrip(blocks: List<StripBlock>, nowMin: Int) {
             blocks.forEach { b ->
                 val px = x(b.plannedStart); val pw = (x(b.plannedEnd) - px).coerceAtLeast(2.dp.toPx())
                 drawRoundRect(c.track, Offset(px, planTop), Size(pw, rowH), round)
-                if (!b.runnable) return@forEach
+                if (!b.tracked) return@forEach
                 when (b.state) {
                     StripState.ON_TIME, StripState.SHIFTED -> {
                         val ax = x(b.actualStart ?: b.plannedStart); val ae = x(b.actualEnd ?: b.plannedEnd)

@@ -597,7 +597,7 @@ class MainActivity : ComponentActivity() {
                                 review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
-                                strip = l?.pattern?.let { p -> dayStrip(slotsFor(p, clock.toLocalDate(), clock.zone), l.runs, clock) }.orEmpty(),
+                                strip = l?.pattern?.let { p -> dayStrip(slotsFor(p, clock.toLocalDate(), clock.zone), l.runs, clock, l.verified) }.orEmpty(),
                             ),
                             onEssential = { key -> launchEssential(key) },
                             onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
@@ -657,6 +657,11 @@ class MainActivity : ComponentActivity() {
                             override suspend fun checkCommit(ds: DatedSlot, now: ZonedDateTime): Verdict = repo.checkCommit(ds, now)
                             override suspend fun rewardLines(ds: DatedSlot, creditedMin: Int): List<String> =
                                 verifiedLines(ds.slot, java.time.Duration.between(ds.start, ds.end).toMinutes().toInt(), creditedMin, l?.pattern.orEmpty(), ZonedDateTime.now(ds.start.zone))
+                            override suspend fun vrRun(ds: DatedSlot): VrRun? = app.efa.data.VrRepo(db).get(ds)
+                            override suspend fun vrPlannedN(): Int = app.efa.data.VrRepo(db).plannedN()
+                            override suspend fun vrStart(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).start(ds, nowMs)
+                            override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).advance(ds, nowMs, ds.start.zone)
+                            override suspend fun vrPage(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).page(ds, nowMs)
                             override suspend fun runRecord(ds: DatedSlot): RunRecord? = app.efa.data.RunRepo(db).get(ds)
                             override suspend fun runStart(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).start(ds, nowMs)
                             override suspend fun runFinish(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).finish(ds, nowMs)

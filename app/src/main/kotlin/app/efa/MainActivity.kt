@@ -189,6 +189,7 @@ class MainActivity : ComponentActivity() {
                 var wall by remember { mutableStateOf<Triple<String, String, () -> Unit>?>(null) }
                 var wallBack by remember { mutableStateOf(Screen.HOME) }
                 var wallLength by remember { mutableIntStateOf(efa.WallLength.IMPORT_LOOSEN) }
+                var vrLive by remember { mutableStateOf<VrActive?>(null) }                                  // VR14: the running cycle, read each second and set at once after a control
                 var vrCfg by remember { mutableStateOf(efa.VrConfig()) }                                  // VR7: the study cycle's settings, read when Setup opens
                 var wallDetails by remember { mutableStateOf<List<String>>(emptyList()) }          // IM13: the long list behind a wall folds on the wall screen; the words above the field stay short
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
@@ -335,7 +336,17 @@ class MainActivity : ComponentActivity() {
                         (getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager).getDefaultSensor(android.hardware.Sensor.TYPE_STEP_COUNTER) != null)
                 }
                 LaunchedEffect(screen, reload) { if (screen == Screen.MORNING || screen == Screen.SETUP) withContext(Dispatchers.IO) { refreshMorning() } }
-                LaunchedEffect(VrSignal.tick) { if (VrSignal.tick > 0) reload++ }                          // VR12: the lock screen's Pause or Resume changed the cycle
+                LaunchedEffect(screen, VrSignal.tick) {                                                      // VR14: home and the block screen follow the stored cycle, whoever changed it
+                    if (screen == Screen.HOME || screen == Screen.BLOCK) while (true) {
+                        vrLive = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val pat = loaded?.pattern; val nowZ = ZonedDateTime.now(LONDON)
+                                if (pat == null) null else app.efa.data.VrRepo(db).active(listOf(-1L, 0L).flatMap { slotsFor(pat, nowZ.toLocalDate().plusDays(it), nowZ.zone) })?.let { VrActive(it.first, it.second) }
+                            }.getOrNull()
+                        }
+                        delay(1000)
+                    }
+                }
                 LaunchedEffect(screen) { if (screen == Screen.SETUP) vrCfg = withContext(Dispatchers.IO) { app.efa.data.VrRepo(db).config() } }
                 LaunchedEffect(screen, reload, clock) {
                     withContext(Dispatchers.IO) {
@@ -601,10 +612,10 @@ class MainActivity : ComponentActivity() {
                                 review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
                                 moved = l?.moved.orEmpty(),
-                                vr = l?.vrActive,
+                                vr = vrLive,
                             ),
                             onVr = { a ->
-                                val act = l?.vrActive
+                                val act = vrLive
                                 if (act != null) {
                                     if (a == VrAction.OPEN) { selected = act.ds; screen = Screen.BLOCK }
                                     else scope.launch(Dispatchers.IO) {
@@ -614,7 +625,8 @@ class MainActivity : ComponentActivity() {
                                             VrAction.NEXT -> r.advance(act.ds, now, act.ds.start.zone); VrAction.PAGE -> r.page(act.ds, now); VrAction.OPEN -> {}
                                         }
                                         VrNotifier.refresh(applicationContext, act.ds)
-                                        withContext(Dispatchers.Main) { reload++ }
+                                        val after = r.get(act.ds)                                         // set at once, so the card shows the new step as soon as the hold is done
+                                        withContext(Dispatchers.Main) { vrLive = after?.takeIf { vrView(it, System.currentTimeMillis()).status == VrStatus.RUNNING }?.let { VrActive(act.ds, it) } }
                                     }
                                 }
                             },

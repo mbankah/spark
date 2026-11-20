@@ -39,6 +39,8 @@ class VrRepo(private val db: EfaDb) {
     /** Ends the running phase. When that finishes the cycle, the next N time and the remedial are settled once. */
     suspend fun advance(ds: DatedSlot, nowMs: Long, zone: ZoneId) {
         val run = get(ds) ?: return
+        // VR14: a step cannot be ended twice by one hold: a second end within 0.8 s of the last change is ignored (a hold takes a full second)
+        if (run.boundaries.isNotEmpty() && nowMs - run.boundaries.last() in 0 until MIN_STEP_MS) return
         val next = vrAdvance(run, nowMs)
         if (next == run) return
         put(ds, next)
@@ -69,5 +71,6 @@ class VrRepo(private val db: EfaDb) {
     companion object {
         const val PREFIX = "vr:"
         const val CONFIG_KEY = "vrcfg"
+        const val MIN_STEP_MS = 800L
     }
 }

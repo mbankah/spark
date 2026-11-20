@@ -87,7 +87,7 @@ class VrHeroDeviceTest {
             rule.onNodeWithContentDescription("Hold to finish V", substring = true).performTouchInput { down(center) }
             rule.mainClock.advanceTimeBy(HOLD_END_MS + 700)
             rule.onRoot().performTouchInput { up() }
-            rule.mainClock.advanceTimeBy(300)
+            rule.mainClock.advanceTimeBy(1_000)                       // the button waits a moment after a hold, then takes the next one
             assertEquals(round, got.count { it == VrAction.NEXT }, "hold $round counted")
         }
     }

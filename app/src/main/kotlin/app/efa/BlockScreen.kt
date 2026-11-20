@@ -85,7 +85,14 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
     var convNote by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(ds) { convNote = actions.conversionNote(ds) }
     LaunchedEffect(row?.verified) { val r = row; if (r?.verified == true) rewards = actions.rewardLines(ds, r.creditedMin) }
-    LaunchedEffect(Unit) { while (true) { now = ZonedDateTime.now(ds.start.zone); delay(1000) } }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = ZonedDateTime.now(ds.start.zone); delay(1000)
+            // VR14: the cycle and the run are read again each second, so a change made on the home card or the lock screen shows here too
+            if (ds.slot.type in VR_TYPES) vr = actions.vrRun(ds)
+            if (isRunnable(ds.slot)) run = actions.runRecord(ds)
+        }
+    }
 
     if (camera) {
         CameraCapture(
@@ -236,11 +243,16 @@ internal fun HoldButton(text: String, requiredMs: Long = 1000, onDone: () -> Uni
     var generation by remember { mutableIntStateOf(0) }
     val tracker = remember(requiredMs, generation) { HoldTracker(requiredMs) }
     val done by rememberUpdatedState(onDone)
+    // VR14: just after a hold completes the button waits (for the new step to show, or 0.8 s) and ignores presses, so a slow screen cannot be held again by mistake into the step after
+    var settling by remember { mutableStateOf(false) }
+    LaunchedEffect(text) { settling = false }
+    LaunchedEffect(settling) { if (settling) { delay(800); settling = false } }
     Box(
         Modifier.fillMaxWidth().heightIn(min = 64.dp).background(c.track, CardShape)
             .semantics { contentDescription = "$text. Press and hold for ${if (requiredMs <= 1000L) "one second" else "${(requiredMs + 500) / 1000} seconds"}." }
             .pointerInput(tracker) {
                 detectTapGestures(onPress = {
+                    if (settling) { tryAwaitRelease(); return@detectTapGestures }
                     // Frame time is monotonic on a phone and controllable in tests. The hold completes the instant one second is reached.
                     val ticker = scope.launch {
                         var started = false
@@ -248,7 +260,7 @@ internal fun HoldButton(text: String, requiredMs: Long = 1000, onDone: () -> Uni
                             withFrameMillis { ms ->
                                 if (!started) { tracker.down(ms); started = true }
                                 progress = tracker.progress(ms).toFloat()
-                                if (progress >= 1f) { tracker.up(ms); done(); progress = 0f; generation++ }
+                                if (progress >= 1f) { tracker.up(ms); done(); progress = 0f; settling = true; generation++ }
                             }
                         }
                     }

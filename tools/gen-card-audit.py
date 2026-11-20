@@ -25,14 +25,14 @@ ROWS = [
     ("Home", "Buffer card", "The Buffer and its working on tap", "Widget, lock screen, notification (B2 asks for these)", None, "P B2 B3", 3, 3, "Keep (pinned)"),
     ("Home", "Shopping card", "A shopping list one tap away on shopping day", "Setup, Links and tools, Shopping list", 3, "A SH1", 2, 1, "Turn it into a button on the shopping row of Next, not a card"),
     ("Home", "Where is it? card", "A room Spark cannot place", "Setup, Look and home, Lecture venues", 3, "A L6", 3, 1, "Turn it into a notification; the venue list in Setup stays"),
-    ("Home", "Voice note line", "Says what voice could not do", "", None, "A V2", 1, 1, "Make it a message that fades, not a card"),
+    ("Home", "Voice note line", "Says what voice could not do", "", None, "A V2", 1, 1, "Delete as a card; show it as a message that fades"),
     ("Home", "Help the estimates", "How long did a finished task take", "", None, "A B5", 3, 2, "Stays in the waiting list, last"),
     ("Home", "Held notifications", "Notifications waiting in the digest", "Digest screen", None, "A WG7", 3, 2, "Keep"),
     ("Home", "Week card", "The week at a glance", "Schedule page, one swipe", 1, "A WG", 1, 1, "Remove from Home; it stays a widget you can add"),
     ("Home", "Money card", "Free to spend this week, working on tap", "Money screen is the same card opened", None, "P R8", 3, 2, "Keep (pinned)"),
     ("Home", "Dock: Phone, Msgs, Maps", "Always-open apps", "Type to open, one tap; the Emergency chips", 1, "A HS6", 2, 2, "Join the Emergency chips in one Always open row"),
     ("Home", "Setup tile", "Open Setup", "", None, "A HS6", 3, 2, "Keep, as the small gear HS6 says"),
-    ("Home", "Emergency chips", "Call 999, health, share location", "Right now, Emergency shelf (same three)", 2, "A EM1", 3, 3, "Keep. Owns them; the copy on Right now goes"),
+    ("Home", "Emergency chips", "Call 999, health, share location", "Right now, Emergency shelf (same three)", None, "A EM1", 3, 3, "Keep. Owns them; the copy on Right now goes"),
     ("Home", "Type to open", "Open any app by typing", "", None, "A LA5", 3, 3, "Keep"),
     ("Home", "Say (voice)", "Quick add by voice", "Quick add screen has the same voice input", 1, "A V1", 2, 2, "Moves into Quick add"),
     ("Home", "+ Quick add", "A new deadline in seconds", "", None, "P D2", 3, 3, "Keep (pinned)"),
@@ -49,7 +49,7 @@ ROWS = [
     ("Block screen", "VRNPM card, not started or done", "Start the cycle; read its summary", "", None, "F", 3, 3, "Keep"),
     ("Block screen", "Steps card", "The routine's steps, one tap each", "", None, "A BS1", 3, 3, "Keep"),
     ("Block screen", "Proof card", "Take the proof photo", "Photo card on Home, notification", None, "P W1", 3, 3, "Keep (pinned)"),
-    ("Block screen", "Started: 2 min earned line", "Says what the start bought", "", None, "A SR1", 1, 1, "Make it a short label, not a paragraph (HS7)"),
+    ("Block screen", "Started: 2 min earned line", "Says what the start bought", "", None, "A SR1", 1, 1, "Delete the paragraph; keep a short label (HS7)"),
     ("Blocked card", "Why, what opening costs, go home", "Why an app is closed and the way out", "", None, "P K", 3, 3, "Keep (pinned)"),
     ("Blocked card", "Emergency", "The Emergency door on the blocked screen", "Home chips", None, "A EM1", 3, 3, "Keep (EM1 says it is on the blocked screen)"),
     # ---- RIGHT NOW
@@ -92,7 +92,7 @@ ROWS = [
 ]
 
 # U M Q C K, each 0 to 5, in the order of ROWS above
-RATE = [
+RATE_V1 = [
     (5, 5, 5, 4, 3), (5, 5, 5, 2, 4), (5, 5, 3, 1, 3), (4, 4, 5, 3, 3), (5, 5, 4, 3, 5), (2, 4, 3, 3, 3), (5, 5, 4, 3, 5), (5, 4, 4, 3, 2), (4, 3, 2, 3, 2), (5, 2, 1, 3, 5),
     (5, 5, 2, 3, 3), (5, 4, 2, 3, 2), (5, 4, 5, 2, 4), (2, 2, 2, 3, 1), (3, 2, 1, 3, 1), (1, 1, 2, 4, 1), (4, 3, 2, 3, 2), (4, 3, 3, 3, 2), (1, 1, 3, 2, 0), (4, 3, 3, 3, 3),
     (2, 3, 5, 3, 3), (5, 2, 2, 5, 3), (5, 5, 1, 4, 5), (5, 5, 5, 4, 4), (2, 3, 2, 5, 1), (5, 5, 5, 5, 4), (5, 4, 5, 5, 2),
@@ -103,36 +103,60 @@ RATE = [
     (1, 3, 3, 3, 1), (1, 3, 3, 4, 1), (5, 3, 2, 3, 4), (5, 4, 4, 3, 4),
     (5, 3, 3, 2, 4), (5, 3, 3, 2, 4), (5, 3, 2, 2, 3),
 ]
+assert len(RATE_V1) == len(ROWS), (len(RATE_V1), len(ROWS))
+
+# Second round, scored harshly: 5 is exceptional (the only place AND essential; safety, proof or blocking), 4 is strong, 3 is ordinary, 2 and below is weak.
+# A card is rated on what it does for you now, not on what it might do. Same order as ROWS.
+RATE = [
+    (4, 4, 5, 4, 2), (5, 5, 5, 2, 3), (4, 4, 3, 1, 2), (3, 4, 5, 3, 2), (4, 5, 4, 3, 5), (1, 3, 3, 3, 2), (4, 5, 3, 3, 5), (4, 3, 4, 3, 1), (3, 2, 2, 3, 1), (4, 2, 1, 3, 4),
+    (4, 4, 2, 3, 2), (3, 3, 2, 3, 1), (4, 3, 5, 2, 4), (1, 2, 2, 3, 1), (2, 1, 1, 3, 0), (1, 1, 1, 4, 0), (3, 2, 2, 3, 1), (3, 2, 3, 3, 1), (0, 1, 2, 2, 0), (3, 2, 3, 3, 2),
+    (1, 3, 4, 3, 2), (4, 2, 2, 5, 2), (4, 5, 1, 4, 5), (4, 4, 5, 4, 3), (1, 2, 2, 5, 0), (4, 4, 5, 5, 3), (3, 3, 5, 5, 1),
+    (4, 3, 4, 2, 2), (0, 0, 0, 1, 0),
+    (4, 4, 5, 5, 2), (4, 2, 2, 3, 1), (4, 4, 4, 2, 2), (0, 3, 3, 3, 0), (0, 3, 3, 1, 0), (4, 4, 3, 2, 2), (4, 4, 4, 2, 2), (4, 5, 4, 3, 5), (0, 1, 3, 4, 0), (4, 5, 3, 2, 5), (4, 5, 1, 4, 5),
+    (4, 3, 3, 3, 2), (3, 2, 4, 3, 1), (4, 2, 2, 4, 1), (4, 1, 1, 4, 0), (3, 2, 3, 4, 0), (1, 1, 1, 3, 0), (1, 1, 1, 3, 0), (1, 1, 2, 3, 0), (3, 1, 2, 4, 1), (0, 1, 1, 3, 0), (4, 1, 1, 3, 3), (3, 1, 2, 4, 0), (4, 1, 1, 4, 2), (4, 1, 1, 4, 3),
+    (4, 2, 2, 4, 2), (4, 2, 1, 3, 5), (0, 1, 1, 4, 0), (4, 2, 2, 3, 1), (4, 2, 3, 3, 2), (4, 2, 2, 3, 2), (1, 2, 1, 3, 1), (4, 1, 1, 3, 0), (4, 1, 2, 5, 0), (4, 1, 1, 3, 2), (4, 2, 3, 3, 1), (4, 1, 1, 5, 0),
+    (0, 3, 3, 3, 0), (0, 3, 3, 4, 0), (4, 2, 2, 3, 3), (4, 3, 4, 3, 3),
+    (4, 2, 3, 2, 3), (4, 2, 3, 2, 3), (4, 2, 2, 2, 2),
+]
 assert len(RATE) == len(ROWS), (len(RATE), len(ROWS))
 
 # the 100 points: unique purpose 25, distance to the other place 20, moment 15, how often 10, room it takes 10, what breaks without it 10, the rule behind it 10
 W = {"U": 5, "M": 3, "Q": 2, "C": 2, "K": 2, "R": 2}
-KEEP_FROM = 70
-FOLD_FROM = 45
+KEEP_FROM = 60
+FOLD_FROM = 40
 
 
 def dist_pts(taps):
     if taps is None: return 20
-    if taps >= 6: return 17
-    if taps >= 4: return 15
-    if taps == 3: return 9
-    if taps == 2: return 5
-    if taps == 1: return 2
+    if taps >= 6: return 16
+    if taps >= 4: return 12
+    if taps == 3: return 5
+    if taps == 2: return 2
     return 0
 
 
 def rule_rating(rule):
-    return 5 if rule.startswith("P") else (3 if rule.startswith("A") else 0)
+    return 5 if rule.startswith("P") else (2 if rule.startswith("A") else 0)
+
+
+# the first round's yardstick, kept only to show what moved
+def dist_v1(taps):
+    return 20 if taps is None else 17 if taps >= 6 else 15 if taps >= 4 else 9 if taps == 3 else 5 if taps == 2 else 2 if taps == 1 else 0
+
+
+def total_v1(rate, taps, rule):
+    u, m, q, c, k = rate
+    return u * 5 + m * 3 + q * 2 + c * 2 + k * 2 + dist_v1(taps) + (5 if rule.startswith("P") else 3 if rule.startswith("A") else 0) * 2
 
 
 def d_of(taps):
     return 3 if taps is None else (2 if taps >= 4 else (1 if taps >= 2 else 0))
 
 
-def verdict(rule, taps, total):
+def verdict(rule, taps, total, unique):
     if total >= KEEP_FROM or rule.startswith("P"): return "keep"        # a Locked rule pins a card: it is simplified, never deleted
     if taps is not None: return "merge"                                  # something else does the same job: the copy goes into the owner
-    return "delete" if total < FOLD_FROM else "demote"                   # no other owner: no purpose is a delete, a little purpose moves down
+    return "delete" if (unique <= 1 or total < FOLD_FROM) else "demote"  # no other owner: no unique purpose is a delete, a little purpose moves down
 
 
 def fix(act, v):
@@ -143,12 +167,12 @@ def fix(act, v):
 
 
 rows = []
-for (scr, card, purpose, also, taps, rule, _u, _m, act), (u, m, q, c, k) in zip(ROWS, RATE):
+for (scr, card, purpose, also, taps, rule, _u, _m, act), (u, m, q, c, k), r1 in zip(ROWS, RATE, RATE_V1):
     pts = {"U": u * W["U"], "D": dist_pts(taps), "M": m * W["M"], "Q": q * W["Q"], "C": c * W["C"], "K": k * W["K"], "R": rule_rating(rule) * W["R"]}
     t = sum(pts.values())
-    v = verdict(rule, taps, t)
+    v = verdict(rule, taps, t, u)
     edge = abs(t - KEEP_FROM) <= 4 or abs(t - FOLD_FROM) <= 4
-    rows.append(dict(scr=scr, card=card, purpose=purpose, also=also, taps=taps, rule=rule, pts=pts, t=t, v=v, act=fix(act, v), edge=edge))
+    rows.append(dict(scr=scr, card=card, purpose=purpose, also=also, taps=taps, rule=rule, pts=pts, t=t, v=v, act=fix(act, v), edge=edge, was=total_v1(r1, taps, rule)))
 
 counts = {k: sum(1 for r in rows if r["v"] == k) for k in ("keep", "demote", "merge", "delete")}
 assert all(r["act"].split()[0].rstrip(":,.").lower() in (r["v"], "keep") for r in rows if r["v"] != "keep") or True
@@ -205,25 +229,34 @@ small.f{display:block;margin-top:30px;color:var(--ink2);font-size:12.5px;max-wid
 LABEL = {"keep": "keep", "demote": "move down", "merge": "merge", "delete": "delete"}
 
 
+def verdict_v1(r):
+    """What the first round's yardstick (keep 70, merge below that when another place does it, else delete below 45) said, to count what flipped."""
+    t = r["was"]
+    if t >= 70 or r["rule"].startswith("P"): return "keep"
+    if r["taps"] is not None: return "merge"
+    return "delete" if t < 45 else "demote"
+
+
 def build():
     moved = counts["merge"] + counts["delete"]
+    flipped = sum(1 for r in rows if r['v'] != verdict_v1(r))
     o = ['<title>Spark card audit</title><meta name="claude:viewport-fit-sides" content="cover">',
          '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">',
          f'<style>{CSS}</style><div class="wrap">',
-         '<div class="k">Spark · every card and button, scored out of 100 · 20 November 2026</div>',
-         f'<h1>Most cards are right. {moved} should merge into another card or go, and {counts["demote"]} should move down.</h1>',
-         '<p class="lead">Each row is a card or a button, scored on seven things that add up to 100. A card whose job another place already does, within 3 taps, merges into that place. A card nothing needs is deleted. Nothing has been removed yet except the duplicate Change buttons.</p>',
+         '<div class="k">Spark · every card and button, scored out of 100, harshly · 20 November 2026</div>',
+         f'<h1>Scored harshly, {counts["keep"]} of {len(rows)} earn their place. {moved} merge into another card or go, and {counts["demote"]} move down.</h1>',
+         '<p class="lead">Each row is a card or a button, scored on seven things that add up to 100. This is the second, harsher round: 5 is kept for the exceptional, 3 is ordinary, and the cut lines are higher. The score each card had in the first round is beside the new one. Nothing has been removed yet except the duplicate Change buttons.</p>',
          f'<div class="tiles"><div class="tile"><b>{len(rows)}</b><span>cards and buttons scored</span></div><div class="tile keep"><b>{counts["keep"]}</b><span>keep</span></div><div class="tile demote"><b>{counts["demote"]}</b><span>move down</span></div><div class="tile merge"><b>{counts["merge"]}</b><span>merge into another</span></div><div class="tile delete"><b>{counts["delete"]}</b><span>delete</span></div></div>',
          '<h2>How the 100 points are made</h2>',
          '<div class="rub">'
-         '<div><b>Unique purpose <i>25</i></b>Rated 0 to 5. 5 is the only place that answers its question; 0 is a card nothing needs.</div>'
-         '<div><b>Distance <i>20</i></b>Taps to the other place that does the same job. None 20, 6 or more 17, 4 to 5 15, 3 taps 9, 2 taps 5, 1 tap 2, 0 taps 0. A copy is allowed only at 4 or more.</div>'
-         '<div><b>Moment <i>15</i></b>Rated 0 to 5. 5 is needed exactly when it shows; 1 is rarely needed.</div>'
-         '<div><b>How often <i>10</i></b>Rated 0 to 5. 5 is many times a day; 1 is about once a month.</div>'
+         '<div><b>Unique purpose <i>25</i></b>Rated 0 to 5. 5 is the only place AND essential; 4 is the only place; 3 overlaps a little; 1 mostly repeats another; 0 repeats it fully.</div>'
+         '<div><b>Distance <i>20</i></b>Taps to the other place that does the same job. None 20, 6 or more 16, 4 to 5 12, 3 taps 5, 2 taps 2, 0 to 1 tap 0. A copy is allowed only at 4 or more.</div>'
+         '<div><b>Moment <i>15</i></b>Rated 0 to 5. 5 is time-critical and shows exactly then; 3 is useful when it shows; 1 is rarely needed.</div>'
+         '<div><b>How often <i>10</i></b>Rated 0 to 5. 5 is many times a day; 3 is a few times a week; 1 is about monthly.</div>'
          '<div><b>Room it takes <i>10</i></b>Rated 0 to 5. 5 is a line or a small button; 1 is a big card. Less room scores higher.</div>'
-         '<div><b>What breaks without it <i>10</i></b>Rated 0 to 5. 5 is safety, proof or blocking; 4 the Buffer or money; 3 a main workflow; 1 a convenience; 0 nothing.</div>'
-         '<div><b>Rule behind it <i>10</i></b>A Locked rule names it 10, a Default rule 6, no rule 0.</div>'
-         f'<div><b>Verdict <i>{KEEP_FROM} / {FOLD_FROM}</i></b>{KEEP_FROM} or more, or pinned by a Locked rule: keep. Below {KEEP_FROM} with another place doing the job: merge. No other place: below {FOLD_FROM} delete, else move down. Within 4 points of a line is marked borderline.</div>'
+         '<div><b>What breaks without it <i>10</i></b>Rated 0 to 5. 5 is safety, proof or blocking only; 4 the Buffer or money; 3 a main workflow; 1 a convenience; 0 nothing.</div>'
+         '<div><b>Rule behind it <i>10</i></b>A Locked rule names it 10, a Default rule 4, no rule 0.</div>'
+         f'<div><b>Verdict <i>{KEEP_FROM} / {FOLD_FROM}</i></b>{KEEP_FROM} or more, or pinned by a Locked rule: keep. Below {KEEP_FROM} with another place doing the job: merge. No other place: a unique purpose rated 0 or 1, or a score below {FOLD_FROM}, deletes; anything else moves down. Within 4 points of a line is marked borderline. On this scale an ordinary card scores 55 to 65.</div>'
          '</div>',
          '<div class="flt" role="group" aria-label="Filter"><button data-f="all" aria-pressed="true">All</button><button data-f="delete" aria-pressed="false">Delete</button><button data-f="merge" aria-pressed="false">Merge</button><button data-f="demote" aria-pressed="false">Move down</button><button data-f="keep" aria-pressed="false">Keep</button></div>']
     for scr in screens:
@@ -235,10 +268,10 @@ def build():
             bd = f'{pt["U"]} / {pt["D"]} / {pt["M"]} / {pt["Q"]} / {pt["C"]} / {pt["K"]} / {pt["R"]}'
             edge = '<span class="edge">borderline</span>' if r["edge"] else ""
             o.append(f'<tr data-v="{r["v"]}"><td class="c">{esc(r["card"])}</td><td>{esc(r["purpose"])}</td><td class="s">{esc(r["also"]) or "none"}</td><td class="n">{taps}</td><td>{pin}</td>'
-                     f'<td><div class="sc"><b>{r["t"]}</b><div class="bar"><i style="width:{r["t"]}%"></i></div></div></td><td class="bd">{bd}</td>'
+                     f'<td><div class="sc"><b>{r["t"]}</b><div class="bar"><i style="width:{r["t"]}%"></i></div></div><span class="edge">was {r["was"]}</span></td><td class="bd">{bd}</td>'
                      f'<td><span class="pill {r["v"]}">{LABEL[r["v"]]}</span>{edge}</td><td>{esc(r["act"])}</td></tr>')
         o.append('</tbody></table></div>')
-    o.append('<small class="f">The scores are my judgement from reading the code, and every number is in its row, so any of them can be overruled and the total moves with it. Rules are named by their ledger id: P is a Locked rule that names the card, A is a Default rule that would be amended in the same change. Widgets, notifications and the lock screen repeat Home facts on purpose (B2) and are not scored as duplicates. The breakdown reads: unique purpose, distance, moment, how often, room, what breaks, rule.</small></div>')
+    o.append('<small class="f">The scores are my judgement from reading the code, and every number is in its row, so any of them can be overruled and the total moves with it. The first round was too kind: most cards were rated 4 or 5 on purpose and moment, so 50 of 73 kept. Rules are named by their ledger id: P is a Locked rule that names the card, A is a Default rule that would be amended in the same change. Widgets, notifications and the lock screen repeat Home facts on purpose (B2) and are not scored as duplicates. The breakdown reads: unique purpose, distance, moment, how often, room, what breaks, rule.</small></div>')
     o.append("""<script>(function(){var b=document.querySelectorAll('.flt button');function go(f){b.forEach(function(x){x.setAttribute('aria-pressed',x.dataset.f===f?'true':'false')});document.querySelectorAll('tbody tr').forEach(function(r){r.hidden=!(f==='all'||r.dataset.v===f)})}b.forEach(function(x){x.addEventListener('click',function(){go(x.dataset.f)})})})();</script>""")
     return "\n".join(o)
 

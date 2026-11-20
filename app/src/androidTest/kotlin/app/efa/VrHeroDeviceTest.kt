@@ -103,19 +103,14 @@ class VrHeroDeviceTest {
         rule.onNodeWithContentDescription("Study block. $name.", substring = true).performClick(); assertEquals(VrAction.OPEN, got.last())
     }
 
-    @Test fun VR16_a_cycle_in_the_block_that_is_on_now_is_the_Now_card_and_the_block_is_not_drawn_twice() {
-        val ds = study
-        val onNow = home(VrActive(ds, runAt(3))).copy(nowTitle = "Study block on now", nowLabel = "Now, until 12:15", nowKey = blockKey(ds))
+    @Test fun VR16_the_Now_card_and_the_cycle_card_share_the_screen_and_the_change_buttons_are_on_the_Now_card_once() {
+        val onNow = home(VrActive(study, runAt(3))).copy(nowTitle = "Study block on now", nowLabel = "Now, until 12:15")
         rule.setContent { EfaTheme { HomeScreen(onNow, {}, {}) } }
-        rule.onNodeWithText("Study block on now").assertDoesNotExist()
+        rule.onNodeWithText("Study block on now").assertExists()
         rule.onNodeWithContentDescription("VRNPM. V Video.", substring = true).assertExists()
-    }
-
-    @Test fun VR16_a_cycle_left_over_from_another_block_does_not_hide_the_block_that_is_on_now() {
-        val onNow = home(VrActive(study, runAt(3))).copy(nowTitle = "A different block", nowLabel = "Now, until 12:15", nowKey = "some-other-block")
-        rule.setContent { EfaTheme { HomeScreen(onNow, {}, {}) } }
-        rule.onNodeWithText("A different block").assertExists()
-        rule.onNodeWithContentDescription("VRNPM. V Video.", substring = true).assertExists()
+        rule.onAllNodesWithText("Something came up").assertCountEquals(1)
+        rule.onAllNodesWithText("Started late").assertCountEquals(1)
+        rule.onAllNodesWithText("Change the plan").assertCountEquals(0)            // HS5: there is no Change button on Home
     }
 
     @Test fun VR17_each_step_has_its_own_icon_and_a_break_has_one_too() {

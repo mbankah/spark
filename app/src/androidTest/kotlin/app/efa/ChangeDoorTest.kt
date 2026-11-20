@@ -31,7 +31,7 @@ class ChangeDoorScreenTest {
     }
 }
 
-/** CD1 through the real app: Setup no longer has the change cards, Home leads to the door, and each choice opens its screen and comes back to the door. */
+/** CD1 through the real app: Setup no longer has the change cards, Setup leads to the door (Home has no Change button, HS5), and each choice opens its screen and comes back to the door. */
 @RunWith(AndroidJUnit4::class)
 class ChangeDoorE2ETest {
     companion object {
@@ -42,12 +42,14 @@ class ChangeDoorE2ETest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
     private fun toDoor() {
-        rule.waitUntil(15_000) { rule.onAllNodesWithText("Change the plan").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(15_000) { rule.onAllNodesWithText("Setup").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("Setup").performScrollTo().performClick()
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("CHANGE THE PLAN").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Change the plan").performScrollTo().performClick()
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Say what is happening.", substring = true).fetchSemanticsNodes().isNotEmpty() }
     }
 
-    @Test fun CD1_Home_leads_to_the_door_and_the_door_leads_to_the_day_off_screen_and_back() {
+    @Test fun CD1_Setup_leads_to_the_door_and_the_door_leads_to_the_day_off_screen_and_back() {
         toDoor()
         rule.onNodeWithText("A day off or a weekend").performScrollTo().performClick()
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Plan a day off").fetchSemanticsNodes().isNotEmpty() }

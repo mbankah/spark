@@ -565,9 +565,8 @@ class MainActivity : ComponentActivity() {
                     modifyFromHome = true; modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
                     scope.launch(Dispatchers.IO) { modPreview = app.efa.data.ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) }
                 }
-                // ST4, CD1: what is happening against the plan: over, late, something came up, or the door to every other change
+                // ST4: what is happening against the plan: over, late or something came up
                 val reality: (String) -> Unit = reality@{ kind ->
-                    if (kind == "door") { screen = Screen.CHANGE; return@reality }
                     modifyFromHome = true
                     val today = clock.toLocalDate()
                     val open = { inst: Instance, preview: Boolean -> modDraft = inst; modRec = emptyMap(); modMessage = null; modPreview = null; screen = Screen.MOD_FORM
@@ -615,7 +614,6 @@ class MainActivity : ComponentActivity() {
                                 nowFraction = nowRow?.let { r -> if (r.startAt == null || r.endAt == null) null else (java.time.Duration.between(r.startAt, clock).toMillis().toFloat() / java.time.Duration.between(r.startAt, r.endAt).toMillis().coerceAtLeast(1)).coerceIn(0f, 1f) },
                                 progressFraction = l?.money?.week?.takeIf { it.plannedHours > 0 }?.let { (it.verifiedHours / it.plannedHours).toFloat() },
                                 schedule = sched,
-                                nowKey = nowRow?.slot?.let { efa.blockKey(it) },
                                 nowOpensBlock = nowRow?.photo != null || nowRow?.slot?.let { ds -> isRunnable(ds.slot) || routineForSlot(ds.slot) != null } == true,
                                 next = hb.next.map { NextRow(it.start, it.title, it.detail) },
                                 freeToSpendPence = l?.money?.takeIf { it.live }?.week?.money?.freeToSpendPence,      // G6: record-only for the first 14 days

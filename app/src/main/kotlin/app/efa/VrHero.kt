@@ -128,11 +128,11 @@ fun VrCycleBody(run: VrRun, nowMs: Long, onAction: (VrAction) -> Unit, onRing: (
 
 /**
  * VR11, VR16: a running cycle, big, at the top of the home screen, and linked to its study block: the block's name and hours are at the top with where the cycle stands against it (the block ends in
- * 40 min, or ended at 12:30 and the cycle runs on). When the block is the one that is on now this card is the Now card for it, with the two changes that can still happen mid-cycle under it.
+ * 40 min, or ended at 12:30 and the cycle runs on). The changes (running over, started late, something came up) are on the Now card, once.
  * It ticks every second by itself.
  */
 @Composable
-fun VrHero(active: VrActive, onReality: (String) -> Unit = {}, onAction: (VrAction) -> Unit) {
+fun VrHero(active: VrActive, onAction: (VrAction) -> Unit) {
     val c = LocalColors.current
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(active) { while (true) { nowMs = System.currentTimeMillis(); delay(1000) } }
@@ -153,9 +153,5 @@ fun VrHero(active: VrActive, onReality: (String) -> Unit = {}, onAction: (VrActi
             BasicText(link.status, style = Ts(if (link.ended) c.text else c.muted, 13.sp, if (link.ended) FontWeight.Bold else FontWeight.Normal))
         }
         VrCycleBody(active.run, nowMs, onAction, onRing = { onAction(VrAction.OPEN) })
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Something came up", false, { onReality("cameup") }, "Something came up: say what happened and Spark finds a place for it")
-            Chip("Change the plan", false, { onReality("door") }, "Change the plan")
-        }
     }
 }

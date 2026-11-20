@@ -406,6 +406,8 @@ interface PhotoDao {
 interface TaskDao {
     @Insert suspend fun insert(row: TaskRow): Long
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertOnce(row: TaskRow): Long
+    /** VR8: the weekly remedial not started, taken off the list when the Red Engine replaces it. Work already begun stays. */
+    @Query("DELETE FROM task WHERE source = 'remedial' AND doneAtMs IS NULL AND doneMin = 0") suspend fun deleteOpenRemedial(): Int
     @Query("SELECT * FROM task WHERE doneAtMs IS NULL ORDER BY dueMs") suspend fun open(): List<TaskRow>
     @Query("UPDATE task SET dueMs = :dueMs WHERE id = :id") suspend fun setDue(id: Long, dueMs: Long)          // BK1, BK5: a catch-up span moves the date, and its end gives it back
     @Query("SELECT * FROM task WHERE source = 'missed' AND createdMs >= :sinceMs ORDER BY createdMs") suspend fun missedSince(sinceMs: Long): List<TaskRow>

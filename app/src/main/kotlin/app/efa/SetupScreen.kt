@@ -52,6 +52,7 @@ fun SetupScreen(
     quietMode: Boolean = false, onQuietMode: (Boolean) -> Unit = {},
     wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {},
     onWalkthrough: () -> Unit = {},
+    vrCfg: efa.VrConfig = efa.VrConfig(), onVrCfg: (efa.VrConfig) -> Unit = {},
 ) {
     val c = LocalColors.current
     Column(
@@ -171,6 +172,8 @@ fun SetupScreen(
             BasicText("A sound when a photo opens and five minutes before it stops counting in full. The home screen always shows the next one.", style = Ts(c.muted, 14.sp))
             Chip(if (photoReminders) "Reminders: on" else "Reminders: off", photoReminders, { onPhotoReminders(!photoReminders) }, if (photoReminders) "Turn the photo reminders off" else "Turn the photo reminders on")
         }
+
+        VrnpmSettingsCard(vrCfg, onVrCfg)
 
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("MEALS")

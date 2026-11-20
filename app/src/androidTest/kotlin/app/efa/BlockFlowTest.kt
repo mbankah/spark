@@ -7,6 +7,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import androidx.exifinterface.media.ExifInterface
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.room.Room
@@ -173,6 +174,32 @@ class VrRepoTest {
         assertEquals(1, db.tasks().open().count { it.source == "remedial" }, "a finished cycle is not booked twice")
     }
 
+    @Test fun VR8_with_the_Red_Engine_on_a_finished_cycle_books_no_remedial_and_open_ones_are_removed() = runBlocking {
+        val repo = VrRepo(db); val z = ds.start.zone
+        repo.start(ds, 0L); var t = 0L
+        repeat(vrPhases().size) { t += 60_000L; repo.advance(ds, t, z) }
+        assertEquals(1, db.tasks().open().count { it.source == "remedial" })
+        db.tasks().insertOnce(TaskRow(title = REMEDIAL_TITLE, dueMs = 1L, dueZone = z.id, heaviness = 3, hoursEstimate = 0.5, createdMs = 0L, source = "remedial", sourceKey = "remedial:begun", doneMin = 10))
+        assertEquals(1, repo.removeOpenRemedial(), "the one not started goes; the one with minutes done stays")
+        assertEquals(1, db.tasks().open().count { it.source == "remedial" })
+        repo.saveConfig(repo.config().copy(redEngine = true))
+        val other = slotsFor(WeekB.slots, LocalDate.of(2026, 11, 21)).first { it.slot.type.startsWith("study") }
+        repo.start(other, 0L); t = 0L
+        repeat(vrPhases().size) { t += 60_000L; repo.advance(other, t, other.start.zone) }
+        assertEquals(1, db.tasks().open().count { it.source == "remedial" }, "no new remedial is booked")
+    }
+
+    @Test fun VR7_the_settings_are_kept_and_a_cycle_uses_them() = runBlocking {
+        val repo = VrRepo(db)
+        assertEquals(VrConfig(), repo.config())
+        repo.saveConfig(VrConfig.IDEAL.copy(capMin = 105))
+        repo.start(ds, 0L)
+        val run = repo.get(ds)!!
+        assertEquals(vrPlan(VrConfig.IDEAL.copy(capMin = 105)), run.planMinutes); assertTrue(run.planMinutes.filterIndexed { i, _ -> i % 2 == 0 }.sum() <= 105)
+        repo.saveConfig(VrConfig.OPTIMAL)
+        assertEquals(run.planMinutes, repo.get(ds)!!.planMinutes, "a cycle running keeps its own plan")
+    }
+
     @Test fun VR4_timed_pages_set_the_N_time_for_the_next_cycle() = runBlocking {
         val repo = VrRepo(db); val z = ds.start.zone
         assertEquals(45, repo.plannedN())
@@ -210,6 +237,8 @@ class BlockScreenTest {
         var rec: RunRecord? = null; var skipped: String? = null
         var vr: VrRun? = null
         override suspend fun vrRun(ds: DatedSlot) = vr
+        var cfg = VrConfig()
+        override suspend fun vrConfig() = cfg
         override suspend fun vrStart(ds: DatedSlot, nowMs: Long) { vr = efa.vrStart(45, nowMs) }
         override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) { vr = vr?.let { efa.vrAdvance(it, nowMs) } }
         override suspend fun vrPage(ds: DatedSlot, nowMs: Long) { vr = vr?.let { efa.vrPage(it, nowMs) } }
@@ -306,6 +335,22 @@ class BlockScreenTest {
         rule.onNodeWithText("N Notes").performScrollTo().assertExists()
         rule.onNodeWithText("Page done").performScrollTo().performClick()
         rule.waitUntil(5_000) { fake.vr?.pages?.size == 1 }
+    }
+
+    @Test fun VR7_the_timer_shows_the_times_from_the_settings() {
+        val fake = Fake(); fake.cfg = VrConfig.IDEAL
+        rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
+        rule.onNodeWithText("V 15  R 15  N 65  P 45  M 25   =  165 min, with breaks between").performScrollTo().assertExists()
+    }
+
+    @Test fun VR7_the_settings_card_changes_a_step_a_preset_and_the_longest_cycle() {
+        val state = androidx.compose.runtime.mutableStateOf(VrConfig())
+        rule.setContent { EfaTheme { androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) { VrnpmSettingsCard(state.value) { state.value = it } } } }
+        rule.onNodeWithText("STUDY CYCLE (VRNPM)").assertExists()
+        rule.onNodeWithContentDescription("More: N notes (min)").performScrollTo().performClick(); rule.waitForIdle(); assertEquals(50, state.value.n)
+        rule.onNodeWithContentDescription("Use the ideal cycle: 165 minutes").performScrollTo().performClick(); rule.waitForIdle(); assertEquals("Ideal", state.value.preset())
+        rule.onNodeWithContentDescription("More: Longest cycle (min in the steps)").performScrollTo().performClick(); rule.waitForIdle(); assertEquals(60, state.value.capMin)
+        rule.onNodeWithContentDescription("The Red Engine is built: stop booking", substring = true).performScrollTo().performClick(); rule.waitForIdle(); assertTrue(state.value.redEngine)
     }
 
     @Test fun VR1_a_routine_block_does_not_get_the_VRNPM_timer() {

@@ -6,9 +6,9 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.TemporalAdjusters
 
-// ---------- VR1 to VR5: the study loop, V R N P M, as a timer ----------
-// One cycle in the order V video, R read, N notes, P practice, M marking, with the spec's breaks between them. Every step has a time. A step may overrun and never stops by itself,
-// but the overrun is always shown, as a count up, and kept. The N time is a plan (pages times minutes a page) and is tuned by timing real pages.
+// ---------- VR1 to VR8: the study loop, V R N P M, as a timer ----------
+// One cycle in the order V video, R read, N notes, P practice, M marking, with breaks between them. Every step has a time. A step may overrun and never stops by itself,
+// but the overrun is always shown, as a count up, and kept. The times are settings (VrConfig); the N time is also tuned by timing real pages.
 
 enum class VrStep(val letter: Char, val label: String, val minutes: Int) {
     V('V', "Video", 10), R('R', "Read", 5), N('N', "Notes", 45), P('P', "Practice", 30), M('M', "Marking", 15),
@@ -22,54 +22,122 @@ data class VrPhase(val step: VrStep?, val plannedMin: Int) {
 
 private fun round5(x: Double): Int = (Math.round(x / 5.0) * 5).toInt()
 
-/** The optimal cycle is 105 minutes in the steps (V10 R5 N45 P30 M15). The breaks are 5 minutes between the steps and 10 after N, the longest. */
-fun vrPhases(nMinutes: Int = VrStep.N.minutes): List<VrPhase> = listOf(
-    VrPhase(VrStep.V, VrStep.V.minutes), VrPhase(null, 5),
-    VrPhase(VrStep.R, VrStep.R.minutes), VrPhase(null, 5),
-    VrPhase(VrStep.N, nMinutes), VrPhase(null, 10),
-    VrPhase(VrStep.P, VrStep.P.minutes), VrPhase(null, 5),
-    VrPhase(VrStep.M, VrStep.M.minutes),
-)
+// ---------- VR7: the settings ----------
+
+/**
+ * How a cycle is run. The steps are in minutes, the breaks are 5 between the steps (after V, R and P) and 10 after N unless set, and [capMin] is the longest the steps may add up to
+ * (0 is no limit): over it every step is shrunk in proportion to fit. [pagesPerCycle] turns a timed page into the next N. [remedialMin] is what each finished cycle earns, and
+ * [redEngine] says the Red Engine does that work now, so none is booked.
+ */
+data class VrConfig(
+    val v: Int = 10, val r: Int = 5, val n: Int = 45, val p: Int = 30, val m: Int = 15,
+    val breakBetween: Int = 5, val breakAfterN: Int = 10,
+    val capMin: Int = 0, val pagesPerCycle: Int = 4, val remedialMin: Int = REMEDIAL_MIN_PER_CYCLE, val redEngine: Boolean = false,
+) {
+    fun clamped(): VrConfig = copy(
+        v = v.coerceIn(5, 120), r = r.coerceIn(5, 120), n = n.coerceIn(5, 120), p = p.coerceIn(5, 120), m = m.coerceIn(5, 120),
+        breakBetween = breakBetween.coerceIn(0, 15), breakAfterN = breakAfterN.coerceIn(0, 20),
+        capMin = if (capMin <= 0) 0 else capMin.coerceIn(45, 240), pagesPerCycle = pagesPerCycle.coerceIn(2, 10), remedialMin = remedialMin.coerceIn(0, 60),
+    )
+
+    fun encode(): String = listOf(v, r, n, p, m, breakBetween, breakAfterN, capMin, pagesPerCycle, remedialMin, if (redEngine) 1 else 0).joinToString(",")
+
+    /** The preset these step and break times match, or null when they are your own. */
+    fun preset(): String? = when {
+        sameTimes(OPTIMAL) -> "Optimal"
+        sameTimes(IDEAL) -> "Ideal"
+        else -> null
+    }
+
+    private fun sameTimes(o: VrConfig) = v == o.v && r == o.r && n == o.n && p == o.p && m == o.m && breakBetween == o.breakBetween && breakAfterN == o.breakAfterN
+
+    companion object {
+        /** The compressed cycle of the spec: V10 R5 N45 P30 M15 (105 minutes), 30 minutes of remedial a week for each cycle. */
+        val OPTIMAL = VrConfig()
+        /** The full cycle of the spec: V15 R15 N65 P45 M25 (165 minutes), 10 minutes of remedial a week for each cycle. */
+        val IDEAL = VrConfig(v = 15, r = 15, n = 65, p = 45, m = 25, remedialMin = 10)
+
+        fun decode(text: String?): VrConfig {
+            val p = text?.split(",")?.map { it.trim().toIntOrNull() } ?: return VrConfig()
+            if (p.size < 11 || p.any { it == null }) return VrConfig()
+            val x = p.map { it!! }
+            return VrConfig(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10] == 1).clamped()
+        }
+    }
+}
+
+/** The five step times of [cfg] after the longest-cycle cap: over the cap every step is shrunk in proportion, to the nearest 5 and never under 5, and then trimmed from the longest until it fits. */
+fun vrSteps(cfg: VrConfig): List<Int> {
+    val c = cfg.clamped(); var steps = listOf(c.v, c.r, c.n, c.p, c.m)
+    if (c.capMin > 0 && steps.sum() > c.capMin) {
+        val f = c.capMin.toDouble() / steps.sum()
+        steps = steps.map { maxOf(5, round5(it * f)) }.toMutableList().also { s ->
+            while (s.sum() > c.capMin && s.any { it > 5 }) { val i = s.indices.filter { s[it] > 5 }.maxByOrNull { s[it] }!!; s[i] -= 5 }
+        }
+    }
+    return steps
+}
+
+/** The nine phases of a cycle in minutes: V, break, R, break, N, break, P, break, M. [nMin] replaces the N time (the timed pages' answer) before the cap is applied. */
+fun vrPlan(cfg: VrConfig, nMin: Int? = null): List<Int> {
+    val c = if (nMin != null) cfg.copy(n = nMin) else cfg
+    val s = vrSteps(c); val cc = cfg.clamped()
+    return listOf(s[0], cc.breakBetween, s[1], cc.breakBetween, s[2], cc.breakAfterN, s[3], cc.breakBetween, s[4])
+}
+
+val VR_DEFAULT_PLAN: List<Int> = vrPlan(VrConfig.OPTIMAL)
+
+/** The phases of a cycle from its nine times. A break of 0 minutes is a phase too, and is ended at once. */
+fun vrPhases(plan: List<Int> = VR_DEFAULT_PLAN): List<VrPhase> = listOf(VrStep.V, null, VrStep.R, null, VrStep.N, null, VrStep.P, null, VrStep.M).mapIndexed { i, s -> VrPhase(s, plan.getOrElse(i) { VR_DEFAULT_PLAN[i] }) }
+
+/** The default plan with a different N time. */
+fun vrPhases(nMinutes: Int): List<VrPhase> = vrPhases(vrPlan(VrConfig.OPTIMAL, nMinutes))
 
 /** The N step from timed pages: pages times the minutes a page, to the nearest 5, kept between 20 and 90. */
 fun suggestedN(pages: Int, avgPageMs: Long): Int = round5(pages * avgPageMs / 60_000.0).coerceIn(20, 90)
 
 /**
  * One cycle as it was run: [boundaries] are the moments each phase began, then the moment the last one ended. Phase i began at boundaries[i] and ended at boundaries[i+1].
- * [pages] are the moments a page of notes was finished, and [nMin] is the N time the cycle was planned with.
+ * [pages] are the moments a page of notes was finished. [plan] is the nine times the cycle was planned with, kept so a change to the settings does not change a cycle already running.
  */
-data class VrRun(val nMin: Int = VrStep.N.minutes, val boundaries: List<Long> = emptyList(), val pages: List<Long> = emptyList()) {
-    fun encode(): String = listOf(nMin.toString(), boundaries.joinToString(","), pages.joinToString(",")).joinToString("|")
+data class VrRun(val nMin: Int = VrStep.N.minutes, val boundaries: List<Long> = emptyList(), val pages: List<Long> = emptyList(), val plan: List<Int>? = null) {
+    val planMinutes: List<Int> get() = plan ?: vrPlan(VrConfig.OPTIMAL, nMin)
+
+    fun encode(): String = listOf(nMin.toString(), boundaries.joinToString(","), pages.joinToString(","), plan?.joinToString(",").orEmpty()).joinToString("|")
 
     companion object {
         fun decode(text: String?): VrRun? {
             if (text.isNullOrBlank()) return null
-            val p = text.split("|", limit = 3); if (p.size < 3) return null
+            val p = text.split("|", limit = 4); if (p.size < 3) return null
             val n = p[0].toIntOrNull() ?: return null
             fun longs(s: String) = if (s.isBlank()) emptyList() else s.split(",").mapNotNull { it.toLongOrNull() }
-            return VrRun(n, longs(p[1]), longs(p[2]))
+            val plan = p.getOrNull(3)?.takeIf { it.isNotBlank() }?.split(",")?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 9 }
+            return VrRun(n, longs(p[1]), longs(p[2]), plan)
         }
     }
 }
 
-/** Starts a cycle now. */
+/** Starts a cycle now, planned with the N time given and the default breaks. */
 fun vrStart(nMin: Int, nowMs: Long): VrRun = VrRun(nMin, listOf(nowMs))
+
+/** Starts a cycle now with a plan from the settings. */
+fun vrStart(plan: List<Int>, nowMs: Long): VrRun = VrRun(plan[4], listOf(nowMs), emptyList(), plan)
 
 /** Ends the phase that is running and begins the next one, or ends the cycle after the last. Does nothing once the cycle is over. */
 fun vrAdvance(run: VrRun, nowMs: Long): VrRun {
-    val phases = vrPhases(run.nMin)
+    val phases = vrPhases(run.planMinutes)
     return if (run.boundaries.isEmpty() || run.boundaries.size > phases.size) run else run.copy(boundaries = run.boundaries + nowMs)
 }
 
 /** A page of notes finished, counted only while N is the phase that is running. */
 fun vrPage(run: VrRun, nowMs: Long): VrRun {
-    val i = run.boundaries.size - 1; val phases = vrPhases(run.nMin)
+    val i = run.boundaries.size - 1; val phases = vrPhases(run.planMinutes)
     return if (i in phases.indices && phases[i].step == VrStep.N) run.copy(pages = run.pages + nowMs) else run
 }
 
 /** The average time of a page of notes from the taps in this cycle: the first page from the start of N, the rest from the page before. Null with no page timed. */
 fun vrAveragePageMs(run: VrRun): Long? {
-    val phases = vrPhases(run.nMin); val nIdx = phases.indexOfFirst { it.step == VrStep.N }
+    val phases = vrPhases(run.planMinutes); val nIdx = phases.indexOfFirst { it.step == VrStep.N }
     val nStart = run.boundaries.getOrNull(nIdx) ?: return null
     val taps = run.pages.filter { it >= nStart }; if (taps.isEmpty()) return null
     return (taps.last() - nStart) / taps.size
@@ -87,8 +155,9 @@ data class VrView(
 
 private const val TOLERANCE_MS = 30_000L        // half a minute either way is on time
 
-fun vrView(run: VrRun?, nowMs: Long): VrView {
-    val nMin = run?.nMin ?: VrStep.N.minutes; val phases = vrPhases(nMin)
+/** The view of [run] now. With no run, [plan] is what a cycle started now would use. */
+fun vrView(run: VrRun?, nowMs: Long, plan: List<Int>? = null): VrView {
+    val phases = vrPhases(run?.planMinutes ?: plan ?: VR_DEFAULT_PLAN)
     val plannedStepMin = phases.filter { !it.isBreak }.sumOf { it.plannedMin }
     val b = run?.boundaries.orEmpty()
     val status = when { b.isEmpty() -> VrStatus.NOT_STARTED; b.size > phases.size -> VrStatus.DONE; else -> VrStatus.RUNNING }
@@ -127,7 +196,7 @@ const val REMEDIAL_MIN_PER_CYCLE = 30
 const val REMEDIAL_SESSION_MAX_MIN = 90
 
 /**
- * Each finished cycle earns 30 minutes of remedial (new similar questions from the mistake log, then the Confident tier), due on the Sunday evening of its week. A cycle done
+ * Each finished cycle earns remedial (new similar questions from the mistake log, then the Confident tier), due on the Sunday evening of its week. A cycle done
  * inside a catch-up span (up to [catchUpEnd]) is due after the span: the Sunday after it ends, so the catch-up weeks are not given more to do.
  */
 fun remedialDue(cycleDate: LocalDate, catchUpEnd: LocalDate?, zone: ZoneId): ZonedDateTime {
@@ -136,11 +205,14 @@ fun remedialDue(cycleDate: LocalDate, catchUpEnd: LocalDate?, zone: ZoneId): Zon
     return day.atTime(21, 0).atZone(zone)
 }
 
-/** The sessions the week's remedial is split into: [cycles] times 30 minutes, in sessions of at most 90. */
-fun remedialSessions(cycles: Int): List<Int> {
-    var left = cycles * REMEDIAL_MIN_PER_CYCLE; val out = ArrayList<Int>()
+/** The sessions the week's remedial is split into: [cycles] times [perCycleMin], in sessions of at most 90. */
+fun remedialSessions(cycles: Int, perCycleMin: Int = REMEDIAL_MIN_PER_CYCLE): List<Int> {
+    var left = cycles * perCycleMin; val out = ArrayList<Int>()
     while (left > 0) { val n = minOf(left, REMEDIAL_SESSION_MAX_MIN); out += n; left -= n }
     return out
 }
+
+/** VR8: whether a finished cycle books remedial at all. The Red Engine switches it off, and so does a remedial time of 0. */
+fun remedialBooked(cfg: VrConfig): Boolean = !cfg.redEngine && cfg.remedialMin > 0
 
 const val REMEDIAL_TITLE = "Weekly remedial: new questions from your mistakes, then the Confident tier"

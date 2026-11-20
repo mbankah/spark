@@ -48,6 +48,7 @@ interface BlockActions {
     /** VR1 to VR6: the VRNPM cycle of a study block. */
     suspend fun vrRun(ds: DatedSlot): VrRun? = null
     suspend fun vrPlannedN(): Int = VrStep.N.minutes
+    suspend fun vrConfig(): VrConfig = VrConfig()
     suspend fun vrStart(ds: DatedSlot, nowMs: Long) {}
     suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) {}
     suspend fun vrPage(ds: DatedSlot, nowMs: Long) {}
@@ -76,8 +77,8 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
     LaunchedEffect(ds) { row = actions.load(ds) }
     var run by remember { mutableStateOf<RunRecord?>(null) }
     LaunchedEffect(ds) { run = actions.runRecord(ds) }
-    var vr by remember { mutableStateOf<VrRun?>(null) }; var vrN by remember { mutableIntStateOf(VrStep.N.minutes) }
-    LaunchedEffect(ds) { vr = actions.vrRun(ds); vrN = actions.vrPlannedN() }
+    var vr by remember { mutableStateOf<VrRun?>(null) }; var vrCfg by remember { mutableStateOf(VrConfig()) }
+    LaunchedEffect(ds) { vr = actions.vrRun(ds); vrCfg = actions.vrConfig() }
     var rewards by remember { mutableStateOf<List<String>>(emptyList()) }
     var convNote by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(ds) { convNote = actions.conversionNote(ds) }
@@ -133,7 +134,7 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
         )
         // VR1: a study block has the VRNPM timer: V, R, N, P, M with their breaks, each step allowed to overrun and the overrun always shown
         if (ds.slot.type in VR_TYPES) VrnpmCard(
-            vr, vrN, now,
+            vr, vrCfg, now,
             onStart = { scope.launch { actions.vrStart(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
             onNext = { scope.launch { actions.vrAdvance(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
             onPage = { scope.launch { actions.vrPage(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
@@ -316,9 +317,10 @@ private val VR_TYPES = setOf("study", "study-standard", "study-light")
  * OVER and counts up, in the strongest contrast on the screen, and the overrun stays on its chip afterwards. A hold ends a step (and starts the next); N has a Page done button that times real pages.
  */
 @Composable
-private fun VrnpmCard(run: VrRun?, plannedN: Int, now: ZonedDateTime, onStart: () -> Unit, onNext: () -> Unit, onPage: () -> Unit) {
+private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: () -> Unit, onNext: () -> Unit, onPage: () -> Unit) {
     val c = LocalColors.current
-    val v = vrView(run, now.toInstant().toEpochMilli())
+    val plan = vrPlan(cfg)
+    val v = vrView(run, now.toInstant().toEpochMilli(), plan)
     Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Label("VRNPM")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -341,7 +343,7 @@ private fun VrnpmCard(run: VrRun?, plannedN: Int, now: ZonedDateTime, onStart: (
         }
         when (v.status) {
             VrStatus.NOT_STARTED -> {
-                val steps = vrPhases(plannedN)
+                val steps = vrPhases(plan)
                 BasicText(steps.filter { !it.isBreak }.joinToString("  ") { "${it.step!!.letter} ${it.plannedMin}" } + "   =  ${v.plannedStepMin} min, with breaks between", style = Ts(c.muted, 14.sp))
                 HoldButton("Hold to start the cycle", holdMillis(steps.sumOf { it.plannedMin })) { onStart() }
             }
@@ -356,7 +358,7 @@ private fun VrnpmCard(run: VrRun?, plannedN: Int, now: ZonedDateTime, onStart: (
                 }
                 if (v.title.startsWith("N ")) {
                     val avg = run?.let { vrAveragePageMs(it) }
-                    BasicText(if (avg == null) "Time a page: tap Page done at the end of each one." else "${run?.pages?.size} page${if (run?.pages?.size == 1) "" else "s"}, ${clockMs(avg)} a page. Four pages is about ${suggestedN(4, avg)} min.", style = Ts(c.muted, 14.sp))
+                    BasicText(if (avg == null) "Time a page: tap Page done at the end of each one." else "${run?.pages?.size} page${if (run?.pages?.size == 1) "" else "s"}, ${clockMs(avg)} a page. ${cfg.pagesPerCycle} pages is about ${suggestedN(cfg.pagesPerCycle, avg)} min.", style = Ts(c.muted, 14.sp))
                     Btn("Page done", onPage, modifier = Modifier.fillMaxWidth())
                 }
                 val last = v.title.startsWith("M ")
@@ -364,7 +366,7 @@ private fun VrnpmCard(run: VrRun?, plannedN: Int, now: ZonedDateTime, onStart: (
             }
             VrStatus.DONE -> {
                 BasicText(v.summary, style = Ts(c.text, 16.sp, FontWeight.SemiBold))
-                BasicText("The cycle is done. Take the proof photo of your notes below. A weekly remedial of ${REMEDIAL_MIN_PER_CYCLE} minutes is booked for it.", style = Ts(c.muted, 14.sp))
+                BasicText("The cycle is done. Take the proof photo of your notes below. " + if (remedialBooked(cfg)) "A weekly remedial of ${cfg.remedialMin} minutes is booked for it." else "No remedial is booked" + (if (cfg.redEngine) ": the Red Engine does it." else "."), style = Ts(c.muted, 14.sp))
             }
         }
     }

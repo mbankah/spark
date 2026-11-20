@@ -189,6 +189,7 @@ class MainActivity : ComponentActivity() {
                 var wall by remember { mutableStateOf<Triple<String, String, () -> Unit>?>(null) }
                 var wallBack by remember { mutableStateOf(Screen.HOME) }
                 var wallLength by remember { mutableIntStateOf(efa.WallLength.IMPORT_LOOSEN) }
+                var vrCfg by remember { mutableStateOf(efa.VrConfig()) }                                  // VR7: the study cycle's settings, read when Setup opens
                 var wallDetails by remember { mutableStateOf<List<String>>(emptyList()) }          // IM13: the long list behind a wall folds on the wall screen; the words above the field stay short
                 var dayOffUi by remember { mutableStateOf<DayOffUi?>(null) }
                 var libraryUi by remember { mutableStateOf<LibraryUi?>(null) }
@@ -334,6 +335,7 @@ class MainActivity : ComponentActivity() {
                         (getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager).getDefaultSensor(android.hardware.Sensor.TYPE_STEP_COUNTER) != null)
                 }
                 LaunchedEffect(screen, reload) { if (screen == Screen.MORNING || screen == Screen.SETUP) withContext(Dispatchers.IO) { refreshMorning() } }
+                LaunchedEffect(screen) { if (screen == Screen.SETUP) vrCfg = withContext(Dispatchers.IO) { app.efa.data.VrRepo(db).config() } }
                 LaunchedEffect(screen, reload, clock) {
                     withContext(Dispatchers.IO) {
                         morning = try { MorningRepo(db).latest() } catch (e: Exception) { morning }
@@ -659,6 +661,7 @@ class MainActivity : ComponentActivity() {
                                 verifiedLines(ds.slot, java.time.Duration.between(ds.start, ds.end).toMinutes().toInt(), creditedMin, l?.pattern.orEmpty(), ZonedDateTime.now(ds.start.zone))
                             override suspend fun vrRun(ds: DatedSlot): VrRun? = app.efa.data.VrRepo(db).get(ds)
                             override suspend fun vrPlannedN(): Int = app.efa.data.VrRepo(db).plannedN()
+                            override suspend fun vrConfig(): VrConfig = app.efa.data.VrRepo(db).config()
                             override suspend fun vrStart(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).start(ds, nowMs)
                             override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).advance(ds, nowMs, ds.start.zone)
                             override suspend fun vrPage(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).page(ds, nowMs)
@@ -687,6 +690,17 @@ class MainActivity : ComponentActivity() {
                     }
                     Screen.SETUP -> SetupScreen(places,
                         onWalkthrough = { screen = Screen.WALKTHROUGH },
+                        vrCfg = vrCfg,
+                        onVrCfg = { new0 ->
+                            val nc = new0.clamped(); val old = vrCfg
+                            if (nc.redEngine && !old.redEngine) {
+                                // VR8: switching the remedial off for the Red Engine removes work, so it is a loosening and goes behind the wall
+                                wallBack = Screen.SETUP; wallLength = efa.WallLength.QUIET_OFF; wallDetails = emptyList()
+                                wall = Triple("Switch the remedial off", "The Red Engine does the remedial now. Spark stops booking it and removes the ones not started. Type the characters below by hand to confirm.", {
+                                    scope.launch(Dispatchers.IO) { val r = app.efa.data.VrRepo(db); r.saveConfig(nc); r.removeOpenRemedial(); BlockingState.refresh(applicationContext); withContext(Dispatchers.Main) { vrCfg = nc; reload++ } }
+                                }); screen = Screen.GATE
+                            } else { vrCfg = nc; scope.launch(Dispatchers.IO) { app.efa.data.VrRepo(db).saveConfig(nc) } }
+                        },
                         onHome = { screen = Screen.MAP_HOME },
                         onVenue = { mapVenue = it; venueBack = Screen.SETUP; screen = Screen.MAP_VENUE },
                         onBack = { screen = Screen.HOME },

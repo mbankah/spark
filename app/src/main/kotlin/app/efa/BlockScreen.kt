@@ -52,6 +52,8 @@ interface BlockActions {
     suspend fun vrStart(ds: DatedSlot, nowMs: Long) {}
     suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) {}
     suspend fun vrPage(ds: DatedSlot, nowMs: Long) {}
+    suspend fun vrPause(ds: DatedSlot, nowMs: Long) {}
+    suspend fun vrResume(ds: DatedSlot, nowMs: Long) {}
 }
 
 private val HM = DateTimeFormatter.ofPattern("HH:mm")
@@ -138,6 +140,8 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
             onStart = { scope.launch { actions.vrStart(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
             onNext = { scope.launch { actions.vrAdvance(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
             onPage = { scope.launch { actions.vrPage(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
+            onPause = { scope.launch { actions.vrPause(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
+            onResume = { scope.launch { actions.vrResume(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
         )
         // ST1: a block that is a routine (the wake, the Bible, getting ready, the wind-down, a study block) can be started from here: the runner opens on that routine, one step at a time
         val routine = remember(ds) { routineForSlot(ds.slot) }
@@ -317,7 +321,7 @@ private val VR_TYPES = setOf("study", "study-standard", "study-light")
  * OVER and counts up, in the strongest contrast on the screen, and the overrun stays on its chip afterwards. A hold ends a step (and starts the next); N has a Page done button that times real pages.
  */
 @Composable
-private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: () -> Unit, onNext: () -> Unit, onPage: () -> Unit) {
+private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: () -> Unit, onNext: () -> Unit, onPage: () -> Unit, onPause: () -> Unit, onResume: () -> Unit) {
     val c = LocalColors.current
     val plan = vrPlan(cfg)
     val v = vrView(run, now.toInstant().toEpochMilli(), plan)
@@ -332,23 +336,26 @@ private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: (
                     VrChipState.OVER_NOW -> c.text to c.bg
                     VrChipState.DONE -> c.accent.copy(alpha = 0.45f) to c.text
                     VrChipState.DONE_OVER -> c.accent.copy(alpha = 0.45f) to c.text
+                    VrChipState.OVERRIDDEN -> c.track to c.text
                 }
                 val over = ch.state == VrChipState.OVER_NOW || ch.state == VrChipState.DONE_OVER
                 Box(
                     Modifier.weight(1f).heightIn(min = 44.dp).background(fill, CardShape)
                         .semantics { contentDescription = "$label, ${ch.state.name.lowercase().replace('_', ' ')}" },
                     contentAlignment = Alignment.Center,
-                ) { BasicText(ch.letter.toString() + if (over) "+" else "", style = Ts(ink, 18.sp, FontWeight.Bold)) }
+                ) { BasicText(ch.letter.toString() + if (over) "+" else if (ch.state == VrChipState.OVERRIDDEN) "*" else "", style = Ts(ink, 18.sp, FontWeight.Bold)) }
             }
         }
         when (v.status) {
             VrStatus.NOT_STARTED -> {
                 val steps = vrPhases(plan)
-                BasicText(steps.filter { !it.isBreak }.joinToString("  ") { "${it.step!!.letter} ${it.plannedMin}" } + "   =  ${v.plannedStepMin} min, with breaks between", style = Ts(c.muted, 14.sp))
+                val any0 = steps.any { !it.isBreak && it.plannedMin == 0 }
+                BasicText(steps.filter { !it.isBreak }.joinToString("  ") { if (it.plannedMin == 0) "${it.step!!.letter}*" else "${it.step!!.letter} ${it.plannedMin}" } + "   =  ${v.plannedStepMin} min, with breaks between" + (if (any0) ". * done by override, not timed." else ""), style = Ts(c.muted, 14.sp))
                 HoldButton("Hold to start the cycle", holdMillis(steps.sumOf { it.plannedMin })) { onStart() }
             }
             VrStatus.RUNNING -> {
                 BasicText(v.title, style = Ts(c.text, 24.sp, FontWeight.Bold))
+                if (v.paused) BasicText("PAUSED  the clock is stopped", style = Ts(c.text, 16.sp, FontWeight.Bold))
                 if (v.over) {
                     BasicText("OVER  +" + clockMs(v.overMs), style = Ts(c.text, 34.sp, FontWeight.Bold, fontFamily = Mono), modifier = Modifier.semantics { contentDescription = "Over by ${clockMs(v.overMs)}" })
                     Box(Modifier.fillMaxWidth().height(10.dp).background(c.text, CardShape))
@@ -361,6 +368,8 @@ private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: (
                     BasicText(if (avg == null) "Time a page: tap Page done at the end of each one." else "${run?.pages?.size} page${if (run?.pages?.size == 1) "" else "s"}, ${clockMs(avg)} a page. ${cfg.pagesPerCycle} pages is about ${suggestedN(cfg.pagesPerCycle, avg)} min.", style = Ts(c.muted, 14.sp))
                     Btn("Page done", onPage, modifier = Modifier.fillMaxWidth())
                 }
+                if (v.pausedMin > 0 || v.paused) BasicText("Paused ${v.pausedMin} min so far.", style = Ts(c.muted, 14.sp))
+                Btn(if (v.paused) "Resume" else "Pause", if (v.paused) onResume else onPause, modifier = Modifier.fillMaxWidth(), description = if (v.paused) "Resume the timer" else "Pause the timer. The time paused is not counted in the step")
                 val last = v.title.startsWith("M ")
                 HoldButton(if (v.isBreak) "Hold to start the next step" else if (last) "Hold to finish the cycle" else "Hold to finish ${v.title.first()}", HOLD_END_MS) { onNext() }
             }

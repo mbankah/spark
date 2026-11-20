@@ -33,6 +33,8 @@ data class VrConfig(
     val v: Int = 10, val r: Int = 5, val n: Int = 45, val p: Int = 30, val m: Int = 15,
     val breakBetween: Int = 5, val breakAfterN: Int = 10,
     val capMin: Int = 0, val pagesPerCycle: Int = 4, val remedialMin: Int = REMEDIAL_MIN_PER_CYCLE, val redEngine: Boolean = false,
+    /** VR10: V and R are done by an override (you did them elsewhere): a cycle starts at N, and V and R are shown as done by override, never as timed. */
+    val skipVR: Boolean = false,
 ) {
     fun clamped(): VrConfig = copy(
         v = v.coerceIn(5, 120), r = r.coerceIn(5, 120), n = n.coerceIn(5, 120), p = p.coerceIn(5, 120), m = m.coerceIn(5, 120),
@@ -40,12 +42,13 @@ data class VrConfig(
         capMin = if (capMin <= 0) 0 else capMin.coerceIn(45, 240), pagesPerCycle = pagesPerCycle.coerceIn(2, 10), remedialMin = remedialMin.coerceIn(0, 60),
     )
 
-    fun encode(): String = listOf(v, r, n, p, m, breakBetween, breakAfterN, capMin, pagesPerCycle, remedialMin, if (redEngine) 1 else 0).joinToString(",")
+    fun encode(): String = listOf(v, r, n, p, m, breakBetween, breakAfterN, capMin, pagesPerCycle, remedialMin, if (redEngine) 1 else 0, if (skipVR) 1 else 0).joinToString(",")
 
     /** The preset these step and break times match, or null when they are your own. */
     fun preset(): String? = when {
-        sameTimes(OPTIMAL) -> "Optimal"
-        sameTimes(IDEAL) -> "Ideal"
+        sameTimes(OPTIMAL) && !skipVR -> "Optimal"
+        sameTimes(IDEAL) && !skipVR -> "Ideal"
+        sameTimes(IDEAL) && skipVR -> "Session"
         else -> null
     }
 
@@ -56,12 +59,14 @@ data class VrConfig(
         val OPTIMAL = VrConfig()
         /** The full cycle of the spec: V15 R15 N65 P45 M25 (165 minutes), 10 minutes of remedial a week for each cycle. */
         val IDEAL = VrConfig(v = 15, r = 15, n = 65, p = 45, m = 25, remedialMin = 10)
+        /** The 2.5 hour session: the ideal N, P and M with V and R done by override. N 65, a break of 10, P 45, a break of 5 and M 25 is 150 minutes. */
+        val SESSION = IDEAL.copy(skipVR = true)
 
         fun decode(text: String?): VrConfig {
             val p = text?.split(",")?.map { it.trim().toIntOrNull() } ?: return VrConfig()
-            if (p.size < 11 || p.any { it == null }) return VrConfig()
-            val x = p.map { it!! }
-            return VrConfig(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10] == 1).clamped()
+            if (p.size < 11 || p.take(11).any { it == null }) return VrConfig()
+            val x = p.map { it ?: 0 }
+            return VrConfig(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10] == 1, x.getOrElse(11) { 0 } == 1).clamped()
         }
     }
 }
@@ -82,7 +87,9 @@ fun vrSteps(cfg: VrConfig): List<Int> {
 fun vrPlan(cfg: VrConfig, nMin: Int? = null): List<Int> {
     val c = if (nMin != null) cfg.copy(n = nMin) else cfg
     val s = vrSteps(c); val cc = cfg.clamped()
-    return listOf(s[0], cc.breakBetween, s[1], cc.breakBetween, s[2], cc.breakAfterN, s[3], cc.breakBetween, s[4])
+    val plan = listOf(s[0], cc.breakBetween, s[1], cc.breakBetween, s[2], cc.breakAfterN, s[3], cc.breakBetween, s[4])
+    // VR10: V, R and the two breaks before N are not in the cycle when V and R are done by override, so the cycle runs N, P and M
+    return if (cc.skipVR) plan.mapIndexed { i, m -> if (i < 4) 0 else m } else plan
 }
 
 val VR_DEFAULT_PLAN: List<Int> = vrPlan(VrConfig.OPTIMAL)
@@ -100,19 +107,29 @@ fun suggestedN(pages: Int, avgPageMs: Long): Int = round5(pages * avgPageMs / 60
  * One cycle as it was run: [boundaries] are the moments each phase began, then the moment the last one ended. Phase i began at boundaries[i] and ended at boundaries[i+1].
  * [pages] are the moments a page of notes was finished. [plan] is the nine times the cycle was planned with, kept so a change to the settings does not change a cycle already running.
  */
-data class VrRun(val nMin: Int = VrStep.N.minutes, val boundaries: List<Long> = emptyList(), val pages: List<Long> = emptyList(), val plan: List<Int>? = null) {
+data class VrRun(val nMin: Int = VrStep.N.minutes, val boundaries: List<Long> = emptyList(), val pages: List<Long> = emptyList(), val plan: List<Int>? = null, val pauses: List<Long> = emptyList(), val overridden: String = "") {
     val planMinutes: List<Int> get() = plan ?: vrPlan(VrConfig.OPTIMAL, nMin)
 
-    fun encode(): String = listOf(nMin.toString(), boundaries.joinToString(","), pages.joinToString(","), plan?.joinToString(",").orEmpty()).joinToString("|")
+    /** VR9: [pauses] are the moments of pausing and resuming, alternately, so an odd count means paused now. */
+    val paused: Boolean get() = pauses.size % 2 == 1
+
+    /** The milliseconds inside [from, to] that were paused. A pause still open counts up to [nowMs]. */
+    fun pausedMs(from: Long, to: Long, nowMs: Long): Long {
+        var total = 0L; var i = 0
+        while (i < pauses.size) { val e = pauses.getOrNull(i + 1) ?: nowMs; total += (minOf(e, to) - maxOf(pauses[i], from)).coerceAtLeast(0L); i += 2 }
+        return total
+    }
+
+    fun encode(): String = listOf(nMin.toString(), boundaries.joinToString(","), pages.joinToString(","), plan?.joinToString(",").orEmpty(), pauses.joinToString(","), overridden).joinToString("|")
 
     companion object {
         fun decode(text: String?): VrRun? {
             if (text.isNullOrBlank()) return null
-            val p = text.split("|", limit = 4); if (p.size < 3) return null
+            val p = text.split("|", limit = 6); if (p.size < 3) return null
             val n = p[0].toIntOrNull() ?: return null
             fun longs(s: String) = if (s.isBlank()) emptyList() else s.split(",").mapNotNull { it.toLongOrNull() }
             val plan = p.getOrNull(3)?.takeIf { it.isNotBlank() }?.split(",")?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 9 }
-            return VrRun(n, longs(p[1]), longs(p[2]), plan)
+            return VrRun(n, longs(p[1]), longs(p[2]), plan, longs(p.getOrElse(4) { "" }), p.getOrElse(5) { "" })
         }
     }
 }
@@ -120,14 +137,23 @@ data class VrRun(val nMin: Int = VrStep.N.minutes, val boundaries: List<Long> = 
 /** Starts a cycle now, planned with the N time given and the default breaks. */
 fun vrStart(nMin: Int, nowMs: Long): VrRun = VrRun(nMin, listOf(nowMs))
 
-/** Starts a cycle now with a plan from the settings. */
-fun vrStart(plan: List<Int>, nowMs: Long): VrRun = VrRun(plan[4], listOf(nowMs), emptyList(), plan)
+/** Starts a cycle now with a plan from the settings. With [overridden] (VR10) the steps named are done by override: their phases are over at the start and the cycle begins at N. */
+fun vrStart(plan: List<Int>, nowMs: Long, overridden: String = ""): VrRun =
+    VrRun(plan[4], List(if (overridden.isEmpty()) 1 else 5) { nowMs }, emptyList(), plan, emptyList(), overridden)
 
-/** Ends the phase that is running and begins the next one, or ends the cycle after the last. Does nothing once the cycle is over. */
+/** Ends the phase that is running and begins the next one, or ends the cycle after the last. Does nothing once the cycle is over. A pause that is open is ended first. */
 fun vrAdvance(run: VrRun, nowMs: Long): VrRun {
     val phases = vrPhases(run.planMinutes)
-    return if (run.boundaries.isEmpty() || run.boundaries.size > phases.size) run else run.copy(boundaries = run.boundaries + nowMs)
+    if (run.boundaries.isEmpty() || run.boundaries.size > phases.size) return run
+    val resumed = if (run.paused) run.copy(pauses = run.pauses + nowMs) else run
+    return resumed.copy(boundaries = resumed.boundaries + nowMs)
 }
+
+/** VR9: pauses a cycle that is running. The time paused is not counted in the step, and it is kept and shown. Does nothing when not running or already paused. */
+fun vrPause(run: VrRun, nowMs: Long): VrRun = if (run.boundaries.isEmpty() || run.boundaries.size > vrPhases(run.planMinutes).size || run.paused) run else run.copy(pauses = run.pauses + nowMs)
+
+/** VR9: resumes a paused cycle. */
+fun vrResume(run: VrRun, nowMs: Long): VrRun = if (run.paused) run.copy(pauses = run.pauses + nowMs) else run
 
 /** A page of notes finished, counted only while N is the phase that is running. */
 fun vrPage(run: VrRun, nowMs: Long): VrRun {
@@ -140,17 +166,19 @@ fun vrAveragePageMs(run: VrRun): Long? {
     val phases = vrPhases(run.planMinutes); val nIdx = phases.indexOfFirst { it.step == VrStep.N }
     val nStart = run.boundaries.getOrNull(nIdx) ?: return null
     val taps = run.pages.filter { it >= nStart }; if (taps.isEmpty()) return null
-    return (taps.last() - nStart) / taps.size
+    return ((taps.last() - nStart) - run.pausedMs(nStart, taps.last(), taps.last())) / taps.size
 }
 
 enum class VrStatus { NOT_STARTED, RUNNING, DONE }
-enum class VrChipState { UPCOMING, CURRENT, OVER_NOW, DONE, DONE_OVER }
+enum class VrChipState { UPCOMING, CURRENT, OVER_NOW, DONE, DONE_OVER, OVERRIDDEN }
 data class VrChip(val letter: Char, val state: VrChipState)
 
 /** What the timer shows. [overMs] is above 0 only when the phase running (or, once done, the cycle) has passed its time: the screen shows it as a count up and never hides it. */
 data class VrView(
     val status: VrStatus, val phaseIndex: Int, val title: String, val isBreak: Boolean, val plannedMs: Long, val elapsedMs: Long, val overMs: Long, val remainingMs: Long, val fraction: Float,
     val chips: List<VrChip>, val plannedStepMin: Int, val actualMin: Int?, val summary: String,
+    /** VR9: the cycle is paused now, and how many minutes have been paused in all. */
+    val paused: Boolean = false, val pausedMin: Int = 0,
 ) { val over: Boolean get() = overMs > 0 }
 
 private const val TOLERANCE_MS = 30_000L        // half a minute either way is on time
@@ -162,29 +190,33 @@ fun vrView(run: VrRun?, nowMs: Long, plan: List<Int>? = null): VrView {
     val b = run?.boundaries.orEmpty()
     val status = when { b.isEmpty() -> VrStatus.NOT_STARTED; b.size > phases.size -> VrStatus.DONE; else -> VrStatus.RUNNING }
     val cur = if (status == VrStatus.RUNNING) b.size - 1 else -1
-    fun spentMs(i: Int): Long = if (i + 1 < b.size) b[i + 1] - b[i] else if (i < b.size) nowMs - b[i] else 0L
+    fun rawEnd(i: Int) = if (i + 1 < b.size) b[i + 1] else nowMs
+    fun spentMs(i: Int): Long = if (i < b.size) (rawEnd(i) - b[i]) - (run?.pausedMs(b[i], rawEnd(i), nowMs) ?: 0L) else 0L
+    val pausedAll = if (b.isEmpty()) 0L else run?.pausedMs(b.first(), if (status == VrStatus.DONE) b.last() else nowMs, nowMs) ?: 0L
+    val pausedMin = ((pausedAll + 30_000L) / 60_000L).toInt(); val pausedNow = status == VrStatus.RUNNING && run?.paused == true
     fun overOf(i: Int) = (spentMs(i) - phases[i].plannedMin * 60_000L).coerceAtLeast(0L)
     val chips = VrStep.entries.map { s ->
         val i = phases.indexOfFirst { it.step == s }
         VrChip(s.letter, when {
+            run?.overridden?.contains(s.letter) == true || phases[i].plannedMin == 0 -> VrChipState.OVERRIDDEN          // VR10: done by override, never timed
             status == VrStatus.NOT_STARTED || i > cur && status == VrStatus.RUNNING -> VrChipState.UPCOMING
             status == VrStatus.RUNNING && i == cur -> if (overOf(i) > TOLERANCE_MS) VrChipState.OVER_NOW else VrChipState.CURRENT
             else -> if (overOf(i) > TOLERANCE_MS) VrChipState.DONE_OVER else VrChipState.DONE
         })
     }
     if (status == VrStatus.NOT_STARTED) return VrView(status, -1, "Not started", false, 0, 0, 0, 0, 0f, chips, plannedStepMin, null, "$plannedStepMin min in the steps.")
-    val actualMin = ((b.last() - b.first()) / 60_000L).toInt().takeIf { status == VrStatus.DONE }
+    val actualMin = (((b.last() - b.first()) - pausedAll) / 60_000L).toInt().takeIf { status == VrStatus.DONE }
     val overs = phases.indices.filter { !phases[it].isBreak && it < b.size - (if (status == VrStatus.DONE) 1 else 0) && overOf(it) > TOLERANCE_MS }
         .joinToString(", ") { i -> "${phases[i].step!!.letter} +${(overOf(i) + 30_000L) / 60_000L} min" }
     if (status == VrStatus.DONE) {
         val spent = phases.indices.filter { !phases[it].isBreak }.sumOf { spentMs(it) } / 60_000L
         return VrView(status, phases.size, "Cycle done", false, 0, 0, 0, 0, 1f, chips, plannedStepMin, actualMin,
-            "Done in $actualMin min ($spent min in the steps, $plannedStepMin planned)." + if (overs.isNotEmpty()) " Over: $overs." else "")
+            "Done in $actualMin min ($spent min in the steps, $plannedStepMin planned)." + (if (overs.isNotEmpty()) " Over: $overs." else "") + (if (pausedMin > 0) " Paused $pausedMin min." else "") + (if (run?.overridden.isNullOrEmpty()) "" else " ${run?.overridden} done by override."), false, pausedMin)
     }
     val p = phases[cur]; val plannedMs = p.plannedMin * 60_000L; val elapsed = spentMs(cur)
     val over = (elapsed - plannedMs).coerceAtLeast(0L)
     return VrView(status, cur, p.title, p.isBreak, plannedMs, elapsed, over, (plannedMs - elapsed).coerceAtLeast(0L), (elapsed.toFloat() / plannedMs.coerceAtLeast(1)).coerceIn(0f, 1f), chips, plannedStepMin, null,
-        if (over > TOLERANCE_MS) "Over by ${clockMs(over)}." else "${clockMs((plannedMs - elapsed).coerceAtLeast(0L))} left.")
+        (if (pausedNow) "Paused. " else "") + (if (over > TOLERANCE_MS) "Over by ${clockMs(over)}." else "${clockMs((plannedMs - elapsed).coerceAtLeast(0L))} left."), pausedNow, pausedMin)
 }
 
 /** m:ss for a length in milliseconds. */

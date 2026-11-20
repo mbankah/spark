@@ -27,9 +27,14 @@ class VrRepo(private val db: EfaDb) {
     /** The nine times a cycle started now would use, after the longest-cycle cap. */
     suspend fun plan(): List<Int> = vrPlan(config())
 
-    suspend fun start(ds: DatedSlot, nowMs: Long) { if (get(ds) == null) put(ds, vrStart(plan(), nowMs)) }
+    suspend fun start(ds: DatedSlot, nowMs: Long) { if (get(ds) == null) put(ds, vrStart(plan(), nowMs, overridden = if (config().skipVR) "VR" else "")) }
 
     suspend fun page(ds: DatedSlot, nowMs: Long) { get(ds)?.let { put(ds, vrPage(it, nowMs)) } }
+
+    /** VR9: the cycle's clock stops while it is paused; the time paused is kept. */
+    suspend fun pause(ds: DatedSlot, nowMs: Long) { get(ds)?.let { put(ds, vrPause(it, nowMs)) } }
+
+    suspend fun resume(ds: DatedSlot, nowMs: Long) { get(ds)?.let { put(ds, vrResume(it, nowMs)) } }
 
     /** Ends the running phase. When that finishes the cycle, the next N time and the remedial are settled once. */
     suspend fun advance(ds: DatedSlot, nowMs: Long, zone: ZoneId) {

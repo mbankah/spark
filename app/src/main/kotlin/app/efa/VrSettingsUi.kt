@@ -40,6 +40,7 @@ fun VrnpmSettingsCard(cfg: VrConfig, onChange: (VrConfig) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Optimal 105", cfg.preset() == "Optimal", { onChange(VrConfig.OPTIMAL.copy(capMin = cfg.capMin, pagesPerCycle = cfg.pagesPerCycle, redEngine = cfg.redEngine)) }, "Use the optimal cycle: 105 minutes")
             Chip("Ideal 165", cfg.preset() == "Ideal", { onChange(VrConfig.IDEAL.copy(capMin = cfg.capMin, pagesPerCycle = cfg.pagesPerCycle, redEngine = cfg.redEngine)) }, "Use the ideal cycle: 165 minutes")
+            Chip("2.5 hours", cfg.preset() == "Session", { onChange(VrConfig.SESSION.copy(capMin = cfg.capMin, pagesPerCycle = cfg.pagesPerCycle, redEngine = cfg.redEngine)) }, "Use the 2.5 hour session: N, P and M, with V and R done by override")
         }
         Stepper("V video (min)", cfg.v, 5..120, 5) { onChange(cfg.copy(v = it)) }
         Stepper("R read (min)", cfg.r, 5..120, 5) { onChange(cfg.copy(r = it)) }
@@ -53,6 +54,8 @@ fun VrnpmSettingsCard(cfg: VrConfig, onChange: (VrConfig) -> Unit) {
         }
         Stepper("Pages in a cycle's notes", cfg.pagesPerCycle, 2..10, 1) { onChange(cfg.copy(pagesPerCycle = it)) }
         Stepper("Remedial a cycle (min)", cfg.remedialMin, 0..60, 10, shown = if (cfg.remedialMin == 0) "None" else cfg.remedialMin.toString()) { onChange(cfg.copy(remedialMin = it)) }
+        Chip(if (cfg.skipVR) "V and R done by override: on" else "V and R done by override: off", cfg.skipVR, { onChange(cfg.copy(skipVR = !cfg.skipVR)) },
+            if (cfg.skipVR) "V and R are done by override: cycles start at notes. Tap to time them again" else "V and R done by override: a cycle starts at notes, and the timer says V and R were not timed")
         Chip(if (cfg.redEngine) "Red Engine built: on, no remedial" else "Red Engine built: off", cfg.redEngine, { onChange(cfg.copy(redEngine = !cfg.redEngine)) },
             if (cfg.redEngine) "The Red Engine is built, so no remedial is booked. Tap to turn it back on" else "The Red Engine is built: stop booking the remedial")
         BasicText(

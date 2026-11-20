@@ -664,6 +664,8 @@ class MainActivity : ComponentActivity() {
                             override suspend fun vrStart(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).start(ds, nowMs)
                             override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).advance(ds, nowMs, ds.start.zone)
                             override suspend fun vrPage(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).page(ds, nowMs)
+                            override suspend fun vrPause(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).pause(ds, nowMs)
+                            override suspend fun vrResume(ds: DatedSlot, nowMs: Long) = app.efa.data.VrRepo(db).resume(ds, nowMs)
                             override suspend fun runRecord(ds: DatedSlot): RunRecord? = app.efa.data.RunRepo(db).get(ds)
                             override suspend fun runStart(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).start(ds, nowMs)
                             override suspend fun runFinish(ds: DatedSlot, nowMs: Long) = app.efa.data.RunRepo(db).finish(ds, nowMs)

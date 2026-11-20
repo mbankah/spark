@@ -189,6 +189,31 @@ class VrRepoTest {
         assertEquals(1, db.tasks().open().count { it.source == "remedial" }, "no new remedial is booked")
     }
 
+    @Test fun VR10_a_cycle_started_with_the_override_begins_at_notes_and_a_running_cycle_keeps_its_plan() = runBlocking {
+        val repo = VrRepo(db); val z = ds.start.zone
+        repo.start(ds, 1_000L)
+        val normal = repo.get(ds)!!
+        assertEquals("", normal.overridden)
+        repo.saveConfig(VrConfig.SESSION)
+        assertEquals(normal, repo.get(ds), "a cycle already running is not changed")
+        val other = slotsFor(WeekB.slots, LocalDate.of(2026, 11, 21)).first { it.slot.type.startsWith("study") }
+        repo.start(other, 2_000L)
+        val run = repo.get(other)!!
+        assertEquals("VR", run.overridden); assertEquals(5, run.boundaries.size); assertEquals(vrPlan(VrConfig.SESSION), run.planMinutes)
+        assertEquals("N Notes", vrView(run, 3_000L).title)
+        var t = 2_000L
+        for (p in vrPhases(run.planMinutes).drop(4)) { t += p.plannedMin * 60_000L; repo.advance(other, t, z) }
+        assertEquals(VrStatus.DONE, vrView(repo.get(other), t).status); assertEquals(150, vrView(repo.get(other), t).actualMin)
+    }
+
+    @Test fun VR9_a_pause_is_kept_in_the_database() = runBlocking {
+        val repo = VrRepo(db)
+        repo.start(ds, 1_000L); repo.pause(ds, 5_000L)
+        assertTrue(repo.get(ds)!!.paused); assertEquals(listOf(5_000L), repo.get(ds)!!.pauses)
+        repo.resume(ds, 9_000L)
+        assertFalse(repo.get(ds)!!.paused); assertEquals(listOf(5_000L, 9_000L), repo.get(ds)!!.pauses)
+    }
+
     @Test fun VR7_the_settings_are_kept_and_a_cycle_uses_them() = runBlocking {
         val repo = VrRepo(db)
         assertEquals(VrConfig(), repo.config())
@@ -242,6 +267,8 @@ class BlockScreenTest {
         override suspend fun vrStart(ds: DatedSlot, nowMs: Long) { vr = efa.vrStart(45, nowMs) }
         override suspend fun vrAdvance(ds: DatedSlot, nowMs: Long) { vr = vr?.let { efa.vrAdvance(it, nowMs) } }
         override suspend fun vrPage(ds: DatedSlot, nowMs: Long) { vr = vr?.let { efa.vrPage(it, nowMs) } }
+        override suspend fun vrPause(ds: DatedSlot, nowMs: Long) { vr = vr?.let { efa.vrPause(it, nowMs) } }
+        override suspend fun vrResume(ds: DatedSlot, nowMs: Long) { vr = vr?.let { efa.vrResume(it, nowMs) } }
         override suspend fun runRecord(ds: DatedSlot) = rec
         override suspend fun runStart(ds: DatedSlot, nowMs: Long) { rec = RunRecord(startMs = nowMs) }
         override suspend fun runFinish(ds: DatedSlot, nowMs: Long) { rec = (rec ?: RunRecord(startMs = nowMs)).copy(endMs = nowMs) }
@@ -351,6 +378,33 @@ class BlockScreenTest {
         rule.onNodeWithContentDescription("Use the ideal cycle: 165 minutes").performScrollTo().performClick(); rule.waitForIdle(); assertEquals("Ideal", state.value.preset())
         rule.onNodeWithContentDescription("More: Longest cycle (min in the steps)").performScrollTo().performClick(); rule.waitForIdle(); assertEquals(60, state.value.capMin)
         rule.onNodeWithContentDescription("The Red Engine is built: stop booking the remedial").performScrollTo().performClick(); rule.waitForIdle(); assertTrue(state.value.redEngine)
+    }
+
+    @Test fun VR10_the_session_shows_V_and_R_as_done_by_override_and_a_cycle_of_two_and_a_half_hours() {
+        val fake = Fake(); fake.cfg = VrConfig.SESSION
+        rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
+        rule.onNodeWithText("V*  R*  N 65  P 45  M 25   =  135 min, with breaks between. * done by override, not timed.").performScrollTo().assertExists()
+        rule.onNodeWithContentDescription("Video, overridden").assertExists(); rule.onNodeWithContentDescription("Read, overridden").assertExists()
+    }
+
+    @Test fun VR10_the_settings_card_has_the_session_preset_and_the_override_switch() {
+        val state = androidx.compose.runtime.mutableStateOf(VrConfig())
+        rule.setContent { EfaTheme { androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) { VrnpmSettingsCard(state.value) { state.value = it } } } }
+        rule.onNodeWithContentDescription("Use the 2.5 hour session", substring = true).performScrollTo().performClick(); rule.waitForIdle()
+        assertEquals("Session", state.value.preset()); assertTrue(state.value.skipVR)
+        rule.onNodeWithText("A cycle is 135 min in the steps", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithContentDescription("V and R are done by override: cycles start at notes", substring = true).performScrollTo().performClick(); rule.waitForIdle()
+        assertFalse(state.value.skipVR)
+    }
+
+    @Test fun VR9_a_running_cycle_can_be_paused_and_resumed_and_says_so() {
+        val fake = Fake(); fake.vr = VrRun(45, listOf(System.currentTimeMillis() - 4 * 60_000L))
+        rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
+        rule.onNodeWithText("Pause").performScrollTo().performClick()
+        rule.waitUntil(5_000) { fake.vr?.paused == true }
+        rule.onNodeWithText("PAUSED", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithText("Resume").performScrollTo().performClick()
+        rule.waitUntil(5_000) { fake.vr?.paused == false }
     }
 
     @Test fun VR1_a_routine_block_does_not_get_the_VRNPM_timer() {

@@ -112,7 +112,7 @@ fun classify(sorted: List<DatedSlot>, protectedFree: Set<Pair<LocalDate, Int>>, 
         if (roles[k] == Role.CHAIN || roles[k] == Role.NIGHT) continue
         val s = sorted[k].slot
         roles[k] = when {
-            s.date != null || s.hardAlarm -> Role.FIXED
+            s.date != null && s.type != "free" || s.hardAlarm -> Role.FIXED          // LN4: a dated free block is what an earlier replan left (a meal moved out of its slot), so it is free time again, not a commitment
             s.type in FIXED_TYPES || s.type == "sleep" || s.type in CYCLE_TYPES -> Role.FIXED
             s.type == "meal" -> Role.MEAL
             s.type == "chore" -> Role.CHORE
@@ -237,6 +237,7 @@ fun buildDay(base: List<PatternSlot>, date: LocalDate, rules: Rules, dayIndex: I
 
     // meals and chores keep their place if it is still free, else move within their window, else a meal is dropped
     val followsMeal = HashMap<Int, Int>()                                     // the end a meal had -> where it is now
+    var spaceFromBreakfast = lastMealEnd != null                              // LN3: the first meal after a breakfast keeps its spacing from it even at its planned time (a breakfast at 11:40 does not sit next to a lunch at 12:15)
     for (m in items.filter { itemRole[it] == Role.MEAL || itemRole[it] == Role.CHORE }.sortedBy { it.startMin }) {
         val len = m.endMin - m.startMin; val isMeal = m.type == "meal"
         val earliest: Int; val latest: Int
@@ -244,20 +245,20 @@ fun buildDay(base: List<PatternSlot>, date: LocalDate, rules: Rules, dayIndex: I
             earliest = max(laneStart, m.startMin - MEAL_BACK_MIN)
             // never earlier than its own planned time; and when nothing has been eaten yet today, the first meal may go as late as any meal may (RN1)
             // LN3: a late wake keeps all three meals. A meal may go as late as it needs to keep its spacing after the one before it (never past the latest start), so a late breakfast moves lunch later and does not cost the day it.
-            latest = max(m.startMin, if (lastMealEnd == null) MEAL_LATEST_START else min(max(m.startMin + MEAL_FORWARD_MIN, lastMealEnd + MEAL_SPACING_MIN), MEAL_LATEST_START))
+            latest = max(m.startMin, if (lastMealEnd == null) MEAL_LATEST_START else min(max(m.startMin + MEAL_FORWARD_MIN, lastMealEnd + MEAL_SPACING_MIN + 90), MEAL_LATEST_START))
         }
         else { earliest = max(laneStart, followsMeal[m.startMin] ?: m.startMin); latest = laneEnd }
         var t = gaps.fit(len, earliest, latest, prefer = m.startMin)
         // LN3: the spacing is a preference, not a reason to drop a meal. With no place at the full spacing the meal goes where the spacing is closest to kept.
-        if (t != null && t != m.startMin && isMeal && lastMealEnd != null && t < lastMealEnd + MEAL_SPACING_MIN)
-            t = gaps.fit(len, max(earliest, lastMealEnd + MEAL_SPACING_MIN), latest) ?: gaps.fitNear(len, earliest, latest, lastMealEnd + MEAL_SPACING_MIN) ?: t
+        if (t != null && isMeal && lastMealEnd != null && (spaceFromBreakfast || t != m.startMin) && t < lastMealEnd + MEAL_SPACING_MIN)
+            t = gaps.fitNear(len, earliest, latest, lastMealEnd + MEAL_SPACING_MIN) ?: t
         if (t == null) {
             if (isMeal) { dropped += "${m.title.substringBefore(" (")} on ${label(date)} is dropped: there is no place for it between ${clock(earliest)} and ${clock(latest)}."; droppedMeals += "$date|${m.title}" }
             else problems += "${m.title} on ${label(date)} has no place in the day."
             continue
         }
         gaps.take(t, len); newBlocks += m.copy(startMin = t, endMin = t + len, date = date)
-        if (isMeal) { lastMealEnd = t + len; followsMeal[m.endMin] = t + len }
+        if (isMeal) { lastMealEnd = t + len; followsMeal[m.endMin] = t + len; spaceFromBreakfast = false }
     }
 
     // work

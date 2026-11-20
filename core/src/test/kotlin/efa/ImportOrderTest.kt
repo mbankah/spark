@@ -106,6 +106,15 @@ class ImportOrderTest {
         assertTrue(normal.dropped.none { it.startsWith("Breakfast") }, normal.dropped.toString())
     }
 
+    @Test fun LN4_the_free_block_a_moved_meal_leaves_behind_can_be_studied_in() {
+        val fri = java.time.LocalDate.of(2026, 11, 20)
+        val left = PatternSlot(fri.dayOfWeek, 730, 760, "Free time", "free", "", false, "", date = fri)           // what a replan left where lunch used to be
+        val commitment = PatternSlot(fri.dayOfWeek, 900, 960, "Dentist", "errand", "", false, "", date = fri)
+        val sorted = slotsFor(listOf(left, commitment), fri, zone).sortedBy { it.slot.startMin }
+        assertEquals(listOf(Role.FREE, Role.FIXED), classify(sorted, emptySet()), "free time again, while a dated commitment stays fixed")
+        assertEquals(listOf(Role.FIXED, Role.FIXED), classify(sorted, setOf(fri to 730)), "unless it is protected free time")
+    }
+
     @Test fun IX11_a_file_still_cannot_cancel_a_study_or_project_block_whatever_order_its_rows_come_in() {
         for (t in listOf("code", "study", "study-standard")) assertFalse(parse("event,2026-11-22,,10:00,11:20,Battl.io,$t,,,none,cancel,").ok, t)
         val v = verify(parse(lectureFree, night, "event,2026-11-22,,10:00,11:20,Battl.io,errand,,,none,cancel,"))

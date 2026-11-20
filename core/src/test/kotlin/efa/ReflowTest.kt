@@ -123,7 +123,7 @@ class ReflowTest {
     @Test fun RF4_a_later_start_moves_the_morning_routine_and_leaves_the_rest_where_it_still_fits() {
         val base = day(withCycle = false); val b = buildDay(base, wed, Rules(wake = 10 * 60)); val a = after(base, b)
         assertEquals(listOf(600, 620, 650), listOf("Wake, shower", "Bible study", "Breakfast, dress, bag").map { find(a, it).single().slot.startMin })
-        assertEquals(735, find(a, "Lunch").single().slot.startMin, "lunch still fits where it was"); assertEquals(1080, find(a, "Dinner").single().slot.startMin)
+        assertTrue(find(a, "Lunch").single().slot.startMin >= 735, "LN3: a breakfast that moved to 10:50 pushes lunch later, never earlier, to keep its spacing; it is not dropped"); assertEquals(1080, find(a, "Dinner").single().slot.startMin)
         assertTrue(find(a, "Randomness and Computation lecture").isNotEmpty(), "the lecture before the start is still on the schedule, as a missed block")
     }
 

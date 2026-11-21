@@ -142,4 +142,13 @@ class KnownAppsTest {
     @Test fun `Q-C8 games and shopping are not preselected`() {
         assertTrue(defaultBlockList(listOf("com.valvesoftware.steam", "com.amazon.mShop.android.shopping", "com.ebay.mobile")).isEmpty())
     }
+
+    @Test fun `HA16 HS8 N3 N7 the no-override line says when it opens before the cutoff and that it is closed after the hard stop`() {
+        val wake = at(LocalDate.of(2026, 11, 21), LocalTime.of(11, 30))
+        val early = noOverrideLine(wake.minusHours(8).minusMinutes(24), wake)         // 03:06, an 11:30 wake: 8.5 hours before it, not within 6
+        assertTrue("opens at 03:10" in early && "until 05:30" in early && "11:30" in early, early)
+        assertFalse("within 6 hours" in early, early)
+        val late = noOverrideLine(wake.minusHours(5), wake)                            // 06:30
+        assertTrue("within 6 hours" in late && "11:30" in late, late)
+    }
 }

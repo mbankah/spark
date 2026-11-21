@@ -162,7 +162,7 @@ fun BlockedCard(
             } else if (d.night) {
                 BasicText(
                     if (canOpen) "An override opens all your blocked apps for ${offer?.minutes ?: 30} minutes. It uses the hard-to-type string below, and the next one tonight is longer."
-                    else "No override is possible now: it is within 6 hours of your wake time.",
+                    else wake?.let { noOverrideLine(now, it) } ?: "No override is possible now.",
                     style = Ts(c.text, 16.sp),
                 )
             } else if (d.reason.isMorning) {

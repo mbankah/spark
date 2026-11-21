@@ -128,6 +128,17 @@ data class NightOffer(val allowed: Boolean, val minutes: Int, val wallLength: In
 fun nightOffer(now: ZonedDateTime, wake: ZonedDateTime, overridesUsedTonight: Int, fullyVerifiedDay: Boolean): NightOffer =
     NightOffer(overrideAllowed(now, wake), overrideMinutes(fullyVerifiedDay), WallLength.nightOverride(overridesUsedTonight + 1))
 
+/**
+ * HS8, N3, N7: why no night override can be bought right now, said with the real times. Before the cutoff it opens later (the shutdown block can be on before it);
+ * from the hard stop, 6 hours before the wake, it is closed. Saying "within 6 hours of your wake" before the cutoff was wrong: at 03:00 with an 11:30 wake it is 8.5 hours.
+ */
+fun noOverrideLine(now: ZonedDateTime, wake: ZonedDateTime): String {
+    val f = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+    val opens = nightCutoff(wake); val stop = hardStop(wake)
+    return if (now.isBefore(opens)) "No override yet. It opens at ${f.format(opens)} and runs until ${f.format(stop)}, 6 hours before your ${f.format(wake)} wake time."
+    else "No override is possible now: it is within 6 hours of your ${f.format(wake)} wake time, which began at ${f.format(stop)}."
+}
+
 /** LA9: passing the wall opens that one app for 30 minutes. */
 const val APP_ALLOWANCE_MINUTES = 30L
 

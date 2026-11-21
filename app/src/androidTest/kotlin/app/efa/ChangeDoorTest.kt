@@ -19,7 +19,7 @@ class ChangeDoorScreenTest {
         rule.setContent { EfaTheme { ChangeDoorScreen(onChoose = { got += it }, onBack = {}) } }
         for (c in ChangeChoice.entries) { rule.onNodeWithText(c.title).performScrollTo().performClick() }
         assertEquals(ChangeChoice.entries.toList(), got)
-        assertEquals(9, ChangeChoice.entries.size, "the eight doors of the map, less Adapt, which is automatic, plus the file and the period, plus sleeping later or earlier tonight (HA10)")
+        assertEquals(5, ChangeChoice.entries.size, "sleeping later tonight, a day off, a library period, a timetable file, and a week or a period; late, over and came up are the Now card (HS10) and a new deadline is Quick add (HA14)")
     }
 
     @Test fun CD2_the_wake_time_is_part_of_the_door_and_Back_goes_back() {
@@ -46,7 +46,7 @@ class ChangeDoorE2ETest {
         rule.onNodeWithText("Setup").performClick()          // the gear is in the bottom row, not in the scrolling page (HA3)
         rule.waitUntil(10_000) { rule.onAllNodesWithText("CHANGE THE PLAN").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Change the plan").performScrollTo().performClick()
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("Say what is happening.", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Pick what you want to change.", substring = true).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test fun CD1_Setup_leads_to_the_door_and_the_door_leads_to_the_day_off_screen_and_back() {
@@ -54,7 +54,7 @@ class ChangeDoorE2ETest {
         rule.onNodeWithText("A day off or a weekend").performScrollTo().performClick()
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Plan a day off").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Back").performScrollTo().performClick()
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("Say what is happening.", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Pick what you want to change.", substring = true).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test fun CD1_the_library_and_the_timetable_file_open_from_the_door() {
@@ -73,7 +73,7 @@ class ChangeDoorE2ETest {
         rule.waitUntil(10_000) { rule.onAllNodesWithText("CHANGE THE PLAN").fetchSemanticsNodes().isNotEmpty() }
         for (gone in listOf("Modify Schedule", "Plan a day off", "Plan a library period", "Import a timetable file", "Set this wake time")) rule.onAllNodesWithText(gone).assertCountEquals(0)
         rule.onNodeWithText("Change the plan").performScrollTo().performClick()
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("Say what is happening.", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Pick what you want to change.", substring = true).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Set this wake time").performScrollTo().assertExists()
     }
 }

@@ -990,6 +990,8 @@ The coherence check for this change: it is owned by Ask (the questions), Do (the
 | CD1 | (amended) The Change door also has Sleep later or earlier tonight; A week or a period also covers the winter vacation and something you want to do tomorrow. | Default; built, tested |
 | SL6 | (amended) Your own reminders are part of the one Reminders card (HA12). | Default; built, tested |
 | CT4 | (amended) The permission list does not repeat Notifications and Blocking (HA11). | Default; built |
+| HA14 | The Change door does not repeat what has a place of its own. It has Sleep later or earlier tonight, A day off or a weekend, A library period, A file from my timetable, and A week or a period, and the wake time card. It has no Running over, Started late, Something came up or A new deadline: the first three are the buttons on the Now card on Home (HS10), the fourth is Quick add. | Default; built, tested on the emulator |
+| CD1 | (amended again, 21 November 2026) The door's choices are those of HA14. | Default; built, tested |
 | HS6 | (amended 21 November 2026) The bottom row of Home is Type to open, a small gear for Setup, and Quick add. There is no dock (HA3). | Default; built |
 | HS10 | (amended) What is waiting for an answer is one list of one kind of card (HA1): two at most, the rest one tap away. | Default; built |
 

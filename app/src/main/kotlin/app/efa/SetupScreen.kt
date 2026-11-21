@@ -59,7 +59,7 @@ fun SetupScreen(
         Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Label("CHANGE THE PLAN")
             BasicText("Everything that moves the plan, in one place", style = Ts(c.text, 16.sp, FontWeight.Bold))
-            BasicText("Running over, a late start, something that came up, a new deadline, a day off, a library period, a timetable file, a week or period, and the wake time.", style = Ts(c.muted, 14.sp))
+            BasicText("Sleeping later tonight, a day off, a library period, a timetable file, a week or period, and the wake time.", style = Ts(c.muted, 14.sp))
             Btn("Change the plan", onChange, primary = true, modifier = Modifier.fillMaxWidth())
         }
 

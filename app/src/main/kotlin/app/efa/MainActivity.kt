@@ -736,11 +736,7 @@ class MainActivity : ComponentActivity() {
                     Screen.CHANGE -> ChangeDoorScreen(
                         onChoose = { ch ->
                             when (ch) {
-                                ChangeChoice.OVER -> reality("over")
-                                ChangeChoice.LATE -> reality("late")
-                                ChangeChoice.CAME_UP -> reality("cameup")
                                 ChangeChoice.NIGHT -> reality("night")
-                                ChangeChoice.DEADLINE -> screen = Screen.QUICK_ADD
                                 ChangeChoice.DAY_OFF -> { refreshDayOff(emptyList(), null, false); screen = Screen.DAYOFF }
                                 ChangeChoice.LIBRARY -> { refreshLibrary(null, 5, null, false, 8 * 60, 22 * 60); screen = Screen.LIBRARY }
                                 ChangeChoice.FILE -> { importUi = ImportUi.Idle; screen = Screen.IMPORT }

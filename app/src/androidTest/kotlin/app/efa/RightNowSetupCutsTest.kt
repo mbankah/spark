@@ -50,11 +50,12 @@ class RightNowSetupCutsTest {
         assertNotNull(got, "the winter span opens its preview")
     }
 
-    @Test fun HA10_sleeping_later_tonight_is_a_choice_in_the_Change_door() {
+    @Test fun HA10_HA14_sleeping_later_tonight_is_a_choice_in_the_Change_door_and_the_four_duplicates_are_not() {
         val got = mutableListOf<ChangeChoice>()
         rule.setContent { EfaTheme { ChangeDoorScreen({ got += it }, {}) } }
         rule.onNodeWithText("Sleep later or earlier tonight").performScrollTo().performClick()
         assertEquals(listOf(ChangeChoice.NIGHT), got)
+        for (gone in listOf("It is running over", "I started late", "Something came up", "A new deadline")) rule.onAllNodesWithText(gone).assertCountEquals(0)
     }
 
     @Test fun HA11_the_permission_list_does_not_repeat_the_Notifications_and_Blocking_cards_above_it() {

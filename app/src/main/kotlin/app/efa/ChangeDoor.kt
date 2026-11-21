@@ -24,17 +24,16 @@ import androidx.compose.ui.unit.sp
 /** WT1: what the wake time card shows: the next alarm in words, whether a time was chosen, the time the picker starts at, and the last answer. */
 data class WakeUi(val text: String = "", val chosen: Boolean = false, val hour: Int = 10, val minute: Int = 30, val message: String? = null)
 
-/** CD1: the things that can change the plan, each said the way it happens. Every one leads to the screen that previews it, prices it and applies it. */
+/**
+ * CD1: the things that can change the plan, each said the way it happens. Every one leads to the screen that previews it, prices it and applies it. Running over, a late start and something that
+ * came up are on the Now card on Home, and a new deadline is Quick add, so they are not repeated here (HA14).
+ */
 enum class ChangeChoice(val title: String, val say: String, val group: String) {
-    OVER("It is running over", "This is taking longer than planned. Choose how much more time.", "RIGHT NOW"),
-    LATE("I started late", "Start the rest of today from now.", "RIGHT NOW"),
-    CAME_UP("Something came up", "Say what happened and Spark finds a place for it.", "RIGHT NOW"),
-    NIGHT("Sleep later or earlier tonight", "See what a later or an earlier night does to tomorrow before you choose it.", "COMING UP"),
-    DEADLINE("A new deadline", "Add work that is due, with how heavy it is.", "COMING UP"),
-    DAY_OFF("A day off or a weekend", "Plan a day off or say you are ill. The cost to the Buffer is shown first.", "COMING UP"),
-    LIBRARY("A library period", "Work blocks move to the library for 1 to 14 days.", "COMING UP"),
-    FILE("A file from my timetable", "Lectures that moved, deadlines, assignment weeks and catch-up weeks.", "COMING UP"),
-    PERIOD("A week or a period", "Assignment week, catch-up, a period off, a focus week, the winter vacation, something you want to do tomorrow, the Admin library and the essentials.", "COMING UP"),
+    NIGHT("Sleep later or earlier tonight", "See what a later or an earlier night does to tomorrow before you choose it.", "CHANGE"),
+    DAY_OFF("A day off or a weekend", "Plan a day off or say you are ill. The cost to the Buffer is shown first.", "CHANGE"),
+    LIBRARY("A library period", "Work blocks move to the library for 1 to 14 days.", "CHANGE"),
+    FILE("A file from my timetable", "Lectures that moved, deadlines, assignment weeks and catch-up weeks.", "CHANGE"),
+    PERIOD("A week or a period", "Assignment week, catch-up, a period off, a focus week, the winter vacation, something you want to do tomorrow, the Admin library and the essentials.", "CHANGE"),
 }
 
 /**
@@ -49,11 +48,8 @@ fun ChangeDoorScreen(onChoose: (ChangeChoice) -> Unit, onBack: () -> Unit, wake:
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         BasicText("Change the plan", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
-        BasicText("Say what is happening. Each one shows what it does before anything moves.", style = Ts(c.muted, 15.sp))
-        listOf("RIGHT NOW", "COMING UP").forEach { g ->
-            Label(g)
-            ChangeChoice.entries.filter { it.group == g }.forEach { ch -> ChoiceRow(ch.title, ch.say) { onChoose(ch) } }
-        }
+        BasicText("Pick what you want to change. Each one shows what it does before anything moves. Running over, a late start and something that came up are on the Now card on Home, and a new deadline is Quick add.", style = Ts(c.muted, 15.sp))
+        ChangeChoice.entries.forEach { ch -> ChoiceRow(ch.title, ch.say) { onChoose(ch) } }
         WakeCard(wake, onWakeSet, onWakeClear)
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
     }

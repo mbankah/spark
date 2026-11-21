@@ -218,7 +218,7 @@ SYSTEMS = {
     "Meal question": ("Questions", "Confirm card", "One card, Spark asks, one question at a time. The meal question, the estimate question and the held-notification count become kinds of it."),
     "Now card chips: Running over, Started late, Something came up": ("Late or over", None, "One set of three buttons, on the Now card. The Change door and the Run card stop repeating them."),
     "Proof card": ("Proof", None, "One proof flow, on the block. The Home photo card and Proof due become one line that opens it."),
-    "Emergency": ("Emergency", "Emergency chips", "One place: the three chips on Home. The copy on Right now goes. The blocked screen's Emergency goes too, because Home is one tap from it (go home) and the rule allows a copy only 4 taps away. EM1 puts it on the blocked screen and that is a safety call, so I want your decision on this one."),
+    "Emergency": ("Emergency", "Emergency chips", "One place on Home: the three chips. The copy on Right now goes. The blocked screen keeps its own Emergency door, as a safety exception you decided on 21 November (HA15)."),
     "Choices: Day off, Library, Timetable file, A week or a period": ("Change door", None, "What if I sleep later and Winter vacation stop being shelves and become two choices in the door."),
     "Now card": ("Now", None, "The clock line and the Now card are one card."),
     "VRNPM card (while a cycle runs)": ("Cycle card", None, "One cycle card with the ring and the controls. The block screen shows one line saying where the cycle is."),
@@ -260,6 +260,11 @@ for g in clusters:
     for x in g[1:]:
         r = rows[x]
         r["v"] = "keep" if r["rule"].startswith("P") else ("delete" if own["v"] == "delete" else "merge")
+# decided exceptions to the 4-tap rule: the card stays, and the audit says who decided
+EXCEPTIONS = {"Emergency": "Exception to the 4-tap rule, decided by Michael on 21 November 2026 (HA15): you cannot see Home while an app is blocked, so Emergency stays on the blocked screen too."}
+for r in rows:
+    if r["card"] in EXCEPTIONS and r["cl"] is not None and not r["owner"]:
+        r["v"] = "keep"
 for r in rows:
     tt = r["after"] if r["after"] is not None else r["t"]
     r["edge"] = abs(tt - KEEP_FROM) <= 4 or abs(tt - FOLD_FROM) <= 4
@@ -290,7 +295,7 @@ def action(r):
     return "Move down: lower on its screen, or onto a shelf."
 
 
-for r in rows: r["act"] = action(r)
+for r in rows: r["act"] = EXCEPTIONS[r["card"]] if r["card"] in EXCEPTIONS else action(r)
 counts = {k: sum(1 for r in rows if r["v"] == k) for k in ("keep", "demote", "merge", "delete")}
 screens = []
 for r in rows:
@@ -505,7 +510,7 @@ def build():
          f'<style>{CSS}</style><div class="wrap">',
          '<div class="k">Spark · every card and button, scored out of 100 · round 5 · 20 November 2026</div>',
          f'<h1>Scored harsher again, {counts["keep"]} of {len(rows)} earn their place. {len(merged)} fold into {len(clusters)} systems, {counts["delete"]} go and {counts["demote"]} move down.</h1>',
-         f'<p class="lead">Two changes since the last round. Every rating except the exceptional 5 dropped one point. And the overlap between cards is no longer my say-so: each card is described by the job it does, the data it uses, when it shows and how you use it, and every pair is given a similarity from 0 to 1. Unique purpose and Distance now come from that graph. A pair at {G.HIGH} or more and within 3 taps is simplified into one system. The Home, block-screen, Right now, Setup and Change door cuts were made on 21 November (ledger section 62); only the blocked-screen Emergency copy is waiting for your decision.</p>',
+         f'<p class="lead">Two changes since the last round. Every rating except the exceptional 5 dropped one point. And the overlap between cards is no longer my say-so: each card is described by the job it does, the data it uses, when it shows and how you use it, and every pair is given a similarity from 0 to 1. Unique purpose and Distance now come from that graph. A pair at {G.HIGH} or more and within 3 taps is simplified into one system. The Home, block-screen, Right now, Setup and Change door cuts were made on 21 November (ledger section 62); the blocked-screen Emergency stays, as the one safety exception you decided (HA15).</p>',
          f'<div class="tiles"><div class="tile"><b>{len(rows)}</b><span>cards and buttons scored</span></div><div class="tile keep"><b>{counts["keep"]}</b><span>keep</span></div><div class="tile merge"><b>{counts["merge"]}</b><span>fold into a system</span></div><div class="tile demote"><b>{counts["demote"]}</b><span>move down</span></div><div class="tile delete"><b>{counts["delete"]}</b><span>delete</span></div><div class="tile"><b>{len(clusters)}</b><span>systems from the graph</span></div></div>',
          '<h2>The similarity graph</h2>',
          f'<p>Each dot is a card or button; a line means two cards share a job, and the thicker the line the more alike they are. Orange lines are pairs at {G.HIGH} or more within 3 taps, so the one-button rule applies. The dashed rings are the systems they would become. Dot colour is the verdict; a dark ring means a Locked rule pins the card. Tap a dot to see what it overlaps; slide to hide the weaker lines.</p>',

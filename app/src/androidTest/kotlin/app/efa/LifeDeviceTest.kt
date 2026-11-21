@@ -320,7 +320,7 @@ class LifeScreenTest {
         rule.onNodeWithContentDescription("Free to spend this week", substring = true).assertExists()
     }
 
-    @Test fun EM1_the_home_and_the_blocked_card_carry_the_emergency_door_and_it_is_never_gated() {
+    @Test fun HA15_EM1_the_home_and_the_blocked_card_carry_the_emergency_door_and_it_is_never_gated() {
         var got: EmergencyAction? = null
         rule.setContent { EfaTheme { HomeScreen(HomeState(date = "Thu 19 Nov", phone = null, phoneOpen = true, time = "01:00", buffer = BufferState.NoDeadline, nowLabel = null, nowTitle = null, nowDetail = null, freeToSpendPence = null), {}, {}, onEmergency = { got = it }) } }
         rule.onNodeWithContentDescription("Emergency: Call 999").performScrollTo().performClick(); assertEquals(EmergencyAction.CALL_EMERGENCY, got)

@@ -66,6 +66,8 @@ class AlarmService : Service() {
         AlarmSession.ringing = true
         if (player == null) startSound()
         if (stepListener == null) startSteps()
+        // HA17: if the newest morning is already stopped or does not exist, this ring is stale: stop it at once
+        scope.launch { val r = MorningRepo(EfaDb.get(applicationContext)).latest(); if (r == null || r.stoppedMs != null) { stopRinging(); stopSelf() } }
         return START_STICKY
     }
 

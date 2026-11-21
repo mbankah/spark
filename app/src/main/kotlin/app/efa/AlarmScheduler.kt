@@ -55,7 +55,8 @@ object AlarmScheduler {
     /** [useChosen] false gives the alarm Spark would set on its own, which is what a later chosen time is compared with (WT1). */
     suspend fun planNow(ctx: Context, now: ZonedDateTime, useChosen: Boolean = true): AlarmPlan? {
         val db = EfaDb.get(ctx)
-        return planAlarmWithDaysOff(now, liveOnset(SleepRepo(db), now), PlanRepo(db).slots(), if (useChosen) chosenWake(ctx, now) else null)
+        val stopped = MorningRepo(db).latest()?.takeIf { it.stoppedMs != null }?.let { java.time.LocalDate.parse(it.date) }          // HA17: that morning is done
+        return planAlarmWithDaysOff(now, liveOnset(SleepRepo(db), now), PlanRepo(db).slots(), if (useChosen) chosenWake(ctx, now) else null, stopped)
     }
 
     /** Sets the alarm for [plan] if it differs from what is set by a minute or more. Returns whether it changed anything. */
@@ -105,16 +106,19 @@ class AlarmReceiver : BroadcastReceiver() {
         if (intent.action != AlarmScheduler.ACTION_FIRE) return
         val at = intent.getLongExtra(AlarmScheduler.EXTRA_AT, System.currentTimeMillis())
         val reason = intent.getStringExtra(AlarmScheduler.EXTRA_REASON) ?: AlarmReason.BACKSTOP.name
-        val pending = goAsync()
+        val pending: PendingResult? = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // HA17: an alarm that fires for a morning that was already stopped (a stale backstop) does not ring. It only sets the next alarm.
+                val morning = MorningRepo(EfaDb.get(context.applicationContext)); val existing = morning.get(morning.dateOf(at))
+                if (existing?.stoppedMs != null) { AlarmScheduler.refresh(context.applicationContext); return@launch }
                 MorningRepo(EfaDb.get(context.applicationContext)).fire(at, reason, System.currentTimeMillis())
                 EfaDb.get(context.applicationContext).meta().put(MetaRow(app.efa.data.META_WAKE_CHOSEN, "0"))          // WT1: the chosen time has done its job
                 BlockingState.refresh(context.applicationContext)
                 AlarmService.start(context.applicationContext)
                 AlarmSession.ringing = true
                 BlockerService.instance?.showAlarm()
-            } finally { pending.finish() }
+            } finally { pending?.finish() }
         }
     }
 }

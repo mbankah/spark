@@ -104,10 +104,12 @@ fun hardAlarmAt(slots: List<PatternSlot>, date: LocalDate, zone: ZoneId): ZonedD
  * never sooner than 3 hours after onset, never later than the backstop (the backstop counts as hard, so the floor does not hold it back),
  * and a hard alarm earlier than that rings first. [onset] is where the live night says sleep started, or null.
  */
-fun planAlarm(now: ZonedDateTime, onset: ZonedDateTime?, slots: List<PatternSlot>, isDayOff: Boolean = false, chosen: ZonedDateTime? = null): AlarmPlan? {
+fun planAlarm(now: ZonedDateTime, onset: ZonedDateTime?, slots: List<PatternSlot>, isDayOff: Boolean = false, chosen: ZonedDateTime? = null, stopped: LocalDate? = null): AlarmPlan? {
     if (isDayOff) return null                                   // G2: always set unless it is a planned day off
     val zone = now.zone
-    val wakeDate = if (onset != null) onset.plus(SLEEP_TARGET).toLocalDate() else if (now.toLocalTime().isBefore(BACKSTOP_AT)) now.toLocalDate() else now.toLocalDate().plusDays(1)
+    val firstDate = if (onset != null) onset.plus(SLEEP_TARGET).toLocalDate() else if (now.toLocalTime().isBefore(BACKSTOP_AT)) now.toLocalDate() else now.toLocalDate().plusDays(1)
+    // HA17: a morning that has been stopped is done. With no sleep going on, the next alarm is for the next day, not the 12:00 backstop of the morning you are already up in.
+    val wakeDate = if (onset == null && stopped != null && firstDate == stopped) firstDate.plusDays(1) else firstDate
     val backstop = ZonedDateTime.of(wakeDate, BACKSTOP_AT, zone)
     val hard = hardAlarmAt(slots, wakeDate, zone)
     var plan = AlarmPlan(backstop, AlarmReason.BACKSTOP)

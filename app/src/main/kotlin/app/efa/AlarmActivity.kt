@@ -53,7 +53,7 @@ class AlarmActivity : ComponentActivity() {
                         now = System.currentTimeMillis()
                         val r = withContext(Dispatchers.IO) { try { repo.latest() } catch (e: Exception) { null } }
                         if (r != null) row = r
-                        if (r == null || r.ringStartedMs == null || r.stoppedMs != null) { finish(); return@LaunchedEffect }
+                        if (r == null || r.ringStartedMs == null || r.stoppedMs != null) { AlarmService.stop(applicationContext); finish(); return@LaunchedEffect }          // HA17: nothing to stop here, so nothing may keep ringing
                         if (!checkedReference) {
                             checkedReference = true
                             val refs = withContext(Dispatchers.IO) { ReferenceRepo(applicationContext, db).valid(listOf(RefKind.NIGHT, RefKind.STANDING), now) }

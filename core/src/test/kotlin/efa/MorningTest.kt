@@ -83,6 +83,13 @@ class AlarmTimeTest {
         assertEquals(t(4, 12), p.at); assertEquals(AlarmReason.BACKSTOP, p.reason)
     }
 
+    @Test fun `HA17 G2 a morning that has been stopped is done and the next alarm is for the next day`() {
+        // 11:34 on the 4th, awake, no sleep going on: the 12:00 backstop of the 4th would ring a morning that is already over
+        assertEquals(t(4, 12), planAlarm(t(4, 11, 34), null, slots)!!.at, "with no record of the morning, the backstop stands")
+        assertEquals(t(5, 12), planAlarm(t(4, 11, 34), null, slots, stopped = t(4, 7).toLocalDate())!!.at)
+        assertEquals(t(4, 12), planAlarm(t(4, 3), null, slots, stopped = t(3, 7).toLocalDate())!!.at, "an older stopped morning changes nothing")
+    }
+
     @Test fun `G2 before noon the next backstop is today`() {
         assertEquals(t(4, 12), planAlarm(t(4, 3), null, slots)!!.at)
         assertEquals(t(5, 12), planAlarm(t(4, 12, 1), null, slots)!!.at)

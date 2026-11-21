@@ -13,7 +13,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import efa.Confirm
-import efa.START_REWARD_DAILY_CAP
 import efa.START_REWARD_MIN
 
 /** One button of a question: its words, what a screen reader says, and what it does. */
@@ -42,5 +41,5 @@ fun ConfirmCard(c: Confirm, onAnswer: (String, String) -> Unit) =
 /** SR1: the line under a started block or cycle that says what the start bought. */
 @Composable
 fun StartRewardNote() {
-    BasicText("Started: $START_REWARD_MIN min of open phone earned (up to $START_REWARD_DAILY_CAP starts a day).", style = Ts(LocalColors.current.muted, 13.sp), modifier = Modifier.semantics { contentDescription = "Started. $START_REWARD_MIN minutes of open phone earned" })
+    BasicText("Started: +$START_REWARD_MIN min open phone", style = Ts(LocalColors.current.muted, 13.sp), modifier = Modifier.semantics { contentDescription = "Started. $START_REWARD_MIN minutes of open phone earned" })
 }

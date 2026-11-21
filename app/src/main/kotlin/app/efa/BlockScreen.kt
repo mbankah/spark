@@ -63,7 +63,7 @@ private val HM = DateTimeFormatter.ofPattern("HH:mm")
  * and there is no review screen after the photo (G5). Each branch says what happens when it cannot finish (X7).
  */
 @Composable
-fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, steps: (@Composable (DatedSlot, Routine, () -> Unit) -> Unit)? = null, onShift: (Int) -> Unit = {}, onCameUp: () -> Unit = {}, onBack: () -> Unit) {
+fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) -> Unit = {}, steps: (@Composable (DatedSlot, Routine, () -> Unit) -> Unit)? = null, onCameUp: () -> Unit = {}, onBack: () -> Unit) {
     val c = LocalColors.current
     val scope = rememberCoroutineScope()
     val proof = remember(ds) { proofFor(ds.slot) }
@@ -139,16 +139,11 @@ fun BlockScreen(ds: DatedSlot, actions: BlockActions, onTurnBack: (DatedSlot) ->
             onStart = { scope.launch { actions.runStart(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } },          // BS1: the steps are on this screen, so the hold only has to start the block
             onFinish = { scope.launch { actions.runFinish(ds, System.currentTimeMillis()); run = actions.runRecord(ds) } },
             onSkip = { reason -> scope.launch { actions.runSkip(ds, reason); run = actions.runRecord(ds); if (reason == "Something came up") onCameUp() } },
-            onShift = onShift,
         )
         // VR1: a study block has the VRNPM timer: V, R, N, P, M with their breaks, each step allowed to overrun and the overrun always shown
         if (ds.slot.type in VR_TYPES) VrnpmCard(
             vr, vrCfg, now,
             onStart = { scope.launch { actions.vrStart(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
-            onNext = { scope.launch { actions.vrAdvance(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
-            onPage = { scope.launch { actions.vrPage(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
-            onPause = { scope.launch { actions.vrPause(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
-            onResume = { scope.launch { actions.vrResume(ds, System.currentTimeMillis()); vr = actions.vrRun(ds) } },
         )
         // BS1: a block that is a routine carries its steps (the wake and getting ready, the Bible, the wind-down, a code block). A study block has the cycle instead, which is its steps.
         val routine = remember(ds) { routineForSlot(ds.slot) }
@@ -294,7 +289,7 @@ private fun LocationAsk(denied: Boolean, onGranted: () -> Unit, onDenied: () -> 
  * finish, and more time when it is over. Late and over are said in minutes and lead to the same Running over preview, so the rest of the day is never silently wrong.
  */
 @Composable
-private fun RunCard(ds: DatedSlot, rec: RunRecord?, now: ZonedDateTime, onStart: () -> Unit, onFinish: () -> Unit, onSkip: (String) -> Unit, onShift: (Int) -> Unit) {
+private fun RunCard(ds: DatedSlot, rec: RunRecord?, now: ZonedDateTime, onStart: () -> Unit, onFinish: () -> Unit, onSkip: (String) -> Unit) {
     val c = LocalColors.current
     val v = runView(rec, ds.start.toInstant().toEpochMilli(), ds.end.toInstant().toEpochMilli(), now.toInstant().toEpochMilli(), now.zone)
     val minutes = Duration.between(ds.start, ds.end).toMinutes().toInt()
@@ -314,15 +309,12 @@ private fun RunCard(ds: DatedSlot, rec: RunRecord?, now: ZonedDateTime, onStart:
             RunStatus.RUNNING -> {
                 StartRewardNote()
                 Box(Modifier.fillMaxWidth().height(10.dp).background(c.track, CardShape)) { Box(Modifier.fillMaxWidth(v.fraction).height(10.dp).background(c.accent, CardShape)) }
-                if (v.lateMin >= RUN_LATE_MIN) Btn("Started late: slide the rest of today by ${shiftMinutes(v.lateMin)} min", { onShift(shiftMinutes(v.lateMin)) }, modifier = Modifier.fillMaxWidth())
-                if (v.overMin >= RUN_LATE_MIN) Btn("Over by ${v.overMin} min: slide the rest of today by ${shiftMinutes(v.overMin)} min", { onShift(shiftMinutes(v.overMin)) }, modifier = Modifier.fillMaxWidth())
-                else if (!now.isBefore(ds.end.minusMinutes(2))) {
-                    BasicText("Need more time?", style = Ts(c.muted, 14.sp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(10, 20).forEach { m -> Btn("+$m min", { onShift(m) }, modifier = Modifier.weight(1f)) } }
-                }
+                // HA7: late and over are said here, and done from the Now card on Home (Running over, Started late): one button for one job
+                val said = listOfNotNull(if (v.lateMin >= RUN_LATE_MIN) "Started ${v.lateMin} min late." else null, if (v.overMin >= RUN_LATE_MIN) "Over by ${v.overMin} min." else null)
+                if (said.isNotEmpty()) BasicText(said.joinToString(" ") + " Running over and Started late are on the Now card on the Home screen.", style = Ts(c.muted, 14.sp))
                 HoldButton("Hold to finish", HOLD_END_MS, onFinish)
             }
-            RunStatus.DONE -> if (v.overMin >= RUN_LATE_MIN && now.isBefore(ds.end.plusMinutes(60))) Btn("Went over by ${v.overMin} min: slide the rest of today by ${shiftMinutes(v.overMin)} min", { onShift(shiftMinutes(v.overMin)) }, modifier = Modifier.fillMaxWidth())
+            RunStatus.DONE -> if (v.overMin >= RUN_LATE_MIN) BasicText("Went over by ${v.overMin} min.", style = Ts(c.muted, 14.sp))
             RunStatus.SKIPPED -> {}
         }
     }
@@ -335,7 +327,7 @@ private val VR_TYPES = setOf("study", "study-standard", "study-light")
  * OVER and counts up, in the strongest contrast on the screen, and the overrun stays on its chip afterwards. A hold ends a step (and starts the next); N has a Page done button that times real pages.
  */
 @Composable
-private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: () -> Unit, onNext: () -> Unit, onPage: () -> Unit, onPause: () -> Unit, onResume: () -> Unit) {
+private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: () -> Unit) {
     val c = LocalColors.current
     val plan = vrPlan(cfg)
     val v = vrView(run, now.toInstant().toEpochMilli(), plan)
@@ -350,15 +342,10 @@ private fun VrnpmCard(run: VrRun?, cfg: VrConfig, now: ZonedDateTime, onStart: (
                 HoldButton("Hold to start the cycle", holdMillis(steps.sumOf { it.plannedMin })) { onStart() }
             }
             VrStatus.RUNNING -> {
-                // VR18: the same card as on the home screen
+                // HA7: the ring and the controls are on the Home card; here one line says where the cycle is
                 StartRewardNote()
-                val pagesNote = if (v.title.startsWith("N ")) {
-                    val avg = run?.let { vrAveragePageMs(it) }
-                    if (avg == null) "Time a page: tap Page done at the end of each one." else "${run?.pages?.size} page${if (run?.pages?.size == 1) "" else "s"}, ${clockMs(avg)} a page. ${cfg.pagesPerCycle} pages is about ${suggestedN(cfg.pagesPerCycle, avg)} min."
-                } else null
-                VrCycleBody(run!!, now.toInstant().toEpochMilli(), { a ->
-                    when (a) { VrAction.NEXT -> onNext(); VrAction.PAGE -> onPage(); VrAction.PAUSE -> onPause(); VrAction.RESUME -> onResume(); VrAction.OPEN -> {} }
-                }, pagesNote = pagesNote)
+                val where = "${v.title}. " + (if (v.paused) "Paused. " else "") + (if (v.over) "Over by ${clockMs(v.overMs)}." else "${clockMs(v.remainingMs)} left.")
+                BasicText("Running: $where The ring and the controls are on the Home screen.", style = Ts(c.text, 16.sp, FontWeight.SemiBold), modifier = Modifier.semantics { contentDescription = "Cycle running. $where" })
             }
             VrStatus.DONE -> {
                 VrChips(v)

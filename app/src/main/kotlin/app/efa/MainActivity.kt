@@ -726,7 +726,6 @@ class MainActivity : ComponentActivity() {
                             override suspend fun currentFix(): Fix? = LocationFix.current(applicationContext)
                             override fun hasLocationPermission() = LocationFix.hasPermission(applicationContext)
                         }, onBack = { reload++; screen = Screen.HOME }, steps = { d, r, done -> RoutineStepsCard(db, r, d, done) },
-                            onShift = slide,
                             onCameUp = { reload++; screen = Screen.CAME_UP }, onTurnBack = { slot ->
                             wallBack = Screen.HOME; wallLength = efa.WallLength.FREE_SLOT_CHANGE
                             wall = Triple("Make it a break", "This was free time that the Buffer turned into work. Type the characters below by hand to turn it back. It will not be turned into work again.", {

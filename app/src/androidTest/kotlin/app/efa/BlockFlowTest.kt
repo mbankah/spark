@@ -351,13 +351,15 @@ class BlockScreenTest {
         rule.onNodeWithText("Did not happen: Too tired.").assertExists()
     }
 
-    @Test fun ST2_a_late_start_offers_to_slide_the_rest_of_the_day_by_the_minutes_it_was_late() {
-        val fake = Fake(); var shifted = 0
+    @Test fun HA7_HA9_ST2_a_late_start_is_said_on_the_run_card_and_the_slide_buttons_are_on_the_Now_card_only() {
+        val fake = Fake()
         val ds = wakeSlot
         fake.rec = RunRecord(startMs = ds.start.toInstant().toEpochMilli() + 12 * 60_000L)
-        rule.setContent { EfaTheme { BlockScreen(ds, fake, onShift = { shifted = it }) {} } }
-        rule.onNodeWithText("Started late: slide the rest of today by 15 min").performScrollTo().performClick()
-        assertEquals(15, shifted)
+        rule.setContent { EfaTheme { BlockScreen(ds, fake) {} } }
+        rule.onNodeWithText("Started 12 min late.", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithText("slide the rest of today", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("+10 min").assertDoesNotExist()
+        rule.onNodeWithText("Started: +2 min open phone").performScrollTo().assertExists()
     }
 
     private val studySlot get() = slotsFor(WeekB.slots, LocalDate.of(2026, 10, 19)).first { it.slot.type == "study-standard" }
@@ -374,25 +376,24 @@ class BlockScreenTest {
         rule.onRoot().performTouchInput { up() }
         rule.mainClock.autoAdvance = true
         rule.waitUntil(5_000) { fake.vr != null }
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("V Video").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Running:", substring = true).fetchSemanticsNodes().isNotEmpty() }
     }
 
-    @Test fun VR3_a_step_past_its_time_shows_OVER_and_counts_up_and_does_not_stop() {
+    @Test fun VR3_HA8_a_step_past_its_time_is_said_as_OVER_on_the_block_and_the_controls_are_on_the_home_card() {
         val fake = Fake(); val now = System.currentTimeMillis()
         fake.vr = VrRun(45, listOf(now - 14 * 60_000L))
         rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
-        rule.onNodeWithText("OVER", substring = true).performScrollTo().assertExists()
-        rule.onNodeWithContentDescription("Video, over now").assertExists()
-        rule.onNodeWithContentDescription("Hold to finish V", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithText("Over by", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithText("The ring and the controls are on the Home screen.", substring = true).assertExists()
+        rule.onNodeWithContentDescription("Hold to finish V", substring = true).assertDoesNotExist()
     }
 
-    @Test fun VR4_notes_has_a_page_timer() {
+    @Test fun VR4_HA8_the_page_timer_is_on_the_home_card_not_a_second_button_on_the_block() {
         val fake = Fake(); val now = System.currentTimeMillis(); val t0 = now - 26 * 60_000L
         fake.vr = VrRun(45, listOf(t0, t0 + 10 * 60_000L, t0 + 15 * 60_000L, t0 + 20 * 60_000L, t0 + 25 * 60_000L))
         rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
-        rule.onNodeWithText("N Notes").performScrollTo().assertExists()
-        rule.onNodeWithText("Page done").performScrollTo().performClick()
-        rule.waitUntil(5_000) { fake.vr?.pages?.size == 1 }
+        rule.onNodeWithText("N Notes", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithText("Page done").assertDoesNotExist()
     }
 
     @Test fun VR7_the_timer_shows_the_times_from_the_settings() {
@@ -428,14 +429,11 @@ class BlockScreenTest {
         assertFalse(state.value.skipVR)
     }
 
-    @Test fun VR9_a_running_cycle_can_be_paused_and_resumed_and_says_so() {
+    @Test fun VR9_HA8_a_running_cycle_is_paused_from_the_home_card_and_the_block_says_where_it_is() {
         val fake = Fake(); fake.vr = VrRun(45, listOf(System.currentTimeMillis() - 4 * 60_000L))
         rule.setContent { EfaTheme { BlockScreen(studySlot, fake) {} } }
-        rule.onNodeWithText("Pause").performScrollTo().performClick()
-        rule.waitUntil(5_000) { fake.vr?.paused == true }
-        rule.onNodeWithText("PAUSED", substring = true).performScrollTo().assertExists()
-        rule.onNodeWithText("Resume").performScrollTo().performClick()
-        rule.waitUntil(5_000) { fake.vr?.paused == false }
+        rule.onNodeWithText("Running:", substring = true).performScrollTo().assertExists()
+        rule.onNodeWithText("Pause").assertDoesNotExist(); rule.onNodeWithText("Resume").assertDoesNotExist()
     }
 
     @Test fun VR1_a_routine_block_does_not_get_the_VRNPM_timer() {

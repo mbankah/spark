@@ -164,11 +164,11 @@ class SchedulePageDeviceTest {
         }
     }
 
-    @Test fun AN1_today_is_on_top_and_the_carousel_underneath_starts_with_the_next_7_days() {
+    @Test fun SC3_the_carousel_of_the_next_7_days_is_first_and_today_is_beneath_it() {
         rule.setContent { EfaTheme { ScheduleScreen(days()) } }
         rule.onNode(header("Today", "Open")).assertExists()
-        rule.onNodeWithContentDescription("Full schedule").performScrollToNode(hasText("Next 7 days"))
-        rule.onNodeWithText("Next 7 days").assertExists(); rule.onNodeWithText("3 to 9 Nov").assertExists()
+        assertTrue(rule.onNodeWithText("Next 7 days").fetchSemanticsNode().positionInRoot.y < rule.onNode(header("Today", "Open")).fetchSemanticsNode().positionInRoot.y, "the carousel is above today")
+        rule.onNodeWithText("3 to 9 Nov").assertExists()
         rule.onNodeWithContentDescription("Full schedule").performScrollToNode(hasText("Wed 4 Nov"))
         rule.onNodeWithText("Wed 4 Nov").assertExists(); rule.onNodeWithText("Tue 10 Nov").assertDoesNotExist()
     }
@@ -182,7 +182,7 @@ class SchedulePageDeviceTest {
         rule.onNodeWithContentDescription("Week 2 of 2, showing").assertExists()
         rule.onNodeWithContentDescription("Full schedule").performScrollToNode(hasText("Tue 10 Nov"))
         rule.onNodeWithText("Tue 10 Nov").assertExists(); rule.onNodeWithText("Wed 4 Nov").assertDoesNotExist()
-        rule.onNode(header("Today", "Open")).assertExists()           // today stays on top whichever window is showing
+        rule.onNode(header("Today", "Open")).assertExists()           // today stays beneath the carousel whichever window is showing
     }
 
     @Test fun AN1_swiping_the_week_card_moves_to_the_next_week() {

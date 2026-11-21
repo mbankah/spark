@@ -52,8 +52,7 @@ import java.util.Locale
 private const val FULL_DAY_MIN = 8 * 60
 
 /**
- * The second home page (SC1). Today is at the top, open, on its own. Under it is a carousel: the next 7 days after today, then the 7 after, and so on; swipe
- * for the next one. Each has a chart of its work per day, grey except the day you have opened. Under it are that window's days, each folded to a header (its date, its hours and a bar) and opened with a tap; today starts open. Tapping a column of the chart opens
+ * The second home page (SC1). At the top is a carousel: the next 7 days after today, then the 7 after, and so on; swipe for the next one. Today is beneath it, open, on its own. Each has a chart of its work per day, grey except the day you have opened. Under it are that window's days, each folded to a header (its date, its hours and a bar) and opened with a tap; today starts open. Tapping a column of the chart opens
  * that day and takes you to it. An open day is a timeline: a rail down the side with a dot for every block, filled for work, dark for fixed
  * commitments, small for the things around the day, and a ring where there is free time. A finished block is muted and the one running has a NOW
  * tag. It only reads: a block is changed where it already is, never here. Things move only briefly and only when you cause it (AN1).
@@ -73,11 +72,10 @@ fun ScheduleScreen(days: List<ScheduleDay>, modifier: Modifier = Modifier) {
     val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val week = weeks.getOrNull(pager.currentPage.coerceIn(0, (weeks.size - 1).coerceAtLeast(0)))
-    val firstDayItem = if (today != null) 3 else 2           // the title, today, the carousel, then the days of the window under it
+    val firstDayItem = if (today != null) 3 else 2           // the title, the carousel, today, then the days of the window under it
     LazyColumn(modifier.fillMaxSize().semantics { contentDescription = "Full schedule" }, state = list, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
         item(key = "title") { BasicText("Schedule", style = Ts(c.text, 30.sp, FontWeight.Bold, letterSpacing = (-0.8).sp)) }
-        // Today is at the top on its own, open, and the next 7 days are underneath it.
-        today?.let { t -> item(key = "today") { DayBlock(t, open[t.date] == true, { open[t.date] = open[t.date] != true }, Modifier) } }
+        // SC3 (amended 21 November 2026): the carousel of the next 7 days comes first, and today is beneath it, open, on its own, with the days of the shown window under that.
         if (weeks.isNotEmpty()) item(key = "weeks") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 HorizontalPager(pager, Modifier.fillMaxWidth(), pageSpacing = 12.dp) { i ->
@@ -90,6 +88,7 @@ fun ScheduleScreen(days: List<ScheduleDay>, modifier: Modifier = Modifier) {
                 WeekDots(weeks.size, pager.currentPage) { scope.launch { pager.animateScrollToPage(it) } }
             }
         }
+        today?.let { t -> item(key = "today") { DayBlock(t, open[t.date] == true, { open[t.date] = open[t.date] != true }, Modifier) } }
         week?.let { w ->
             items(w.days, key = { it.date.toEpochDay() }) { d ->
                 DayBlock(d, open[d.date] == true, { open[d.date] = open[d.date] != true }, Modifier.animateItem())

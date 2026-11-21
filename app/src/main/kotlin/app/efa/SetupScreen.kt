@@ -100,8 +100,9 @@ fun SetupScreen(
                 SwitchRow("Quiet mode", "In a work block and at night every notification is held for the digest, except your essentials. Turning it off needs the wall.") {
                     Chip(if (quietMode) "Quiet mode: on" else "Quiet mode: off", quietMode, { onQuietMode(!quietMode) }, if (quietMode) "Turn quiet mode off" else "Turn quiet mode on")
                 }
+                // HA12: your own reminders are part of the same card, not a second one
+                if (db != null) OwnRemindersCard(db, embedded = true)
             }
-            if (db != null) OwnRemindersCard(db)
         }
 
         Shelf("Morning and study", "The morning photos and the study cycle") {
@@ -147,7 +148,10 @@ fun SetupScreen(
                 BasicText("Say a deadline, like “assignment due Friday, heavy”. A card shows what was heard before anything is saved. Voice can open a day off request or the block list but cannot finish one. Typed quick add is always there.", style = Ts(c.muted, 14.sp))
                 Chip(if (voiceQuietOff) "Voice is off in lectures and the library" else "Voice is on everywhere", voiceQuietOff, { onVoiceQuiet(!voiceQuietOff) }, if (voiceQuietOff) "Turn voice on in lectures and the library" else "Turn voice off in lectures and the library")
             }
-            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // HA13: where home is, where the family home is and where the lecture rooms are: one Places card with three rows
+            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Label("PLACES")
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Label("HOME")
                 val h = p.home
                 BasicText(if (h == null) "Not set. Lecture attendance outside the building check needs it." else "Set, to about 100 m. No street or house is stored.", style = Ts(c.text, 16.sp))
@@ -157,8 +161,8 @@ fun SetupScreen(
                 }
                 Btn(if (h == null) "Set home on the map" else "Move home on the map", onHome, primary = h == null, modifier = Modifier.fillMaxWidth())
             }
-            if (db != null) FamilyHomeCard(db)
-            Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (db != null) FamilyHomeCard(db, embedded = true)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Label("LECTURE VENUES")
                 BasicText("Points come from OpenStreetMap. Tap a venue to place it on the map yourself. Each placement is logged.", style = Ts(c.muted, 14.sp))
                 p.venues.sortedByDescending { it.point == null }.forEach { v ->
@@ -171,6 +175,7 @@ fun SetupScreen(
                         BasicText(if (v.point == null) "Not found. Place it on the map." else v.source, style = Ts(c.muted, 14.sp))
                     }
                 }
+            }
             }
         }
 

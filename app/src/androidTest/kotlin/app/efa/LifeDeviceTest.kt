@@ -223,12 +223,11 @@ class LifeScreenTest {
     @Before fun open() { db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), EfaDb::class.java).build(); runBlocking { db.seedIfEmpty(pt(10, 21).toInstant().toEpochMilli(), LONDON.id) } }
     @After fun close() = db.close()
 
-    @Test fun HS4_the_third_page_offers_today_the_what_if_the_winter_arc_and_the_small_helpers_and_changes_nothing() {
+    @Test fun HS4_the_third_page_offers_today_and_the_small_helpers_and_changes_nothing() {
         rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }) } }
         rule.onAllNodesWithText("Right now").onFirst().assertExists()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("TODAY LOOKS LIKE").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithText("WHAT IF: SLEEP LATER OR EARLIER TONIGHT").performScrollTo().assertExists()
-        rule.onNodeWithText("WINTER VACATION, 14 DEC TO 8 JAN").performScrollTo().assertExists()
+        rule.onAllNodesWithText("WHAT IF: SLEEP LATER OR EARLIER TONIGHT").assertCountEquals(0); rule.onAllNodesWithText("WINTER VACATION, 14 DEC TO 8 JAN").assertCountEquals(0)      // HA10: they are in the Change door and Modify Schedule now
         rule.onNodeWithText("HOW ARE YOU?").performScrollTo().assertExists()
         rule.onNodeWithText("PARK AN IDEA").performScrollTo().assertExists()
         rule.onNodeWithText("CANNOT SLEEP").performScrollTo().assertExists()
@@ -357,13 +356,17 @@ class LifeScreenTest {
         rule.onNodeWithText("Coursework extension", substring = true).performScrollTo().assertExists()
     }
 
-    @Test fun SL4_CO11_tomorrows_fun_opens_a_preview_and_the_tone_is_kept() {
+    @Test fun SL4_HA10_tomorrows_fun_is_in_Modify_Schedule_and_opens_a_preview() {
         var opened: Instance? = null
-        rule.setContent { EfaTheme { WorkItOutScreen(db, { i, _ -> opened = i }) } }
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("TOMORROW'S FUN").fetchSemanticsNodes().isNotEmpty() }
+        rule.setContent { EfaTheme { ModifyHomeScreen(emptyList(), LocalDate.of(2026, 11, 21), {}, {}, {}, {}, null, {}, onQuick = { opened = it }) } }
         rule.onNodeWithContentDescription("Tomorrow's fun").performScrollTo().performTextInput("Game night")
         rule.onNodeWithContentDescription("Put it tomorrow at 17:00").performScrollTo().performClick()
         assertEquals(Preset.ADD_EVENT, opened?.preset); assertEquals("Game night", opened?.str("title"))
+    }
+
+    @Test fun CO11_the_tone_is_kept() {
+        rule.setContent { EfaTheme { WorkItOutScreen(db, { _, _ -> }) } }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("TODAY LOOKS LIKE").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithContentDescription("Tone Plain").performScrollTo().performClick()
         rule.waitUntil(5_000) { runBlocking { db.meta().get(META_TONE) == "PLAIN" } }
     }

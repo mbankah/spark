@@ -29,11 +29,12 @@ enum class ChangeChoice(val title: String, val say: String, val group: String) {
     OVER("It is running over", "This is taking longer than planned. Choose how much more time.", "RIGHT NOW"),
     LATE("I started late", "Start the rest of today from now.", "RIGHT NOW"),
     CAME_UP("Something came up", "Say what happened and Spark finds a place for it.", "RIGHT NOW"),
+    NIGHT("Sleep later or earlier tonight", "See what a later or an earlier night does to tomorrow before you choose it.", "COMING UP"),
     DEADLINE("A new deadline", "Add work that is due, with how heavy it is.", "COMING UP"),
     DAY_OFF("A day off or a weekend", "Plan a day off or say you are ill. The cost to the Buffer is shown first.", "COMING UP"),
     LIBRARY("A library period", "Work blocks move to the library for 1 to 14 days.", "COMING UP"),
     FILE("A file from my timetable", "Lectures that moved, deadlines, assignment weeks and catch-up weeks.", "COMING UP"),
-    PERIOD("A week or a period", "Assignment week, catch-up, a period off, a focus week, the Admin library and the essentials.", "COMING UP"),
+    PERIOD("A week or a period", "Assignment week, catch-up, a period off, a focus week, the winter vacation, something you want to do tomorrow, the Admin library and the essentials.", "COMING UP"),
 }
 
 /**

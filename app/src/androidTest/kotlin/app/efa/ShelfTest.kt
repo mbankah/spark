@@ -56,8 +56,9 @@ class ShelfTest {
         rule.onAllNodesWithText("Right now").onFirst().assertExists()
         rule.onNodeWithText("LITE DAY").performScrollTo().assertExists()
         for (gone in listOf("EMERGENCY", "WHAT IF: SLEEP LATER OR EARLIER TONIGHT", "HOW ARE YOU?", "NFC TAGS (OPTIONAL)", "YOUR REMINDERS", "FAMILY HOME", "PERMISSIONS (AFTER A REINSTALL OR PHONE UPDATE)")) rule.onAllNodesWithText(gone).assertCountEquals(0)
-        for (shelf in listOf("Change something", "Calm and notes", "Your data and help", "Emergency", "Plan tomorrow", "The coach", "Tools")) rule.onNodeWithText(shelf).performScrollTo().assertExists()
-        rule.onNodeWithText("Emergency").performScrollTo().performClick()
+        for (shelf in listOf("Calm and notes", "Your data and help", "Out, lost phone, university", "The coach", "Tools")) rule.onNodeWithText(shelf).performScrollTo().assertExists()
+        for (gone in listOf("Change something", "Plan tomorrow", "Emergency")) rule.onAllNodesWithText(gone).assertCountEquals(0)         // HA10
+        rule.onNodeWithText("Out, lost phone, university").performScrollTo().performClick()
         rule.onNodeWithText("I AM OUT").performScrollTo().assertExists()
     }
 }

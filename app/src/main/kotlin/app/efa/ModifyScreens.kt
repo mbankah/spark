@@ -8,6 +8,10 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
@@ -72,6 +76,30 @@ fun ModifyHomeScreen(active: List<ModifierRow>, today: LocalDate, onPick: (Prese
                 BasicText(p.label, style = Ts(c.text, 17.sp, FontWeight.Bold)); BasicText(p.blurb, style = Ts(c.muted, 14.sp))
                 Btn("Set up ${p.label}", { onPick(p) }, description = "Set up ${p.label}")
             } }
+        }
+
+        // HO3, SL4, HA10: the winter vacation and something you want to do tomorrow are changes to a period, so they are here and not on shelves of their own
+        var exams by remember { mutableStateOf(true) }
+        var fun_ by remember { mutableStateOf("") }
+        Label("WINTER VACATION, 14 DEC TO 8 JAN")
+        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("January assessments", exams, { exams = true }, "I have January assessments"); Chip("None", !exams, { exams = false }, "I have no January assessments")
+            }
+            efa.winterArc(exams, today).forEach { w ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    BasicText("${w.label}: ${w.instance.start.dayOfMonth} ${w.instance.start.month.name.take(3).lowercase()} to ${w.instance.end.dayOfMonth} ${w.instance.end.month.name.take(3).lowercase()}", style = Ts(c.text, 15.sp, FontWeight.Bold))
+                    BasicText(w.note, style = Ts(c.muted, 13.sp))
+                    Btn("Open ${w.label}", { onQuick(w.instance) }, modifier = Modifier.fillMaxWidth(), description = "Open the ${w.label} span")
+                }
+            }
+            if (efa.winterArc(exams, today).isEmpty()) BasicText("The vacation has started, so nothing is left to plan ahead.", style = Ts(c.muted, 13.sp))
+        }
+        Label("TOMORROW'S FUN")
+        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            BasicText("Something you want to do tonight? Give it a real slot tomorrow at 17:00.", style = Ts(c.muted, 13.sp))
+            Field(fun_, { fun_ = it }, "What is it?", "Tomorrow's fun")
+            Btn("Put it tomorrow at 17:00", { onQuick(efa.tomorrowsFun(fun_, today)); fun_ = "" }, modifier = Modifier.fillMaxWidth(), description = "Put it tomorrow at 17:00")
         }
 
         Label("ALSO")

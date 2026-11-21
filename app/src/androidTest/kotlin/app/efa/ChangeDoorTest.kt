@@ -19,7 +19,7 @@ class ChangeDoorScreenTest {
         rule.setContent { EfaTheme { ChangeDoorScreen(onChoose = { got += it }, onBack = {}) } }
         for (c in ChangeChoice.entries) { rule.onNodeWithText(c.title).performScrollTo().performClick() }
         assertEquals(ChangeChoice.entries.toList(), got)
-        assertEquals(8, ChangeChoice.entries.size, "the eight doors of the map, less Adapt, which is automatic, plus the file and the period")
+        assertEquals(9, ChangeChoice.entries.size, "the eight doors of the map, less Adapt, which is automatic, plus the file and the period, plus sleeping later or earlier tonight (HA10)")
     }
 
     @Test fun CD2_the_wake_time_is_part_of_the_door_and_Back_goes_back() {
@@ -43,7 +43,7 @@ class ChangeDoorE2ETest {
 
     private fun toDoor() {
         rule.waitUntil(15_000) { rule.onAllNodesWithText("Setup").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithText("Setup").performScrollTo().performClick()
+        rule.onNodeWithText("Setup").performClick()          // the gear is in the bottom row, not in the scrolling page (HA3)
         rule.waitUntil(10_000) { rule.onAllNodesWithText("CHANGE THE PLAN").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Change the plan").performScrollTo().performClick()
         rule.waitUntil(10_000) { rule.onAllNodesWithText("Say what is happening.", substring = true).fetchSemanticsNodes().isNotEmpty() }
@@ -69,7 +69,7 @@ class ChangeDoorE2ETest {
 
     @Test fun CD3_Setup_has_one_Change_the_plan_card_and_none_of_the_cards_that_moved() {
         rule.waitUntil(15_000) { rule.onAllNodesWithText("Setup").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithText("Setup").performScrollTo().performClick()
+        rule.onNodeWithText("Setup").performClick()          // the gear is in the bottom row, not in the scrolling page (HA3)
         rule.waitUntil(10_000) { rule.onAllNodesWithText("CHANGE THE PLAN").fetchSemanticsNodes().isNotEmpty() }
         for (gone in listOf("Modify Schedule", "Plan a day off", "Plan a library period", "Import a timetable file", "Set this wake time")) rule.onAllNodesWithText(gone).assertCountEquals(0)
         rule.onNodeWithText("Change the plan").performScrollTo().performClick()

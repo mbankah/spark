@@ -60,14 +60,10 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
     var awake by remember { mutableStateOf<List<String>>(emptyList()) }
     var lowRun by remember { mutableStateOf(false) }
     var lastMood by remember { mutableStateOf<Int?>(null) }
-    var lo by remember { mutableIntStateOf(60) }
-    var wake by remember { mutableIntStateOf(9 * 60 + 20) }
-    var whatIf by remember { mutableStateOf<ModPreview?>(null) }
     var idea by remember { mutableStateOf("") }
     var reward by remember { mutableStateOf("") }
     var awakeItem by remember { mutableStateOf("") }
     var picked by remember { mutableStateOf<String?>(null) }
-    var exams by remember { mutableStateOf(true) }
     val today = remember { LocalDate.now(LONDON) }
 
     LaunchedEffect(tick) {
@@ -115,46 +111,7 @@ fun WorkItOutScreen(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, modifier
         WorkItOutMore(db, onOpenPlan, WioPart.NOW)
         WorkItOutExtra(db, onWall, WioPart.NOW)
 
-        Shelf("Change something", "Sleep later or earlier tonight, the winter vacation") {
-        // HS4, SA1: what if I sleep later or earlier tonight
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Label("WHAT IF: SLEEP LATER OR EARLIER TONIGHT")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Chip("-15", false, { lo = (lo - 15 + 1440) % 1440; whatIf = null }, "Lights-out 15 minutes earlier")
-                BasicText("Lights out ${clock(lo)}", style = Ts(c.text, 16.sp, FontWeight.Bold))
-                Chip("+15", false, { lo = (lo + 15) % 1440; whatIf = null }, "Lights-out 15 minutes later")
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Chip("-15", false, { wake = (wake - 15 + 1440) % 1440; whatIf = null }, "Wake 15 minutes earlier")
-                BasicText("Wake ${clock(wake)}", style = Ts(c.text, 16.sp, FontWeight.Bold))
-                Chip("+15", false, { wake = (wake + 15) % 1440; whatIf = null }, "Wake 15 minutes later")
-            }
-            val tonight = nightOf(ZonedDateTime.now(LONDON))          // before 06:00 the night still running is yesterday's
-            val inst = Instance(Preset.NIGHT, tonight, tonight, mapOf("lights_out" to clock(lo), "wake" to clock(wake)))
-            Btn("Work it out", { scope.launch(Dispatchers.IO) { whatIf = ModifierRepo(db).preview(inst, ZonedDateTime.now(LONDON)) } }, modifier = Modifier.fillMaxWidth(), description = "Work out this night")
-            whatIf?.let { p ->
-                (p.compiled.lines.take(5) + p.problems).distinct().forEach { BasicText(it, style = Ts(if (it in p.problems) c.text else c.muted, 14.sp, if (it in p.problems) FontWeight.Bold else null)) }
-                if (p.canApply) Btn("Open it to apply", { onOpenPlan(inst, true) }, primary = true, modifier = Modifier.fillMaxWidth(), description = "Open this night to apply")
-            }
-        }
-
-        // HO3: the winter vacation arc
-        Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Label("WINTER VACATION, 14 DEC TO 8 JAN")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("January assessments", exams, { exams = true }, "I have January assessments"); Chip("None", !exams, { exams = false }, "I have no January assessments")
-            }
-            winterArc(exams, today).forEach { w ->
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    BasicText("${w.label}: ${w.instance.start.dayOfMonth} ${w.instance.start.month.name.take(3).lowercase()} to ${w.instance.end.dayOfMonth} ${w.instance.end.month.name.take(3).lowercase()}", style = Ts(c.text, 15.sp, FontWeight.Bold))
-                    BasicText(w.note, style = Ts(c.muted, 13.sp))
-                    Btn("Open ${w.label}", { onOpenPlan(w.instance, true) }, modifier = Modifier.fillMaxWidth(), description = "Open the ${w.label} span")
-                }
-            }
-            if (winterArc(exams, today).isEmpty()) BasicText("The vacation has started, so nothing is left to plan ahead.", style = Ts(c.muted, 13.sp))
-        }
-
-        }
+        // HA10: what if I sleep later is a choice in the Change door, and the winter vacation is under A week or a period
 
         Shelf("Calm and notes", "How you are, a place for ideas, your rewards, when you cannot sleep") {
         // CO5, CO6: how are you, and the people who can help after a run of hard days

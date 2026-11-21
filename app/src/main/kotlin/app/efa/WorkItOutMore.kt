@@ -28,7 +28,7 @@ import java.time.format.DateTimeFormatter
 private val HM_OUT = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
-private fun Field(value: String, onChange: (String) -> Unit, hint: String, description: String) {
+internal fun Field(value: String, onChange: (String) -> Unit, hint: String, description: String) {
     val c = LocalColors.current
     androidx.compose.foundation.text.BasicTextField(
         value, onChange, textStyle = Ts(c.text, 16.sp), cursorBrush = androidx.compose.ui.graphics.SolidColor(c.accent), singleLine = true,
@@ -47,12 +47,11 @@ private fun permissions(ctx: Context): List<Perm> {
     val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
     val am = ctx.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
     val pm = ctx.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+    // HA11: Notifications and Blocking have cards of their own just above this list, so they are not listed twice
     return listOf(
-        Perm("Notifications", android.os.Build.VERSION.SDK_INT < 33 || granted("android.permission.POST_NOTIFICATIONS"), "Alarms, reminders and the meal check.", details),
         Perm("Camera", granted("android.permission.CAMERA"), "The proof photos.", details),
         Perm("Location", granted("android.permission.ACCESS_FINE_LOCATION"), "Lecture attendance and out.", details),
         Perm("Exact alarms", android.os.Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms(), "The wake alarm and reminders ring on time.", Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))),
-        Perm("Blocking (accessibility)", BlockerService.instance != null, "Closes blocked apps.", Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)),
         Perm("Battery: not optimised", pm.isIgnoringBatteryOptimizations(ctx.packageName), "Stops the phone killing Spark at night.", Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)),
         Perm("Greyscale at wind-down", WindDown.available(ctx), "Optional. One command from your PC: " + WindDown.COMMAND, null),
     )
@@ -78,8 +77,6 @@ fun WorkItOutMore(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, part: WioP
     var tone by remember { mutableStateOf(Tone.CALM) }
     var ident by remember { mutableStateOf(listOf("", "", "")) }
     var nap by remember { mutableStateOf(false) }
-    var fun_ by remember { mutableStateOf("") }
-    val today = remember { LocalDate.now(LONDON) }
 
     LaunchedEffect(tick) {
         withContext(Dispatchers.IO) {
@@ -107,19 +104,13 @@ fun WorkItOutMore(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, part: WioP
                 }
             }
         } else {
-            Shelf("Emergency", "Call 999, I am out, a lost phone, the university") {
-                // EM1: never gated, no question, logged quietly
-                Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Label("EMERGENCY")
-                    BasicText("Always open. It asks nothing.", style = Ts(c.muted, 13.sp))
-                    EmergencyAction.entries.forEach { a -> Btn(a.label, { scope.launch(Dispatchers.IO) { message = Emergency.run(ctx, a) } }, modifier = Modifier.fillMaxWidth(), description = "Emergency: ${a.label}") }
-                    message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }
-                }
-
+            // HA10: the three Emergency buttons are on Home (EM1), so the shelf holds only what Home does not
+            Shelf("Out, lost phone, university", "I am out, a lost phone, the university") {
                 // EM2: out is honoured only away from home
                 Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Label("I AM OUT")
                     val until = outUntil
+                    message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.Bold)) }       // what out could not do, said where it was asked (it was on the Emergency card, which is on Home now)
                     if (until != null) {
                         BasicText("Out until ${java.time.Instant.ofEpochMilli(until).atZone(LONDON).format(HM_OUT)}. Blocking and the night rule are paused while the phone is away from home.", style = Ts(c.text, 14.sp))
                         Btn("I'm back", { scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(META_OUT_UNTIL, "0")); BlockingState.refresh(ctx); tick++ } }, modifier = Modifier.fillMaxWidth(), description = "I am back")
@@ -158,16 +149,6 @@ fun WorkItOutMore(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, part: WioP
                 }
             }
 
-            // SL4
-            Shelf("Plan tomorrow", "Give something you want to do a real slot") {
-                Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Label("TOMORROW'S FUN")
-                    BasicText("Something you want to do tonight? Give it a real slot tomorrow at 17:00.", style = Ts(c.muted, 13.sp))
-                    Field(fun_, { fun_ = it }, "What is it?", "Tomorrow's fun")
-                    Btn("Put it tomorrow at 17:00", { onOpenPlan(tomorrowsFun(fun_, today), true); fun_ = "" }, modifier = Modifier.fillMaxWidth(), description = "Put it tomorrow at 17:00")
-                }
-            }
-
             // CO3, CO10, CO11
             Shelf("The coach", "Voice, tone and who you are trying to be") {
                 Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -188,7 +169,7 @@ fun WorkItOutMore(db: EfaDb, onOpenPlan: (Instance, Boolean) -> Unit, part: WioP
 
 /** SL6, SH2: your own reminders (whatever you and your prescriber decided), now with the other reminders in Setup. Spark logs taken or not taken and gives no advice. */
 @Composable
-fun OwnRemindersCard(db: EfaDb) {
+fun OwnRemindersCard(db: EfaDb, embedded: Boolean = false) {
     val c = LocalColors.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -205,7 +186,7 @@ fun OwnRemindersCard(db: EfaDb) {
         }
     }
     fun put(key: String, value: String) { scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(key, value)); tick++ } }
-    Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(if (embedded) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Label("YOUR REMINDERS")
         BasicText("Whatever you and your prescriber decided. Spark logs taken or not taken for you to show them. It gives no advice on doses or times.", style = Ts(c.muted, 13.sp))
         reminders.forEach { r -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -224,7 +205,7 @@ fun OwnRemindersCard(db: EfaDb) {
 
 /** HO2, SH2: the family home, now with the other places in Setup. */
 @Composable
-fun FamilyHomeCard(db: EfaDb) {
+fun FamilyHomeCard(db: EfaDb, embedded: Boolean = false) {
     val c = LocalColors.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -232,7 +213,7 @@ fun FamilyHomeCard(db: EfaDb) {
     var family by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(tick) { withContext(Dispatchers.IO) { family = db.meta().get(META_FAMILY_HOME) } }
-    Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(if (embedded) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Label("FAMILY HOME")
         BasicText(if (family == null) "Not set. Stand at the family home and set it, so Spark can tell which home you are at." else "Set. Spark picks flat or family home when you are within 150 m of it.", style = Ts(c.muted, 13.sp))
         Btn("Set the family home to where I am", { scope.launch(Dispatchers.IO) { val f = LocationFix.current(ctx, 8_000); if (f != null) { db.meta().put(MetaRow(META_FAMILY_HOME, "${f.lat}|${f.lon}")); tick++; message = "Family home set." } else message = "The place could not be read. Try near a window." } }, modifier = Modifier.fillMaxWidth(), description = "Set the family home here")

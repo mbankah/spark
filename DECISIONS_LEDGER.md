@@ -980,6 +980,16 @@ The coherence check for this change: it is owned by Ask (the questions), Do (the
 | HA9 | The line under a started block or cycle that says what the start bought is short: Started: +2 min open phone (SR1). The cap of 5 starts a day is in the ledger, not on the screen. | Default; built, tested on the emulator |
 | ST4 | (amended 21 November 2026) Late and over are the same events as Started late and Running over, and never silent. The block screen says them in words and the Now card on Home has the buttons (HA7). | Default; built |
 | VR18 | (amended) The cycle is drawn once, on the Home card; the block screen shows one line while it runs (HA8). | Default; built |
+| HA10 | Right now does not repeat what has a place of its own. The three Emergency buttons are on Home (EM1) and not on Right now; the shelf that held them keeps I am out, the lost-phone steps and the university's routes. What if I sleep later or earlier tonight is a choice in the Change door (Sleep later or earlier tonight), which opens the same night preview as the Bed later tonight chip. The winter vacation and Tomorrow's fun are in Modify Schedule (A week or a period), where the other periods are. The shelves Change something and Plan tomorrow are gone. | Default; built, tested on the emulator |
+| HA11 | The permission list in Setup lists the permissions that have no card of their own (camera, location, exact alarms, battery, greyscale). Notifications and Blocking are shown by their cards just above it, and are not listed twice. | Default; built, tested on the emulator |
+| HA12 | The reminders for photos, meals, lecture codes and quiet mode, and your own reminders (medication-style), are one card in Setup. | Default; built, tested on the emulator |
+| HA13 | Where home is, where the family home is and where the lecture rooms are are one Places card with three rows. | Default; built, tested on the emulator |
+| HS4 | (amended 21 November 2026) The what-if for a later or earlier night is the Change door's choice Sleep later or earlier tonight, not a card on Right now. | Default; built |
+| HO3 | (amended) The winter vacation is under A week or a period in Modify Schedule. | Default; built |
+| SL4 | (amended) Tomorrow's fun is under A week or a period in Modify Schedule. | Default; built |
+| CD1 | (amended) The Change door also has Sleep later or earlier tonight; A week or a period also covers the winter vacation and something you want to do tomorrow. | Default; built, tested |
+| SL6 | (amended) Your own reminders are part of the one Reminders card (HA12). | Default; built, tested |
+| CT4 | (amended) The permission list does not repeat Notifications and Blocking (HA11). | Default; built |
 | HS6 | (amended 21 November 2026) The bottom row of Home is Type to open, a small gear for Setup, and Quick add. There is no dock (HA3). | Default; built |
 | HS10 | (amended) What is waiting for an answer is one list of one kind of card (HA1): two at most, the rest one tap away. | Default; built |
 

@@ -214,7 +214,7 @@ class MorningSetupFlowTest {
     }
 
     @Test fun M1_M4_two_photos_of_the_same_scene_are_saved_from_the_real_camera_and_match_each_other() {
-        rule.onNodeWithText("Setup").performScrollTo().performClick()
+        rule.onNodeWithText("Setup").performClick()
         takeFromSetup("Take tonight's setup photo")
         rule.onNodeWithText("Back").performScrollTo().performClick()
         takeFromSetup("Take a standing reference")

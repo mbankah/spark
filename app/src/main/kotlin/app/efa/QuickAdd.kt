@@ -45,6 +45,8 @@ fun QuickAddScreen(
     onCancel: () -> Unit,
     prefill: NewTask? = null,
     heard: String? = null,
+    onVoice: (() -> Unit)? = null,       // V1, G7: say it instead of typing it; null where voice is off (lectures, the library)
+    voiceNote: String? = null,           // V2: what voice could not do, said plainly
 ) {
     val c = LocalColors.current
     var title by remember { mutableStateOf(prefill?.title.orEmpty()) }
@@ -60,6 +62,8 @@ fun QuickAddScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         BasicText("Quick add", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
+        onVoice?.let { Btn("Say it", it, modifier = Modifier.fillMaxWidth(), description = "Voice quick add. Say it, like: assignment due Friday, heavy") }
+        voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
         // V2: what was heard, shown so a mistake is seen before anything is saved.
         heard?.let { Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Label("I HEARD")

@@ -445,12 +445,12 @@ class LifeScreenTest {
         rule.onNodeWithText("Open anyway", substring = true).assertDoesNotExist()
     }
 
-    @Test fun HS6_the_dock_has_its_four_tiles_with_drawn_icons_and_the_labels_are_still_there() {
+    @Test fun HA3_HS6_the_dock_is_gone_and_setup_is_the_small_gear_beside_type_to_open() {
         var set = 0
         rule.setContent { EfaTheme { HomeScreen(HomeState(date = "Thu 19 Nov", phone = null, phoneOpen = true, time = "12:00", buffer = BufferState.NoDeadline, nowLabel = null, nowTitle = null, nowDetail = null, freeToSpendPence = null), {}, {}, onSetup = { set++ }) } }
-        for (l in listOf("Phone", "Msgs", "Maps", "Setup")) rule.onNodeWithText(l).performScrollTo().assertExists()
-        rule.onNodeWithContentDescription("Phone. Opens your Phone app.").performScrollTo().assertExists()
-        rule.onNodeWithText("Setup").performScrollTo().performClick(); assertEquals(1, set)
+        for (l in listOf("Phone", "Msgs", "Maps")) rule.onNodeWithText(l).assertDoesNotExist()
+        rule.onNodeWithText("Type to open").assertExists()
+        rule.onNodeWithContentDescription("Setup: home, venues, blocking and GitHub").performClick(); assertEquals(1, set)
     }
 }
 

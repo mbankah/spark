@@ -161,9 +161,9 @@ class HomeLayoutTest {
 
     @Test fun HS10_two_things_waiting_show_and_the_rest_are_one_tap_away_and_moved_for_you_is_not_on_the_home_page() {
         rule.setContent { EfaTheme { HomeScreen(busy(), {}, {}) } }
-        rule.onNodeWithText("DID YOU EAT?").assertExists(); rule.onNodeWithText("YOU ARE BEHIND").assertExists(); rule.onNodeWithText("PROOF DUE").assertDoesNotExist()
+        rule.onNodeWithText("DID YOU EAT?").assertExists(); rule.onNodeWithText("YOU ARE BEHIND").assertExists(); rule.onNodeWithText("PHOTO DUE").assertDoesNotExist()
         rule.onNodeWithContentDescription("Show 1 more things waiting for you").performScrollTo().performClick()
-        rule.onNodeWithText("PROOF DUE").assertExists()
+        rule.onNodeWithText("PHOTO DUE").assertExists()
         rule.onNodeWithText("MOVED FOR YOU").assertDoesNotExist()
     }
 

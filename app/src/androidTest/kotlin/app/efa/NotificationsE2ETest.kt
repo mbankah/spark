@@ -330,7 +330,6 @@ class HomeLookTest {
         rule.onNodeWithText("NOW, UNTIL 12:00").assertExists(); rule.onNodeWithText("Neural Computation lecture").assertExists()
         rule.onNodeWithText("Haworth HWTH-101. Attendance photo due.").assertExists()
         rule.onNodeWithText("Lunch").assertExists(); rule.onNodeWithText("Randomness lecture").assertExists(); rule.onNodeWithText("Arts ARTS-LR2").assertExists()
-        rule.onNodeWithText("Phone").assertExists(); rule.onNodeWithText("Msgs").assertExists(); rule.onNodeWithText("Maps").assertExists()
         rule.onNodeWithContentDescription("Quick add").assertExists(); rule.onNodeWithText("Setup").assertExists()
     }
 
@@ -348,7 +347,8 @@ class HomeLookTest {
     @Test fun WG7_held_notifications_appear_as_a_card_with_no_count() {
         var opened = false
         rule.setContent { EfaTheme { HomeScreen(state(BufferState.NoDeadline, held = true), {}, {}, onHeld = { opened = true }) } }
-        rule.onNodeWithText("Waiting for you").performScrollTo().performClick()
+        rule.onNodeWithText("Waiting for you").performScrollTo().assertExists()
+        rule.onNodeWithContentDescription("Open the digest").performScrollTo().performClick()
         assertTrue(opened)
     }
 
@@ -357,10 +357,10 @@ class HomeLookTest {
         rule.onNodeWithText("Waiting for you").assertDoesNotExist()
     }
 
-    @Test fun U6_the_essentials_report_which_one_was_tapped() {
+    @Test fun HA3_U6_HS6_the_essentials_are_the_first_suggestions_of_type_to_open_and_report_which_one_was_tapped() {
         val got = mutableListOf<String>()
-        rule.setContent { EfaTheme { HomeScreen(state(BufferState.NoDeadline), {}, {}, onEssential = { got += it }) } }
-        rule.onNodeWithText("Phone").performScrollTo().performClick(); rule.onNodeWithText("Msgs").performClick(); rule.onNodeWithText("Maps").performClick()
+        rule.setContent { EfaTheme { SearchScreen(emptyList(), { null }, {}, {}, onEssential = { got += it }) } }
+        rule.onNodeWithText("Phone").performClick(); rule.onNodeWithText("Msgs").performClick(); rule.onNodeWithText("Maps").performClick()
         assertEquals(listOf("phone", "messages", "maps"), got)
     }
 

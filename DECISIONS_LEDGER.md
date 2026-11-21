@@ -961,6 +961,23 @@ Added on 19 November 2026 at your go, from docs/MASTER_PLAN.md and docs/LIFE_MOD
 | HO5 | A Travel day and a leaving checklist; a return routine and a sleep shift before going back. | Default; core only: no screen uses it yet |
 | HO6 | The calendar carries the university's real term dates. | Default |
 
+## 62. The Home audit
+
+Added on 21 November 2026 at your request ("Yes, Home first"), from the card audit (docs/CARD_AUDIT, round 5: every card scored out of 100, with a similarity graph that finds cards doing the same job). The class: on the home screen one job has one button, and a second button for the same job is allowed only when the first is 4 or more taps away.
+
+The coherence check for this change: it is owned by Ask (the questions), Do (the photo, the shopping list) and Show (the home page); it reads the same things as before and writes nothing new, so no stored data changes; it is shown on the home page, Quick add and Type to open; it removes seven cards from Home (the meal, estimate, held-notification and new-room cards as separate designs, the Proof due card, the Shopping card, the Week card), the dock, the Say button and the voice line; no Locked rule is changed (MC1, PH1, L6, B5, V1, SH1, WG3 and WG7 all hold: the meal question, the photo, the room question, the estimate question, voice, the shopping list and the widgets are all still there and still one tap or two away); the Default rules HS6 and HS10 are amended below. The audit's other Home findings (the Now card chips, the cycle card, the Emergency chips, the Buffer, Money, Morning, Next, Drift, Launcher paused, Lite) keep their place.
+
+| # | Decision | Status |
+| --- | --- | --- |
+| HA1 | Everything that is waiting for your answer is one kind of card: a label, a title, a line of words and one button per answer. Confirm questions, the meal question (Ate, Not yet), the estimate question, the held notifications (no count, WG7) and a room Spark cannot place are all this card, in the one list of things waiting (two shown, the rest one tap away, HS10). Their texts, buttons and rules are unchanged. | Default; built, tested on the emulator |
+| HA2 | There is one photo entry on Home. The photo to take now, or the next, is the loud card (PH1); a finished block still waiting for its photo is a line inside it, or a PHOTO DUE card when there is no other photo, and not a card of its own. | Default; built, tested on the emulator |
+| HA3 | There is no dock. Phone, Msgs and Maps are the first three suggestions in Type to open, as three fixed apps (not a list of recent ones, LA5). Setup is the small gear in the bottom row, beside Type to open and Quick add. | Default; built, tested on the emulator |
+| HA4 | Voice for a new deadline is a Say it button at the top of Quick add, where it lands anyway; the home screen has no Say button. Voice is still hidden in lectures and the library when the setting says so (G7), and what voice could not do is said on the Quick add screen (V2). | Default; built, tested on the emulator |
+| HA5 | On shopping day the shopping list is a button on the Next card, one tap from the launcher as SH1 says, and not a card of its own. | Default; built, tested on the emulator |
+| HA6 | The week at a glance is the Schedule page (one swipe) and the Week widget, not a card on the home page. | Default; built, tested on the emulator |
+| HS6 | (amended 21 November 2026) The bottom row of Home is Type to open, a small gear for Setup, and Quick add. There is no dock (HA3). | Default; built |
+| HS10 | (amended) What is waiting for an answer is one list of one kind of card (HA1): two at most, the rest one tap away. | Default; built |
+
 ## 61. The block carries its steps
 
 Added on 20 November 2026 at your request ("Block carries steps", from the systems map). The class: what a block asks you to do is on the block, so there is no second place to go and run it.

@@ -17,28 +17,32 @@ class VoiceScreenTest {
     @get:Rule val rule = createComposeRule()
     private val now = at(LocalDate.of(2026, 11, 2), LocalTime.of(10, 0))
 
-    private fun home(voice: Boolean, note: String? = null, onVoice: () -> Unit = {}) = rule.setContent {
-        EfaTheme {
-            HomeScreen(HomeState(date = "Mon 2 Nov", phone = "Phone closed", phoneOpen = false, time = "10:00", buffer = BufferState.NoDeadline, nowLabel = null, nowTitle = null, nowDetail = null,
-                freeToSpendPence = null, voice = voice, voiceNote = note), {}, {}, onVoice = onVoice)
-        }
+    private fun quick(onVoice: (() -> Unit)?, note: String? = null) = rule.setContent {
+        EfaTheme { QuickAddScreen(now, { "Buffer +20.0h" }, false, {}, {}, {}, onVoice = onVoice, voiceNote = note) }
     }
 
-    @Test fun V1_the_home_screen_offers_voice_and_opens_it_when_tapped() {
+    @Test fun HA4_V1_quick_add_offers_voice_and_opens_it_when_tapped_and_the_home_has_no_Say_button() {
         var tapped = false
-        home(true, onVoice = { tapped = true })
-        rule.onNodeWithContentDescription("Voice quick add").performClick(); assertTrue(tapped)
+        quick({ tapped = true })
+        rule.onNodeWithContentDescription("Voice quick add", substring = true).performClick(); assertTrue(tapped)
     }
 
-    @Test fun G7_E10_voice_is_hidden_where_it_is_off_and_typed_quick_add_is_still_there() {
-        home(false)
+    @Test fun HA4_the_home_screen_has_no_Say_button_voice_lives_in_quick_add() {
+        rule.setContent { EfaTheme { HomeScreen(HomeState(date = "Mon 2 Nov", phone = "Phone closed", phoneOpen = false, time = "10:00", buffer = BufferState.NoDeadline, nowLabel = null, nowTitle = null, nowDetail = null, freeToSpendPence = null), {}, {}) } }
         rule.onNodeWithContentDescription("Voice quick add").assertDoesNotExist()
+        rule.onNodeWithText("Say").assertDoesNotExist()
         rule.onNodeWithContentDescription("Quick add").assertExists()
     }
 
+    @Test fun G7_E10_voice_is_hidden_where_it_is_off_and_typed_quick_add_is_still_there() {
+        quick(null)
+        rule.onNodeWithContentDescription("Voice quick add", substring = true).assertDoesNotExist()
+        rule.onNodeWithContentDescription("Title").assertExists()
+    }
+
     @Test fun V2_what_voice_could_not_do_is_said_plainly() {
-        home(true, note = "This phone has no speech recogniser. Use the plus button to type it.")
-        rule.onNodeWithText("This phone has no speech recogniser. Use the plus button to type it.").performScrollTo().assertExists()
+        quick({}, note = "This phone has no speech recogniser. Use the plus button to type it.")
+        rule.onNodeWithText("This phone has no speech recogniser. Use the plus button to type it.").assertExists()
     }
 
     @Test fun V2_the_card_shows_what_was_heard_and_what_it_was_read_as_before_anything_is_saved() {

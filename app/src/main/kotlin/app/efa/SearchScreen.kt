@@ -32,7 +32,7 @@ import efa.matchApps
  * [blockedReason] returns the reason an app is blocked right now, or null.
  */
 @Composable
-fun SearchScreen(apps: List<AppInfo>, blockedReason: (String) -> String?, onOpen: (AppInfo) -> Unit, onBack: () -> Unit, icons: Boolean = false, grid: Boolean = false, iconFor: (String) -> androidx.compose.ui.graphics.ImageBitmap? = { null }) {
+fun SearchScreen(apps: List<AppInfo>, blockedReason: (String) -> String?, onOpen: (AppInfo) -> Unit, onBack: () -> Unit, icons: Boolean = false, grid: Boolean = false, iconFor: (String) -> androidx.compose.ui.graphics.ImageBitmap? = { null }, onEssential: ((String) -> Unit)? = null) {
     val c = LocalColors.current
     var query by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
@@ -49,6 +49,15 @@ fun SearchScreen(apps: List<AppInfo>, blockedReason: (String) -> String?, onOpen
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Search),
             modifier = Modifier.fillMaxWidth().card().padding(16.dp).focusRequester(focus).semantics { contentDescription = "Type the name of an app" },
         )
+        // HS6, LA5: Phone, Msgs and Maps are always open, so they are the first suggestions. They are three fixed apps, not a list of recent ones.
+        if (onEssential != null && query.isBlank()) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf("Phone" to "phone", "Msgs" to "messages", "Maps" to "maps").forEach { (label, key) ->
+                Box(
+                    Modifier.weight(1f).heightIn(min = 48.dp).card().clip(CardShape).clickable(role = Role.Button) { onEssential(key) }.semantics { contentDescription = "$label. Opens your $label app." },
+                    contentAlignment = androidx.compose.ui.Alignment.Center,
+                ) { BasicText(label, style = Ts(c.text, 14.sp, FontWeight.Medium)) }
+            }
+        }
         if (grid) androidx.compose.foundation.lazy.grid.LazyVerticalGrid(androidx.compose.foundation.lazy.grid.GridCells.Fixed(3), Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             gridItems(hits, key = { it.pkg }) { a -> AppTile(a, blockedReason(a.pkg), icons, iconFor, onOpen, compact = true) }
         } else LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {

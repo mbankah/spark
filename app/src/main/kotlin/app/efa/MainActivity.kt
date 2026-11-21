@@ -631,10 +631,7 @@ class MainActivity : ComponentActivity() {
                                     else -> null
                                 },
                                 widgets = shownWidgets,
-                                voiceNote = voiceMessage.value,
                                 newRoom = newRoom?.venueText,
-                                voice = voiceAllowed(l?.pattern?.let { p -> slotsFor(p, clock.toLocalDate(), clock.zone).firstOrNull { !it.start.isAfter(clock) && it.end.isAfter(clock) }?.slot }, voiceQuietOff),
-                                week = l?.pattern?.let { weekGlance(it, clock.toLocalDate(), clock.zone) }.orEmpty(),
                                 shoppingDay = l?.pattern?.let { p -> slotsFor(p, clock.toLocalDate()).any { it.slot.title.contains("Aldi", ignoreCase = true) } } == true,
                                 review = review?.let { "How long did \"${it.title}\" take?" },
                                 period = if (l?.pattern?.let { isDayOff(it, clock.toLocalDate()) } == true) "Day off today. Nothing counts as lost." else period?.let { "${PeriodKind.entries.first { k -> k.csv == it.kind }.label}, until ${DateTimeFormatter.ofPattern("EEE d MMM").format(java.time.LocalDate.parse(it.endDate))}" },
@@ -666,14 +663,12 @@ class MainActivity : ComponentActivity() {
                                     out?.then?.takeIf { it.startsWith("slide:") }?.removePrefix("slide:")?.toIntOrNull()?.let { slide(it) }
                                 }
                             } },
-                            onEssential = { key -> launchEssential(key) },
                             onSearch = { scope.launch(Dispatchers.IO) { apps = installedApps(applicationContext); withContext(Dispatchers.Main) { screen = Screen.SEARCH } } },
                             onRestoreLauncher = { CrashGuard.restore(applicationContext); launcherPaused = false; reload++ },
                             onHeld = { screen = Screen.DIGEST },
                             onReady = { screen = Screen.READY },
                             onReview = { screen = Screen.REVIEW },
                             onShopping = { screen = Screen.SHOPPING },
-                            onVoice = { voiceDraft = null; startVoice(emptyList()) },
                             onNewRoom = { mapVenue = newRoom; venueBack = Screen.HOME; screen = Screen.MAP_VENUE },
                             onMoney = { screen = Screen.MONEY },
                             onMeal = { key, ate -> scope.launch(Dispatchers.IO) { MealCheckAlarm.answer(applicationContext, key, ate); reload++ } },
@@ -861,6 +856,7 @@ class MainActivity : ComponentActivity() {
                         iconFor = { pkg -> runCatching { packageManager.getApplicationIcon(pkg).toBitmap(96, 96).asImageBitmap() }.getOrNull() },
                         blockedReason = { pkg -> (BlockingState.decide(pkg) as? Decision.Block)?.let { "${it.label}, until ${DateTimeFormatter.ofPattern("HH:mm").format(it.until)}" } },
                         onOpen = { a -> packageManager.getLaunchIntentForPackage(a.pkg)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
+                        onEssential = { key -> launchEssential(key) },
                         onBack = { screen = Screen.HOME })
                     Screen.DIGEST -> DigestScreen(digestState, LONDON,
                         onOpenApp = { pkg -> packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
@@ -1136,14 +1132,16 @@ class MainActivity : ComponentActivity() {
                         v.point ?: CAMPUS_CENTRE, maxZoom = 19.0,
                         onPick = { lat, lon -> scope.launch(Dispatchers.IO) { PlaceRepo(db).setVenuePoint(v.venueText, lat, lon, System.currentTimeMillis()); reload++; screen = venueBack; venueBack = Screen.SETUP } },
                         onCancel = { screen = venueBack; venueBack = Screen.SETUP }) } ?: run { screen = Screen.SETUP }
-                    Screen.QUICK_ADD -> QuickAddScreen(
+                    Screen.QUICK_ADD -> androidx.compose.runtime.key(voiceDraft?.second) { QuickAddScreen(
                         now = clock,
+                        onVoice = if (voiceAllowed(l?.pattern?.let { p -> slotsFor(p, clock.toLocalDate(), clock.zone).firstOrNull { !it.start.isAfter(clock) && it.end.isAfter(clock) }?.slot }, voiceQuietOff)) ({ voiceMessage.value = null; startVoice(emptyList()) }) else null,
+                        voiceNote = voiceMessage.value,
                         bufferIfAdded = { t -> l?.let { bufferWith(it, clock, t).let { s -> if (s is BufferState.Value) s.result.label() + " to " + s.result.deadlineLabel else "No deadline" } } ?: "Schedule unavailable" },
                         canvasInstalled = packageManager.getLaunchIntentForPackage(CANVAS_PACKAGE) != null,
                         onCheckCanvas = { packageManager.getLaunchIntentForPackage(CANVAS_PACKAGE)?.let { startActivity(it) } },   // D3: opens the app, reads nothing
                         prefill = voiceDraft?.first, heard = voiceDraft?.second,
                         onSave = { t ->
-                            voiceDraft = null
+                            voiceDraft = null; voiceMessage.value = null
                             scope.launch(Dispatchers.IO) {
                                 db.tasks().insert(TaskRow(title = t.title, dueMs = t.due.toInstant().toEpochMilli(), dueZone = t.due.zone.id,
                                     heaviness = t.heaviness, hoursEstimate = CalibrationState.cal.hours(t.heaviness), createdMs = System.currentTimeMillis()))
@@ -1151,8 +1149,8 @@ class MainActivity : ComponentActivity() {
                                 screen = Screen.HOME
                             }
                         },
-                        onCancel = { voiceDraft = null; screen = Screen.HOME },
-                    )
+                        onCancel = { voiceDraft = null; voiceMessage.value = null; screen = Screen.HOME },
+                    ) }
                 }
             }
         }

@@ -59,6 +59,7 @@ class NewRoomScreenTest {
     @Test fun L6_home_asks_where_a_new_room_is_and_opens_the_map_when_tapped() {
         var tapped = false
         rule.setContent { EfaTheme { HomeScreen(HomeState(date = "Mon 2 Nov", phone = "Phone closed", phoneOpen = false, time = "10:00", buffer = BufferState.NoDeadline, nowLabel = null, nowTitle = null, nowDetail = null, freeToSpendPence = null, newRoom = "Nowhere Hall NH-999"), {}, {}, onNewRoom = { tapped = true }) } }
-        rule.onNodeWithText("Where is Nowhere Hall NH-999?").performScrollTo().performClick(); assertTrue(tapped)
+        rule.onNodeWithText("Where is Nowhere Hall NH-999?").performScrollTo().assertExists()
+        rule.onNodeWithContentDescription("Put Nowhere Hall NH-999 on the map").performScrollTo().performClick(); assertTrue(tapped)
     }
 }

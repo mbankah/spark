@@ -64,9 +64,6 @@ data class HomeState(
     val progress: String? = null,        // R4: "14.0 of 60.0 hours done"
     val widgets: Set<efa.WidgetKind> = efa.WidgetKind.entries.filter { it.byDefault }.toSet(),   // WG3: the widgets in use; a removed one is not drawn
     val newRoom: String? = null,        // L6: a venue Spark cannot place, usually a room that changed
-    val voiceNote: String? = null,      // V2: what voice could not do, said plainly
-    val voice: Boolean = false,         // V1, G7: voice is offered, and hidden in lectures and the library when the setting says so
-    val week: List<String> = emptyList(),   // the week glance widget
     val shoppingDay: Boolean = false,   // SH1: the shopping list is one tap away on shopping day
     val review: String? = null,          // B5: a finished task waiting to be asked about
     val moneyNote: String? = null,       // G6: when the money starts, while it is only being recorded
@@ -94,7 +91,7 @@ data class HomeState(
 @Composable
 fun HomeScreen(
     s: HomeState, onBuffer: () -> Unit, onQuickAdd: () -> Unit,
-    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onEssential: (String) -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onVoice: () -> Unit = {}, onNewRoom: () -> Unit = {},
+    onNow: () -> Unit = {}, onProofDue: () -> Unit = {}, onSetup: () -> Unit = {}, onHeld: () -> Unit = {}, onSearch: () -> Unit = {}, onRestoreLauncher: () -> Unit = {}, onReady: () -> Unit = {}, onMoney: () -> Unit = {}, onReview: () -> Unit = {}, onShopping: () -> Unit = {}, onNewRoom: () -> Unit = {},
     homeTick: Int = 0, onPhoto: () -> Unit = {}, onMeal: (String, Boolean) -> Unit = { _, _ -> }, onReality: (String) -> Unit = {},
     third: (@Composable () -> Unit)? = null,         // HS4: the third page, Work it out
     onEmergency: (efa.EmergencyAction) -> Unit = {}, onAdapt: (String) -> Unit = {}, onVr: (VrAction) -> Unit = {}, onConfirm: (String, String) -> Unit = { _, _ -> },
@@ -109,7 +106,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), pageSpacing = 20.dp, key = { it }) { page ->
-            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onSetup, onHeld, onEssential, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency, onAdapt, onVr, onConfirm)
+            if (page == 0) HomePage(s, onBuffer, onNow, onProofDue, onHeld, onRestoreLauncher, onReady, onMoney, onReview, onShopping, onNewRoom, onPhoto, onMeal, onReality, onEmergency, onAdapt, onVr, onConfirm)
             else if (page == 1) ScheduleScreen(s.schedule)
             else third?.invoke()
         }
@@ -119,10 +116,11 @@ fun HomeScreen(
             Box(Modifier.weight(1f).heightIn(min = 54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSearch).padding(horizontal = 16.dp).semantics { contentDescription = "Type to open an app" }, contentAlignment = Alignment.CenterStart) {
                 BasicText("Type to open", style = Ts(c.muted, 16.sp))
             }
-            if (s.voice) Box(
-                Modifier.size(54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onVoice).semantics { contentDescription = "Voice quick add" },
+            // HS6: Setup is the small gear
+            Box(
+                Modifier.size(54.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSetup).semantics { contentDescription = "Setup: home, venues, blocking and GitHub" },
                 contentAlignment = Alignment.Center,
-            ) { BasicText("Say", style = Ts(c.text, 14.sp, FontWeight.Bold)) }
+            ) { Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) { DockIcon("setup", c.muted); BasicText("Setup", style = Ts(c.muted, 10.sp, FontWeight.Medium)) } }
             Box(
                 Modifier.size(54.dp).background(c.accent, CardShape).clickable(role = Role.Button, onClick = onQuickAdd).semantics { contentDescription = "Quick add" },
                 contentAlignment = Alignment.Center,
@@ -161,7 +159,7 @@ private fun PageDots(page: Int, count: Int, onPage: (Int) -> Unit) {
 
 @Composable
 private fun HomePage(
-    s: HomeState, onBuffer: () -> Unit, onNow: () -> Unit, onProofDue: () -> Unit, onSetup: () -> Unit, onHeld: () -> Unit, onEssential: (String) -> Unit,
+    s: HomeState, onBuffer: () -> Unit, onNow: () -> Unit, onProofDue: () -> Unit, onHeld: () -> Unit,
     onRestoreLauncher: () -> Unit, onReady: () -> Unit, onMoney: () -> Unit, onReview: () -> Unit, onShopping: () -> Unit, onNewRoom: () -> Unit, onPhoto: () -> Unit, onMeal: (String, Boolean) -> Unit, onReality: (String) -> Unit, onEmergency: (efa.EmergencyAction) -> Unit, onAdapt: (String) -> Unit = {}, onVr: (VrAction) -> Unit = {}, onConfirm: (String, String) -> Unit = { _, _ -> },
 ) {
     val c = LocalColors.current
@@ -170,12 +168,16 @@ private fun HomePage(
     // (the first two, the rest one tap away), then the Buffer, then the quieter cards. Nothing waiting for you is allowed to push Now off the first screen.
     val needs = buildList<@Composable () -> Unit> {
         s.confirms.forEach { q -> add { ConfirmCard(q, onConfirm) } }                                  // CF1: a question to answer comes first
-        s.photo?.let { add { PhotoCard(it, s.photoLeft, onPhoto) } }
+        // PH1, W1: one photo entry. The photo to take now (or next) is the loud one; a finished block still waiting for its photo is the same entry, not a card of its own.
+        if (s.photo != null) add { PhotoCard(s.photo, s.photoLeft, onPhoto, s.proofDue, onProofDue) }
         s.morning?.let { add { InfoCard("MORNING", "Ready photo needed", onReady, it) } }
-        s.meal?.let { m -> add { MealCard(m, s.mealKey, onMeal) } }
+        s.meal?.let { m -> add { QuestionCard("DID YOU EAT?", m, null, listOf(AskOption("Ate", "Ate $m") { onMeal(s.mealKey, true) }, AskOption("Not yet", "Not yet, $m") { onMeal(s.mealKey, false) })) } }      // MC1
         s.adapt.driftLine?.let { line -> add { DriftCard(line, s.adapt.driftDetail, onAdapt) } }
-        s.proofDue?.let { add { InfoCard("PROOF DUE", it, onProofDue, null) } }
+        if (s.photo == null) s.proofDue?.let { add { InfoCard("PHOTO DUE", it, onProofDue, "The photo for the block you finished.") } }
         if (s.launcherPaused) add { InfoCard("LAUNCHER PAUSED", "Put Spark back as a home choice", onRestoreLauncher, "Spark crashed 3 times in 10 minutes. Blocking kept running.") }
+        s.newRoom?.takeIf { s.mode.showsSecondary }?.let { add { QuestionCard("WHERE IS IT?", "Where is $it?", "Put it on the map so attendance can be checked.", listOf(AskOption("Put it on the map", "Put $it on the map", onNewRoom))) } }     // L6
+        s.review?.takeIf { s.mode.showsSecondary }?.let { add { QuestionCard("HELP THE ESTIMATES", it, null, listOf(AskOption("Tell Spark", "Tell Spark how long it took", onReview))) } }     // B5
+        if (s.heldWaiting) add { QuestionCard("HELD NOTIFICATIONS", "Waiting for you", "Open the digest.", listOf(AskOption("Open the digest", "Open the digest", onHeld))) }       // WG7: no count
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
@@ -192,7 +194,7 @@ private fun HomePage(
         s.vr?.let { if (!s.unavailable) VrHero(it) { a -> onVr(a) } }                      // VR11: a running VRNPM cycle comes first, big
         if (s.unavailable) InfoCard("SCHEDULE", "Schedule unavailable", null, "The database could not be read.")
         else if (efa.WidgetKind.NOW_NEXT in s.widgets) NowHero(s, onNow, onReality)
-        if (!s.unavailable && (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite)) NextCard(if (s.lite) s.next.take(2) else s.next)
+        if (!s.unavailable && (efa.WidgetKind.DAY_PLAN in s.widgets || s.lite)) NextCard(if (s.lite) s.next.take(2) else s.next, if (s.mode.showsSecondary && (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets)) onShopping else null)
         needs.take(if (allNeeds) needs.size else 2).forEach { it() }
         if (needs.size > 2 && !allNeeds) Chip("${needs.size - 2} more waiting", false, { allNeeds = true }, "Show ${needs.size - 2} more things waiting for you")
         s.adapt.levelLine?.let { BasicText(it, style = Ts(c.muted, 13.sp)) }
@@ -202,25 +204,7 @@ private fun HomePage(
             if (s.adapt.liteAuto) Chip("Back to the full day", false, { onAdapt("full") }, "Back to the full day")
         }
         if (!s.lite) BufferCard(s.buffer, onBuffer)
-        if (s.mode.showsSecondary && (s.shoppingDay || efa.WidgetKind.SHOPPING in s.widgets)) InfoCard("SHOPPING", "Shopping list", onShopping, null)
-        s.newRoom?.takeIf { s.mode.showsSecondary }?.let { InfoCard("WHERE IS IT?", "Where is $it?", onNewRoom, "Put it on the map so attendance can be checked.") }
-        s.voiceNote?.let { BasicText(it, style = Ts(c.text, 14.sp)) }
-        s.review?.takeIf { s.mode.showsSecondary }?.let { InfoCard("HELP THE ESTIMATES", it, onReview, null) }
-        if (s.heldWaiting) InfoCard("HELD NOTIFICATIONS", "Waiting for you", onHeld, "Open the digest.")
-        if (s.mode.showsSecondary && efa.WidgetKind.WEEK_GLANCE in s.widgets && s.week.isNotEmpty()) InfoCard("WEEK", s.week.first(), null, s.week.drop(1).joinToString("\n"))
         if (s.mode.showsSecondary && !s.lite) MoneyCard(s, onMoney)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf("Phone" to "phone", "Msgs" to "messages", "Maps" to "maps").forEach { (label, key) ->
-                Box(
-                    Modifier.weight(1f).heightIn(min = 48.dp).card().clip(CardShape).clickable(role = Role.Button) { onEssential(key) }.semantics { contentDescription = "$label. Opens your $label app." },
-                    contentAlignment = Alignment.Center,
-                ) { Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) { DockIcon(key, c.text); BasicText(label, style = Ts(c.text, 13.sp, FontWeight.Medium)) } }
-            }
-            Box(
-                Modifier.weight(1f).heightIn(min = 48.dp).card().clip(CardShape).clickable(role = Role.Button, onClick = onSetup).semantics { contentDescription = "Setup: home, venues, blocking and GitHub" },
-                contentAlignment = Alignment.Center,
-            ) { Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) { DockIcon("setup", c.muted); BasicText("Setup", style = Ts(c.muted, 13.sp, FontWeight.Medium)) } }
-        }
         // EM1: the Emergency door is one tap from the home, never gated
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(efa.EmergencyAction.CALL_EMERGENCY, efa.EmergencyAction.HEALTH, efa.EmergencyAction.SHARE_LOCATION).forEach { a -> Chip(a.label, false, { onEmergency(a) }, "Emergency: ${a.label}") }
@@ -300,22 +284,12 @@ private fun DriftCard(line: String, detail: String?, onAdapt: (String) -> Unit) 
     }
 }
 
-@Composable
-private fun MealCard(m: String, key: String, onMeal: (String, Boolean) -> Unit) {
-    val c = LocalColors.current
-    Column(Modifier.fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Label("DID YOU EAT?")
-        BasicText(m, style = Ts(c.text, 18.sp, FontWeight.Bold))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Btn("Ate", { onMeal(key, true) }, primary = true, description = "Ate $m"); Btn("Not yet", { onMeal(key, false) }, description = "Not yet, $m") }
-    }
-}
-
 /**
  * PH1: the photo to take. When one is open it is the loudest thing on the home screen: a filled card that says to take it now, what it is for, by when,
  * and shows how much of the time to take it in full is left. Otherwise it is a quiet card for the next one, with when it opens. Tap it to go and take it.
  */
 @Composable
-private fun PhotoCard(p: efa.PhotoDue, left: Int?, onClick: () -> Unit) {
+private fun PhotoCard(p: efa.PhotoDue, left: Int?, onClick: () -> Unit, also: String? = null, onAlso: () -> Unit = {}) {
     val c = LocalColors.current
     val open = p.open
     val fg = if (open) c.onAccent else c.text
@@ -330,6 +304,7 @@ private fun PhotoCard(p: efa.PhotoDue, left: Int?, onClick: () -> Unit) {
             BasicText((if (open) (if (p.kind == efa.PhotoKind.COMMIT) "COMMIT DUE" else "PHOTO DUE") else (if (p.kind == efa.PhotoKind.COMMIT) "NEXT COMMIT" else "NEXT PHOTO")), style = Ts(sub, 11.sp, fontFamily = Mono, letterSpacing = 0.9.sp))
             BasicText(p.headline(), style = Ts(fg, 24.sp, FontWeight.Bold, letterSpacing = (-0.5).sp))
             BasicText(p.detail(), style = Ts(sub, 13.sp))
+            also?.let { BasicText("Also waiting: the photo for $it", style = Ts(sub, 13.sp, FontWeight.Medium), modifier = Modifier.clickable(role = Role.Button, onClick = onAlso).padding(vertical = 6.dp).semantics { contentDescription = "Photo for $it. Tap to open." }) }
         }
         if (open && left != null) Donut(listOf(Slice(left.toFloat() / window, c.onAccent)), 64.dp, 8.dp, track = c.onAccent.copy(alpha = 0.25f)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -445,7 +420,7 @@ private fun InfoCard(label: String, value: String, onClick: (() -> Unit)?, detai
 }
 
 @Composable
-private fun NextCard(rows: List<NextRow>) {
+private fun NextCard(rows: List<NextRow>, onShopping: (() -> Unit)? = null) {
     val c = LocalColors.current
     Column(Modifier.fillMaxWidth().card(efa.CardKind.NEXT).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Label("Next")
@@ -464,5 +439,7 @@ private fun NextCard(rows: List<NextRow>) {
                 }
             }
         }
+        // SH1: the shopping list is one tap from the launcher on shopping day, as a button on the day's plan
+        onShopping?.let { Box(Modifier.padding(top = 8.dp)) { Chip("Shopping list", false, it, "Shopping list") } }
     }
 }

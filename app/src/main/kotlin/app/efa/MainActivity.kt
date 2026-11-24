@@ -371,11 +371,12 @@ class MainActivity : ComponentActivity() {
                 }
                 /** IM4, IM5: read, check and preview a file. Nothing is written. */
                 val checkIncoming: suspend (Incoming?) -> Unit = { inc ->
+                    android.util.Log.i("efa-import", "checking " + inc?.name + ", " + inc?.text?.length + " characters")
                     importUi = if (inc == null) ImportUi.Failed("That file could not be read.") else try {
                         val now = ZonedDateTime.now(LONDON); val plan = PlanRepo(db)
                         db.seedIfEmpty(System.currentTimeMillis(), LONDON.id)       // a file can arrive before the first screen has loaded
                         ImportUi.Checked(inc.name, verifyImportIn(ImportMode.ADD, parseTimetableCsv(inc.text, now.toLocalDate()), plan.slots(), plan.known(), db.tasks().open().map { it.toDue() }, now, hoursFor = CalibrationState.cal::hours, reflow = true), fileHash(inc.text), inc.text, ImportMode.ADD)
-                    } catch (e: Exception) { ImportUi.Failed("That file could not be checked.") }
+                    } catch (e: Throwable) { android.util.Log.w("efa-import", "the file could not be checked", e); ImportUi.Failed("That file could not be checked (" + e.javaClass.simpleName + (e.message?.let { ": " + it.take(120) } ?: "") + ").") }
                     screen = Screen.IMPORT
                 }
                 val chooseFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -384,7 +385,8 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(incomingIntent.value) {
                     val i = incomingIntent.value ?: return@LaunchedEffect
                     incomingIntent.value = null
-                    withContext(Dispatchers.IO) { checkIncoming(ImportSource.read(applicationContext, i)) }
+                    // IM10: a launch of its own. Clearing the key above restarts this effect, which used to cancel the check half way and say the file could not be checked.
+                    scope.launch(Dispatchers.IO) { checkIncoming(ImportSource.read(applicationContext, i)) }
                 }
                 LaunchedEffect(screen, reload) { if (screen == Screen.IMPORT) imports = withContext(Dispatchers.IO) { db.imports().all() } }
                 // WK1: the walkthrough opens by itself the first time, and is always there again from Setup. null while the answer is being read.
@@ -402,7 +404,7 @@ class MainActivity : ComponentActivity() {
                         importUi = try {
                             val now = ZonedDateTime.now(LONDON); val plan = PlanRepo(db)
                             ui.copy(verification = verifyImportIn(m, parseTimetableCsv(ui.text, now.toLocalDate()), plan.slots(), plan.known(), db.tasks().open().map { it.toDue() }, now, hoursFor = CalibrationState.cal::hours, reflow = true), mode = m)
-                        } catch (e: Exception) { ImportUi.Failed("That file could not be checked.") }
+                        } catch (e: Exception) { android.util.Log.w("efa-import", "the file could not be checked", e); ImportUi.Failed("That file could not be checked (" + e.javaClass.simpleName + (e.message?.let { ": " + it.take(120) } ?: "") + ").") }
                     }
                 }
                 LaunchedEffect(screen, reload, importUi) {

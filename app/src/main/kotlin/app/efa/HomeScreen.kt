@@ -81,6 +81,7 @@ data class HomeState(
     val mode: efa.HomeMode = efa.HomeMode.FREE,   // HS1, HS2: the home follows the moment; a running block, the wind-down and the night show only what matters
     val vr: VrActive? = null,            // VR11: a VRNPM cycle that is running, drawn big at the top
     val adapt: AdaptView = AdaptView(),           // AD: a drift to answer, the step the day is on, the three things that matter
+    val resetAsk: Boolean = false,        // NA1, NA2: the alarm was switched off for this morning, so ask once whether the day should start from now
     val confirms: List<efa.Confirm> = emptyList(),   // CF1: questions waiting for an answer, from whatever raised them
 )
 
@@ -168,6 +169,8 @@ private fun HomePage(
     // (the first two, the rest one tap away), then the Buffer, then the quieter cards. Nothing waiting for you is allowed to push Now off the first screen.
     val needs = buildList<@Composable () -> Unit> {
         s.confirms.forEach { q -> add { ConfirmCard(q, onConfirm) } }                                  // CF1: a question to answer comes first
+        if (s.resetAsk) add { QuestionCard("YOU ARE UP?", "Start the day from now?", "The alarm was off this morning. Spark moves the rest of today to start now, and shows what moves before anything changes.",
+            listOf(AskOption("Start the day from now", "Start the day from now") { onReality("late") }, AskOption("Not now", "Not now, I am not up yet") { onReality("resetdismiss") })) }       // NA2: a kind of question (HA1)
         // PH1, W1: one photo entry. The photo to take now (or next) is the loud one; a finished block still waiting for its photo is the same entry, not a card of its own.
         if (s.photo != null) add { PhotoCard(s.photo, s.photoLeft, onPhoto, s.proofDue, onProofDue) }
         s.morning?.let { add { InfoCard("MORNING", "Ready photo needed", onReady, it) } }

@@ -22,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** WT1: what the wake time card shows: the next alarm in words, whether a time was chosen, the time the picker starts at, and the last answer. */
+/** NA2: what the Reset the day card shows: whether one is available, what it says, and how long its wall is. */
+data class ResetUi(val available: Boolean = true, val text: String = "", val wall: Int = 75)
+
 data class WakeUi(val text: String = "", val chosen: Boolean = false, val hour: Int = 10, val minute: Int = 30, val message: String? = null, val noAlarm: Boolean = false)
 
 /**
@@ -41,7 +44,7 @@ enum class ChangeChoice(val title: String, val say: String, val group: String) {
  * moves, what it costs (the wall, the Buffer) and applies it. The wake time for tonight is part of the same place.
  */
 @Composable
-fun ChangeDoorScreen(onChoose: (ChangeChoice) -> Unit, onBack: () -> Unit, wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {}, onNoAlarm: () -> Unit = {}) {
+fun ChangeDoorScreen(onChoose: (ChangeChoice) -> Unit, onBack: () -> Unit, wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {}, onNoAlarm: () -> Unit = {}, reset: ResetUi = ResetUi(), onReset: () -> Unit = {}) {
     val c = LocalColors.current
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
@@ -50,6 +53,12 @@ fun ChangeDoorScreen(onChoose: (ChangeChoice) -> Unit, onBack: () -> Unit, wake:
         BasicText("Change the plan", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
         BasicText("Pick what you want to change. Each one shows what it does before anything moves. Running over, a late start and something that came up are on the Now card on Home, and a new deadline is Quick add.", style = Ts(c.muted, 15.sp))
         ChangeChoice.entries.forEach { ch -> ChoiceRow(ch.title, ch.say) { onChoose(ch) } }
+        // NA2: for a night that went wrong. One a week, a wall that grows, and it never touches blocking or the night rules.
+        Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Label("RESET THE DAY")
+            BasicText(reset.text.ifBlank { "For a night that went wrong. It switches off the next alarm and offers to start the day from when you are up." }, style = Ts(c.muted, 14.sp))
+            if (reset.available) Btn("Reset the day", onReset, modifier = Modifier.fillMaxWidth(), description = "Reset the day: switch off the next alarm and start the day from when you are up")
+        }
         WakeCard(wake, onWakeSet, onWakeClear, onNoAlarm)
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
     }

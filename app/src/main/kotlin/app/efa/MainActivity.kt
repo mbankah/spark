@@ -200,6 +200,8 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(screen, reload) { look = LauncherLook.decode(withContext(Dispatchers.IO) { db.meta().get(app.efa.data.META_LOOK) }) }
                 // Modify Schedule: the list, a preset's form, the Admin library and the essentials.
                 var wakeUi by remember { mutableStateOf(WakeUi()) }                                   // WT1
+                var resetUi by remember { mutableStateOf(ResetUi()) }                                // NA2
+                var resetAsk by remember { mutableStateOf(false) }                                   // NA2: the question on the home screen
                 var wakeMessage by remember { mutableStateOf<String?>(null) }
                 var modRows by remember { mutableStateOf<List<app.efa.data.ModifierRow>>(emptyList()) }
                 var modDropped by remember { mutableStateOf(0) }
@@ -218,6 +220,9 @@ class MainActivity : ComponentActivity() {
                         val why = when (plan?.reason) { AlarmReason.CHOSEN -> "the time you chose"; AlarmReason.ONSET -> "about 8 hours after you fell asleep"; AlarmReason.HARD -> "30 minutes before a hard commitment"; AlarmReason.BACKSTOP -> "the 12:00 latest alarm"; null -> "" }
                         val start = (plan?.at ?: now.toLocalDate().atTime(10, 30).atZone(now.zone)).let { (it.hour * 60 + it.minute).let { m -> (m + 7) / 15 * 15 } }
                         val off = try { AlarmScheduler.noAlarmDate(applicationContext) } catch (e: Exception) { null }
+                        val rlog = decodeResetLog(db.meta().get(app.efa.data.META_RESET_LOG)); val rnow = now.toInstant()
+                        resetUi = if (resetAvailable(rlog, rnow)) ResetUi(true, "For a night that went wrong. One a week. It switches off the next alarm (the one the Wake time card names) and, when you are up, offers to start the day from then. It never touches blocking or the night rules. The wall is ${resetWallLength(rlog, rnow)} characters, and each reset in the last 28 days adds 25.", resetWallLength(rlog, rnow))
+                            else ResetUi(false, "Reset the day was used in the last 7 days. The next one is available from ${DateTimeFormatter.ofPattern("EEE d MMM HH:mm").format(resetNextAt(rlog, rnow)!!.atZone(LONDON))}.")
                         wakeUi = WakeUi(if (off != null && plan != null) "No alarm for ${DateTimeFormatter.ofPattern("EEE d MMM").format(off)}. The next alarm is %02d:%02d on ${DateTimeFormatter.ofPattern("EEE d MMM").format(plan.at)}.".format(plan.at.hour, plan.at.minute)
                             else if (plan == null) "No alarm: that day is a planned day off." else "Next alarm %02d:%02d, %s.".format(plan.at.hour, plan.at.minute, why), chosen != null, (start / 60) % 24, start % 60, noAlarm = off != null)
                     }
@@ -501,6 +506,7 @@ class MainActivity : ComponentActivity() {
                     while (true) {
                         clock = ZonedDateTime.now(LONDON)
                         heldWaiting = withContext(Dispatchers.IO) { try { HeldRepo(db).anyUnreviewed() } catch (e: Exception) { heldWaiting } }
+                        resetAsk = withContext(Dispatchers.IO) { try { val off = AlarmScheduler.noAlarmDate(applicationContext); off != null && off == clock.toLocalDate() && db.meta().get(app.efa.data.META_RESET_ASKED) != off.toString() } catch (e: Exception) { false } }
                         delay(30_000)
                     }
                 }
@@ -577,6 +583,7 @@ class MainActivity : ComponentActivity() {
                         "night" -> { val tn = efa.nightOf(ZonedDateTime.now(LONDON)); open(Instance(Preset.NIGHT, tn, tn, emptyMap()), false) }
                         "late" -> open(Instance(Preset.LATE_START, today, today, mapOf("from_now" to "true")), true)
                         "cameup" -> screen = Screen.CAME_UP
+                        "resetdismiss" -> { resetAsk = false; scope.launch(Dispatchers.IO) { db.meta().put(MetaRow(app.efa.data.META_RESET_ASKED, today.toString())) } }
                         else -> screen = Screen.MODIFY          // running over: the minutes are chosen under Right now
                     }
                 }
@@ -624,7 +631,7 @@ class MainActivity : ComponentActivity() {
                                 earnedOn = l?.pattern?.let { p -> earnedAccessActive(clock, l.earnings, p) } == true,
                                 photo = photoFocus, photoLeft = photoFocus?.minutesLeft(clock)?.toInt(),
                                 meal = dueMeal?.title, mealKey = dueMeal?.key.orEmpty(), evening = clock.hour >= 21, lite = liteDay, adapt = AdaptState.view(), mode = l?.pattern?.let { efa.homeModeOf(it, clock) } ?: efa.HomeMode.FREE,
-                                heldWaiting = heldWaiting,
+                                heldWaiting = heldWaiting, resetAsk = resetAsk,
                                 unavailable = l != null && l.pattern == null,
                                 launcherPaused = launcherPaused,
                                 morning = when (morningPhase(morning?.toState(), clock)) {
@@ -747,6 +754,28 @@ class MainActivity : ComponentActivity() {
                         },
                         wake = wakeUi.copy(message = wakeMessage),
                         onWakeClear = { scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).clearWakeChoices(); AlarmScheduler.setNoAlarm(applicationContext, null); AlarmScheduler.setChosenWake(applicationContext, null); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); wakeMessage = "Back to the normal alarm and the normal morning."; reload++ } },
+                        reset = resetUi,
+                        onReset = {
+                            scope.launch(Dispatchers.IO) {
+                                val now = BlockingState.now()
+                                val plan = AlarmScheduler.planNow(applicationContext, now, useChosen = false, useNoAlarm = false)
+                                if (plan == null) { wakeMessage = "That day is already a planned day off, so there is no alarm to switch off."; reload++; return@launch }
+                                val date = plan.at.toLocalDate(); val label = DateTimeFormatter.ofPattern("EEE d MMM").format(date)
+                                val log = decodeResetLog(db.meta().get(app.efa.data.META_RESET_LOG))
+                                if (!resetAvailable(log, now.toInstant())) { wakeMessage = "Reset the day has been used in the last 7 days."; reload++; return@launch }
+                                wallBack = Screen.CHANGE; wallLength = resetWallLength(log, now.toInstant())
+                                wall = Triple("Reset the day", "The alarm for $label (%02d:%02d) will not ring. You will sleep until you wake yourself, and the blocks you sleep through are missed as usual. When you are up, Spark offers to start the day from then. Blocking and the night rules do not change. One reset a week. Type the characters below by hand.".format(plan.at.hour, plan.at.minute), {
+                                    scope.launch(Dispatchers.IO) {
+                                        val at = System.currentTimeMillis()
+                                        db.meta().put(MetaRow(app.efa.data.META_RESET_LOG, encodeResetLog(decodeResetLog(db.meta().get(app.efa.data.META_RESET_LOG)) + at)))
+                                        db.meta().put(MetaRow(app.efa.data.META_RESET_ASKED, ""))
+                                        AlarmScheduler.setNoAlarm(applicationContext, date); BlockingState.refresh(applicationContext)
+                                        wakeMessage = "The day is reset: no alarm for $label. When you are up, Spark offers to start the day from then."; reload++
+                                    }; Unit
+                                })
+                                screen = Screen.GATE
+                            }
+                        },
                         onNoAlarm = {
                             scope.launch(Dispatchers.IO) {
                                 val now = BlockingState.now()

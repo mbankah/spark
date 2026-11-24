@@ -217,7 +217,9 @@ class MainActivity : ComponentActivity() {
                         val chosen = try { AlarmScheduler.chosenWake(applicationContext, now) } catch (e: Exception) { null }
                         val why = when (plan?.reason) { AlarmReason.CHOSEN -> "the time you chose"; AlarmReason.ONSET -> "about 8 hours after you fell asleep"; AlarmReason.HARD -> "30 minutes before a hard commitment"; AlarmReason.BACKSTOP -> "the 12:00 latest alarm"; null -> "" }
                         val start = (plan?.at ?: now.toLocalDate().atTime(10, 30).atZone(now.zone)).let { (it.hour * 60 + it.minute).let { m -> (m + 7) / 15 * 15 } }
-                        wakeUi = WakeUi(if (plan == null) "No alarm: that day is a planned day off." else "Next alarm %02d:%02d, %s.".format(plan.at.hour, plan.at.minute, why), chosen != null, (start / 60) % 24, start % 60)
+                        val off = try { AlarmScheduler.noAlarmDate(applicationContext) } catch (e: Exception) { null }
+                        wakeUi = WakeUi(if (off != null && plan != null) "No alarm for ${DateTimeFormatter.ofPattern("EEE d MMM").format(off)}. The next alarm is %02d:%02d on ${DateTimeFormatter.ofPattern("EEE d MMM").format(plan.at)}.".format(plan.at.hour, plan.at.minute)
+                            else if (plan == null) "No alarm: that day is a planned day off." else "Next alarm %02d:%02d, %s.".format(plan.at.hour, plan.at.minute, why), chosen != null, (start / 60) % 24, start % 60, noAlarm = off != null)
                     }
                     if (screen == Screen.MODIFY) { modRows = withContext(Dispatchers.IO) { app.efa.data.ModifierRepo(db).all() }; modDropped = withContext(Dispatchers.IO) { PlanRepo(db).droppedByChanges() } }
                     if (screen == Screen.ADMIN) withContext(Dispatchers.IO) {
@@ -744,7 +746,23 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         wake = wakeUi.copy(message = wakeMessage),
-                        onWakeClear = { scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).clearWakeChoices(); AlarmScheduler.setChosenWake(applicationContext, null); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); wakeMessage = "Back to the normal alarm and the normal morning."; reload++ } },
+                        onWakeClear = { scope.launch(Dispatchers.IO) { app.efa.data.ModifierRepo(db).clearWakeChoices(); AlarmScheduler.setNoAlarm(applicationContext, null); AlarmScheduler.setChosenWake(applicationContext, null); BlockingState.refresh(applicationContext); AlarmScheduler.refresh(applicationContext); wakeMessage = "Back to the normal alarm and the normal morning."; reload++ } },
+                        onNoAlarm = {
+                            scope.launch(Dispatchers.IO) {
+                                val now = BlockingState.now()
+                                val plan = AlarmScheduler.planNow(applicationContext, now, useChosen = false, useNoAlarm = false)
+                                if (plan == null) { wakeMessage = "That day is already a planned day off, so there is no alarm to switch off."; reload++; return@launch }
+                                val date = plan.at.toLocalDate(); val label = DateTimeFormatter.ofPattern("EEE d MMM").format(date)
+                                wallBack = Screen.CHANGE; wallLength = efa.WallLength.WAKE_LATER
+                                wall = Triple("No alarm", "The alarm for $label (%02d:%02d) will not ring. You will sleep until you wake yourself, and the blocks you sleep through are missed as usual. The alarm is back the day after. Type the characters below by hand to switch it off.".format(plan.at.hour, plan.at.minute), {
+                                    scope.launch(Dispatchers.IO) {
+                                        AlarmScheduler.setNoAlarm(applicationContext, date); BlockingState.refresh(applicationContext)
+                                        wakeMessage = "No alarm for $label. The morning starts when you wake: say Started late on the Now card."; reload++
+                                    }; Unit
+                                })
+                                screen = Screen.GATE
+                            }
+                        },
                         onWakeSet = { h, m ->
                             scope.launch(Dispatchers.IO) {
                                 val now = BlockingState.now(); val chosen = nextClockTime(now, h, m)

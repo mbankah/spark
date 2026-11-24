@@ -90,6 +90,18 @@ class AlarmTimeTest {
         assertEquals(t(4, 12), planAlarm(t(4, 3), null, slots, stopped = t(3, 7).toLocalDate())!!.at, "an older stopped morning changes nothing")
     }
 
+    @Test fun `NA1 G2 switching the alarm off for a morning skips it, with or without sleep onset, and the next alarm is the day after`() {
+        val day = t(4, 7).toLocalDate()
+        assertEquals(t(4, 12), planAlarm(t(4, 5, 34), null, slots)!!.at, "without the switch the backstop stands")
+        assertEquals(t(5, 12), planAlarm(t(4, 5, 34), null, slots, noAlarm = day)!!.at)
+        assertEquals(AlarmReason.BACKSTOP, planAlarm(t(4, 5, 34), null, slots, noAlarm = day)!!.reason)
+        val onset = t(4, 3)                                                   // asleep since 03:00: the alarm would be onset plus 8 hours, 11:00
+        assertEquals(t(4, 11), planAlarm(t(4, 5, 34), onset, slots)!!.at)
+        assertEquals(t(5, 12), planAlarm(t(4, 5, 34), onset, slots, noAlarm = day)!!.at, "a switched-off alarm does not ring at onset plus 8 hours either")
+        assertEquals(t(4, 12), planAlarm(t(4, 5, 34), null, slots, noAlarm = day.minusDays(1))!!.at, "an older switch changes nothing")
+        assertEquals(t(5, 12), planAlarm(t(4, 5, 34), null, slots, chosen = t(4, 10), noAlarm = day)!!.at, "a chosen time is not rung either")
+    }
+
     @Test fun `G2 before noon the next backstop is today`() {
         assertEquals(t(4, 12), planAlarm(t(4, 3), null, slots)!!.at)
         assertEquals(t(5, 12), planAlarm(t(4, 12, 1), null, slots)!!.at)

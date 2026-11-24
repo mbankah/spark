@@ -623,6 +623,7 @@ const val META_DOOR_USES = "door_uses"                      // DP2: every use of
 const val META_CAP_START = "cap_start:"                    // GT2: prefix; the window of a capped app opened at this epoch millisecond
 const val META_CAP_WINDOW = "cap_window_min"               // GT2: minutes a capped app stays open (default 10)
 const val META_CAP_COOLDOWN = "cap_cooldown_min"           // GT2: minutes of cooldown after the window (default 30)
+const val META_ALARM_OFF = "alarm_off_date"                // NA1: the wake date whose alarm you switched off (yyyy-mm-dd); empty or missing means none
 const val META_WAKE_CHOSEN = "wake_chosen_ms"            // WT1: the wake time chosen for the next morning, as epoch milliseconds; "0" or missing means none
 const val META_QUIET_MODE = "quiet_mode"                  // "1" holds every notification except essentials in a work block and the night (QM1); anything else is off
 const val META_PHOTO_REMINDERS = "photo_reminders"         // "0" switches the photo reminders off; anything else is on

@@ -53,10 +53,20 @@ object AlarmScheduler {
     }
 
     /** [useChosen] false gives the alarm Spark would set on its own, which is what a later chosen time is compared with (WT1). */
-    suspend fun planNow(ctx: Context, now: ZonedDateTime, useChosen: Boolean = true): AlarmPlan? {
+    /** NA1: the wake date whose alarm you switched off, if there is one still ahead. */
+    suspend fun noAlarmDate(ctx: Context): java.time.LocalDate? =
+        EfaDb.get(ctx.applicationContext).meta().get(app.efa.data.META_ALARM_OFF)?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+
+    /** NA1: switches the alarm off for [date] (the next alarm is then the day after's), or with null brings it back. The alarm is set again at once. */
+    suspend fun setNoAlarm(ctx: Context, date: java.time.LocalDate?, now: ZonedDateTime = BlockingState.now()) {
+        EfaDb.get(ctx.applicationContext).meta().put(MetaRow(app.efa.data.META_ALARM_OFF, date?.toString() ?: ""))
+        refresh(ctx, now)
+    }
+
+    suspend fun planNow(ctx: Context, now: ZonedDateTime, useChosen: Boolean = true, useNoAlarm: Boolean = true): AlarmPlan? {
         val db = EfaDb.get(ctx)
         val stopped = MorningRepo(db).latest()?.takeIf { it.stoppedMs != null }?.let { java.time.LocalDate.parse(it.date) }          // HA17: that morning is done
-        return planAlarmWithDaysOff(now, liveOnset(SleepRepo(db), now), PlanRepo(db).slots(), if (useChosen) chosenWake(ctx, now) else null, stopped)
+        return planAlarmWithDaysOff(now, liveOnset(SleepRepo(db), now), PlanRepo(db).slots(), if (useChosen) chosenWake(ctx, now) else null, stopped, if (useNoAlarm) noAlarmDate(ctx) else null)
     }
 
     /** Sets the alarm for [plan] if it differs from what is set by a minute or more. Returns whether it changed anything. */
@@ -111,7 +121,7 @@ class AlarmReceiver : BroadcastReceiver() {
             try {
                 // HA17: an alarm that fires for a morning that was already stopped (a stale backstop) does not ring. It only sets the next alarm.
                 val morning = MorningRepo(EfaDb.get(context.applicationContext)); val existing = morning.get(morning.dateOf(at))
-                if (existing?.stoppedMs != null) { AlarmScheduler.refresh(context.applicationContext); return@launch }
+                if (existing?.stoppedMs != null || AlarmScheduler.noAlarmDate(context.applicationContext) == morning.dateOf(at)) { AlarmScheduler.refresh(context.applicationContext); return@launch }          // NA1: a switched-off alarm does not ring either
                 MorningRepo(EfaDb.get(context.applicationContext)).fire(at, reason, System.currentTimeMillis())
                 EfaDb.get(context.applicationContext).meta().put(MetaRow(app.efa.data.META_WAKE_CHOSEN, "0"))          // WT1: the chosen time has done its job
                 BlockingState.refresh(context.applicationContext)

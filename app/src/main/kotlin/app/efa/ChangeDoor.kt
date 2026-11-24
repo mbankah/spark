@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** WT1: what the wake time card shows: the next alarm in words, whether a time was chosen, the time the picker starts at, and the last answer. */
-data class WakeUi(val text: String = "", val chosen: Boolean = false, val hour: Int = 10, val minute: Int = 30, val message: String? = null)
+data class WakeUi(val text: String = "", val chosen: Boolean = false, val hour: Int = 10, val minute: Int = 30, val message: String? = null, val noAlarm: Boolean = false)
 
 /**
  * CD1: the things that can change the plan, each said the way it happens. Every one leads to the screen that previews it, prices it and applies it. Running over, a late start and something that
@@ -41,7 +41,7 @@ enum class ChangeChoice(val title: String, val say: String, val group: String) {
  * moves, what it costs (the wall, the Buffer) and applies it. The wake time for tonight is part of the same place.
  */
 @Composable
-fun ChangeDoorScreen(onChoose: (ChangeChoice) -> Unit, onBack: () -> Unit, wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {}) {
+fun ChangeDoorScreen(onChoose: (ChangeChoice) -> Unit, onBack: () -> Unit, wake: WakeUi = WakeUi(), onWakeSet: (Int, Int) -> Unit = { _, _ -> }, onWakeClear: () -> Unit = {}, onNoAlarm: () -> Unit = {}) {
     val c = LocalColors.current
     Column(
         Modifier.fillMaxSize().background(c.bg).windowInsetsPadding(WindowInsets.systemBars).verticalScroll(rememberScrollState()).padding(16.dp),
@@ -50,7 +50,7 @@ fun ChangeDoorScreen(onChoose: (ChangeChoice) -> Unit, onBack: () -> Unit, wake:
         BasicText("Change the plan", style = Ts(c.text, 28.sp, FontWeight.SemiBold))
         BasicText("Pick what you want to change. Each one shows what it does before anything moves. Running over, a late start and something that came up are on the Now card on Home, and a new deadline is Quick add.", style = Ts(c.muted, 15.sp))
         ChangeChoice.entries.forEach { ch -> ChoiceRow(ch.title, ch.say) { onChoose(ch) } }
-        WakeCard(wake, onWakeSet, onWakeClear)
+        WakeCard(wake, onWakeSet, onWakeClear, onNoAlarm)
         Btn("Back", onBack, modifier = Modifier.fillMaxWidth())
     }
 }
@@ -69,7 +69,7 @@ private fun ChoiceRow(title: String, say: String, onClick: () -> Unit) {
 
 /** WT1: choosing when the next alarm rings. */
 @Composable
-fun WakeCard(wake: WakeUi, onWakeSet: (Int, Int) -> Unit, onWakeClear: () -> Unit) {
+fun WakeCard(wake: WakeUi, onWakeSet: (Int, Int) -> Unit, onWakeClear: () -> Unit, onNoAlarm: () -> Unit = {}) {
     val c = LocalColors.current
     Column(Modifier.fillMaxWidth().card().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Label("WAKE TIME")
@@ -82,7 +82,12 @@ fun WakeCard(wake: WakeUi, onWakeSet: (Int, Int) -> Unit, onWakeClear: () -> Uni
             Btn("+ 15", { minutes = (minutes + 15) % 1440 }, description = "Wake time 15 minutes later")
         }
         Btn("Set this wake time", { onWakeSet(minutes / 60, minutes % 60) }, primary = true, modifier = Modifier.fillMaxWidth(), description = "Set the wake time to %02d:%02d".format(minutes / 60, minutes % 60))
-        if (wake.chosen) Btn("Use the normal alarm", onWakeClear, modifier = Modifier.fillMaxWidth())
+        // NA1: for a morning you will sleep a lot later than 12:00, the alarm can be switched off for that one morning. It needs the typed wall, and it is back the day after.
+        if (!wake.noAlarm) {
+            BasicText("Sleeping later than 12:00? Switch the next alarm off for that one morning. It needs the typed wall, and the alarm is back the day after.", style = Ts(c.muted, 14.sp))
+            Btn("No alarm for this morning", onNoAlarm, modifier = Modifier.fillMaxWidth(), description = "No alarm for this morning: sleep until you wake by yourself")
+        }
+        if (wake.chosen || wake.noAlarm) Btn("Use the normal alarm", onWakeClear, modifier = Modifier.fillMaxWidth())
         wake.message?.let { BasicText(it, style = Ts(c.text, 14.sp, FontWeight.SemiBold)) }
     }
 }
